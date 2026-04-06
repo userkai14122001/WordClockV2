@@ -11,6 +11,7 @@
 #include "DebugManager.h"
 #include "MemoryManager.h"
 #include "SystemControl.h"
+#include "ota_https_update.h"
 #include "effects.h"
 
 // External runtime state
@@ -233,6 +234,15 @@ namespace {
     static bool cmdSetup(const String&) {
         Serial.println("Setup-Modus wird gestartet...");
         wifiManager.startSetupMode();
+        return true;
+    }
+
+    static bool cmdUpdateCheck(const String&) {
+        Serial.println("Pruefe auf neue Firmware-Version...");
+        bool started = checkForUpdateAndInstall(true);
+        if (!started) {
+            Serial.println("Kein Update gestartet.");
+        }
         return true;
     }
 
@@ -535,6 +545,7 @@ namespace {
         {"Creds Clear", MatchMode::Exact, "Creds Clear", "Clears WiFi/MQTT credentials and reboots", cmdCredsFlush, true},
         {"Wifi Set ", MatchMode::Prefix, "Wifi Set SSID PASS MQTT_SERVER MQTT_USER MQTT_PASS MQTT_PORT", "Sets WiFi and MQTT config", cmdSetwifi, true},
         {"Setup Start", MatchMode::Exact, "Setup Start", "Starts setup mode", cmdSetup, true},
+        {"Update Check", MatchMode::Exact, "Update Check", "Checks GitHub for a newer firmware and installs it", cmdUpdateCheck, true},
         {"Time Set ", MatchMode::Prefix, "Time Set HH:MM", "Shows a specific time immediately", cmdSettime, true},
         {"Test Morph ", MatchMode::Prefix, "Test Morph HH:MM", "Tests clock morph transition", cmdTestMorph, true},
         {"Effect Set ", MatchMode::Prefix, "Effect Set <name>", "Sets active effect", cmdEffect, true},
@@ -557,6 +568,7 @@ namespace {
         {"creds flush", MatchMode::Exact, "", "", cmdCredsFlush, false},
         {"setwifi ", MatchMode::Prefix, "", "", cmdSetwifi, false},
         {"setup", MatchMode::Exact, "", "", cmdSetup, false},
+        {"ota", MatchMode::Exact, "", "", cmdUpdateCheck, false},
         {"settime ", MatchMode::Prefix, "", "", cmdSettime, false},
         {"test morph ", MatchMode::Prefix, "", "", cmdTestMorph, false},
         {"effect ", MatchMode::Prefix, "", "", cmdEffect, false},

@@ -268,6 +268,48 @@ Alle Kategorien sind zur Laufzeit per Serial ein- und ausschaltbar:
 
 ---
 
+## GitHub OTA Auto-Update
+
+Die Firmware prueft automatisch auf neue Versionen in GitHub und installiert diese selbststaendig.
+
+### Wie es funktioniert
+
+1. Beim Start wartet das Geraet 2 Minuten.
+2. Danach wird `ota_manifest.json` von GitHub geladen.
+3. `version` im Manifest wird mit der lokal kompilierten `FIRMWARE_VERSION` verglichen.
+4. Wenn `remote > local`, startet HTTPS-OTA mit `firmware_url`.
+5. Danach wird alle 6 Stunden erneut geprueft.
+
+Manifest-Datei im Repo-Root:
+
+```json
+{
+    "version": "0.1.0",
+    "firmware_url": "https://github.com/userkai14122001/WordClockV2/releases/latest/download/firmware.bin"
+}
+```
+
+### Release-Ablauf
+
+1. Neue Firmware bauen:
+     `pio run`
+2. Firmware-Datei aus `.pio/build/seeed_xiao_esp32c3_usb/firmware.bin` nehmen.
+3. In GitHub einen Release erstellen und die Datei als Asset exakt `firmware.bin` hochladen.
+4. In `ota_manifest.json` die `version` erhoehen (z. B. `0.1.1`) und commit/push.
+5. In `platformio.ini` `FIRMWARE_VERSION` auf denselben Wert setzen, commit/push.
+
+### Manueller OTA-Check
+
+Per Serial kann ein sofortiger Check gestartet werden:
+
+`Update Check`
+
+Legacy-Alias:
+
+`ota`
+
+---
+
 ## Hinweise
 
 - Bei `transition`-Werten > 1200 ms wird der Clock-Morph intern gecappt. Der konfigurierte Wert bleibt gespeichert und gilt uneingeschränkt für Effektwechsel.

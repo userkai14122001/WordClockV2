@@ -146,6 +146,8 @@ static constexpr uint32_t MQTT_PUBLISH_WARN_US = 30000;
 static constexpr unsigned long MAIN_LOOP_WARN_MS = 50;
 static constexpr uint32_t EFFECT_UPDATE_WARN_US = 12000;
 static constexpr unsigned long LOOP_HEARTBEAT_MS = 2000;
+static constexpr unsigned long OTA_AUTO_CHECK_INTERVAL_MS = 6UL * 60UL * 60UL * 1000UL;
+static constexpr unsigned long OTA_FIRST_CHECK_DELAY_MS = 2UL * 60UL * 1000UL;
 
 // ---------------------------------------------------------
 // Effect instances
@@ -867,6 +869,9 @@ static void updateBootSequence() {
 // ---------------------------------------------------------
 void loop() {
     const unsigned long loopStartMs = millis();
+    static unsigned long sBootAtMs = millis();
+    static unsigned long sLastOtaAutoCheckMs = 0;
+    static bool sOtaFirstCheckDone = false;
     // =====================================================================
     // FRAME TIMING: Limit LED rendering to ~60 Hz for smooth visuals
     // Network I/O runs EVERY loop iteration regardless!
@@ -931,6 +936,20 @@ void loop() {
         if (MemoryManager::shouldFallbackToSafeEffect(powerState, currentEffect)) {
             MemoryManager::logFallbackAction(currentEffect, "clock");
             transitionToEffect("clock");
+        }
+    }
+
+    // OTA auto-check runs only outside setup mode and after boot stabilization.
+    const unsigned long nowMs = millis();
+    const bool otaContextOk = WiFi.isConnected() && !wifiManager.isSetupMode() && !gBootActive;
+    if (otaContextOk) {
+        if (!sOtaFirstCheckDone && (nowMs - sBootAtMs >= OTA_FIRST_CHECK_DELAY_MS)) {
+            sOtaFirstCheckDone = true;
+            sLastOtaAutoCheckMs = nowMs;
+            checkForUpdateAndInstall(false);
+        } else if (sOtaFirstCheckDone && (nowMs - sLastOtaAutoCheckMs >= OTA_AUTO_CHECK_INTERVAL_MS)) {
+            sLastOtaAutoCheckMs = nowMs;
+            checkForUpdateAndInstall(false);
         }
     }
 
