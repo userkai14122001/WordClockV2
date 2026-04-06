@@ -1,0 +1,727 @@
+#include "WiFiManager.h"
+#include "web_pages.h"
+#include "StateManager.h"
+#include "EffectManager.h"
+#include "MQTTManager.h"
+#include "RTCManager.h"
+#include "MemoryManager.h"
+#include "DebugManager.h"
+#include "SystemControl.h"
+#include "matrix.h"
+#include "effects.h"
+#include <SPIFFS.h>
+#include <ArduinoJson.h>
+#include <vector>
+#include <algorithm>
+#include <time.h>
+
+static const byte DNS_PORT = 53;
+
+static inline void waitMs(uint32_t ms) {
+    unsigned long start = millis();
+    while (millis() - start < ms) {
+        yield();
+    }
+}
+
+extern bool powerState;
+extern String currentEffect;
+extern uint32_t color;
+extern uint8_t brightness;
+extern StateManager& stateManager;
+extern EffectManager& effectManager;
+extern MQTTManager mqttManager;
+extern Adafruit_NeoPixel* strip;
+extern RTCManager rtcManager;
+extern void handleCurrentEffect();
+extern void transitionToEffect(const String& newEffect);
+extern void applyControlUpdate(
+    bool hasPower, bool newPower,
+    bool hasBrightness, uint8_t newBrightness,
+    bool hasColor, uint32_t newColor,
+    bool hasEffect, const String& newEffect,
+    bool debounceColor,
+    bool renderNow,
+    bool publishState
+);
+
+WiFiManager::WiFiManager() 
+    : server(80), config_loaded(false), routes_initialized(false), setup_mode(false), setup_start_time(0), mqtt_port(1883) {
+}
+
+void WiFiManager::loadConfig() {
+    if (!prefs.begin("wifi", true)) {
+        DebugManager::println(DebugCategory::WiFi, "WiFiManager: Preferences begin failed");
+        return;
+    }
+    
+    ssid = prefs.getString("ssid", "");
+    password = prefs.getString("wifi_pass", "");
+    mqtt_server = prefs.getString("mqtt_server", "");
+    mqtt_user = prefs.getString("mqtt_user", "");
+    mqtt_password = prefs.getString("mqtt_pass", "");
+    mqtt_port = prefs.getInt("mqtt_port", 1883);
+    
+    prefs.end();
+    
+    DebugManager::print(DebugCategory::WiFi, "WiFiManager: Config geladen - SSID: ");
+    DebugManager::print(DebugCategory::WiFi, ssid.isEmpty() ? "(leer)" : ssid.c_str());
+    DebugManager::print(DebugCategory::WiFi, ", MQTT: ");
+    DebugManager::println(DebugCategory::WiFi, mqtt_server.isEmpty() ? "(leer)" : mqtt_server.c_str());
+    config_loaded = true;
+}
+
+void WiFiManager::saveConfig(const String& new_ssid, const String& new_password,
+                             const String& new_mqtt_server, const String& new_mqtt_user,
+                             const String& new_mqtt_password, int new_mqtt_port) {
+    if (!prefs.begin("wifi", false)) {
+        DebugManager::println(DebugCategory::WiFi, "WiFiManager: Preferences begin failed");
+        return;
+    }
+    
+    prefs.putString("ssid", new_ssid);
+    prefs.putString("wifi_pass", new_password);
+    prefs.putString("mqtt_server", new_mqtt_server);
+    prefs.putString("mqtt_user", new_mqtt_user);
+    prefs.putString("mqtt_pass", new_mqtt_password);
+    prefs.putInt("mqtt_port", new_mqtt_port);
+    
+    waitMs(50);
+    prefs.end();
+    waitMs(100);
+    
+    ssid = new_ssid;
+    password = new_password;
+    mqtt_server = new_mqtt_server;
+    mqtt_user = new_mqtt_user;
+    mqtt_password = new_mqtt_password;
+    mqtt_port = new_mqtt_port;
+    
+    DebugManager::print(DebugCategory::WiFi, "WiFiManager: Config gespeichert - SSID: ");
+    DebugManager::print(DebugCategory::WiFi, new_ssid.c_str());
+    DebugManager::print(DebugCategory::WiFi, ", MQTT: ");
+    DebugManager::println(DebugCategory::WiFi, new_mqtt_server.c_str());
+}
+
+void WiFiManager::startSetupMode() {
+    setup_mode = true;
+    setup_start_time = millis();
+    
+    DebugManager::println(DebugCategory::WiFi, "=== WiFiManager SETUP MODE AKTIV ===");
+    
+    WiFi.mode(WIFI_AP_STA);
+    WiFi.softAP("WordClock-Setup");
+    
+    IPAddress apIP = WiFi.softAPIP();
+    DebugManager::print(DebugCategory::WiFi, "AP IP: ");
+    DebugManager::println(DebugCategory::WiFi, apIP);
+    
+    // Scan sofort starten, damit Ergebnisse beim ersten /scan-Request bereits bereit sind
+    WiFi.scanNetworks(true);
+
+    // Captive Portal DNS
+    dnsServer.start(DNS_PORT, "*", apIP);
+    
+    setupWebRoutes();
+}
+
+void WiFiManager::stopSetupMode() {
+    setup_mode = false;
+    dnsServer.stop();
+    DebugManager::println(DebugCategory::WiFi, "WiFiManager: Setup Mode beendet");
+}
+
+void WiFiManager::handleSetup() {
+    if (setup_mode) {
+        dnsServer.processNextRequest();
+        server.handleClient();
+        
+        // Timeout nach 30 Minuten -> Neustart, damit normaler Boot erneut versucht wird
+        if (millis() - setup_start_time > 30 * 60 * 1000) {
+            stopSetupMode();
+            rebootDevice("WiFi setup timeout", 50);
+        }
+    }
+}
+
+void WiFiManager::connectToWiFi() {
+    if (!config_loaded) {
+        loadConfig();
+    }
+
+    if (ssid.isEmpty()) {
+        DebugManager::println(DebugCategory::WiFi, "WiFiManager: Keine SSID konfiguriert -> Setup Mode");
+        startSetupMode();
+        return;
+    }
+
+    String trySsid = ssid;
+    String tryPass = password;
+    trySsid.trim();
+    tryPass.trim();
+    
+    DebugManager::print(DebugCategory::WiFi, "WiFiManager: Verbinde mit ");
+    DebugManager::println(DebugCategory::WiFi, trySsid);
+    
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(trySsid.c_str(), tryPass.c_str());
+    
+    int attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+        waitMs(500);
+        DebugManager::print(DebugCategory::WiFi, ".");
+        attempts++;
+    }
+    
+    if (WiFi.status() == WL_CONNECTED) {
+        DebugManager::println(DebugCategory::WiFi, "\nWiFiManager: Verbunden!");
+        DebugManager::print(DebugCategory::WiFi, "IP: ");
+        DebugManager::println(DebugCategory::WiFi, WiFi.localIP());
+        setupWebRoutes();
+    } else {
+        DebugManager::println(DebugCategory::WiFi, "\nWiFiManager: Verbindung fehlgeschlagen -> Setup Mode");
+        startSetupMode();
+    }
+}
+
+bool WiFiManager::isConnected() {
+    return WiFi.status() == WL_CONNECTED;
+}
+
+void WiFiManager::setupWebRoutes() {
+    if (routes_initialized) {
+        return;
+    }
+
+    // Hauptseite mit Navigation
+    server.on("/", [this]() {
+        server.send(200, "text/html", home_html_page);
+    });
+
+    // Unterseiten
+    server.on("/main", [this]() {
+        server.send(200, "text/html", setup_html_page);
+    });
+    server.on("/wifi", [this]() {
+        server.send(200, "text/html", setup_html_page);
+    });
+    server.on("/mqtt", [this]() {
+        server.send(200, "text/html", setup_html_page);
+    });
+    server.on("/live", [this]() {
+        server.send(200, "text/html", live_html_page);
+    });
+    server.on("/test", [this]() {
+        server.send(200, "text/html", test_html_page);
+    });
+    
+    // SSID-Scan Endpoint
+    server.on("/scan", [this]() {
+        handleScan();
+    });
+    
+    // Save Endpoint
+    server.on("/save", HTTP_POST, [this]() {
+        handleSave();
+    });
+
+    // Runtime APIs
+    server.on("/api/status", [this]() {
+        handleStatus();
+    });
+    server.on("/api/preview", HTTP_POST, [this]() {
+        handlePreview();
+    });
+    server.on("/api/quicktest", HTTP_POST, [this]() {
+        handleQuickTest();
+    });
+
+    // Frontplate SVG for exact live overlay
+    server.on("/ziffernblatt.svg", [this]() {
+        File f = SPIFFS.open("/ziffernblatt.svg", "r");
+        if (!f) {
+            server.send(404, "text/plain", "ziffernblatt.svg not found");
+            return;
+        }
+        server.streamFile(f, "image/svg+xml");
+        f.close();
+    });
+
+    // Paw outline icon for minute indicators
+    server.on("/Pfote.png", [this]() {
+        File f = SPIFFS.open("/Pfote.png", "r");
+        if (!f) {
+            server.send(404, "text/plain", "Pfote.png not found");
+            return;
+        }
+        server.streamFile(f, "image/png");
+        f.close();
+    });
+
+    // Reboot Endpoint
+    server.on("/reboot", [this]() {
+        server.send(200, "text/plain", "Rebooting...");
+        waitMs(500);
+        rebootDevice("HTTP /reboot", 50);
+    });
+
+    // Captive Portal: iOS/Android öffnen Login-Dialog wenn unbekannte URLs auf "/" umgeleitet werden
+    server.onNotFound([this]() {
+        server.sendHeader("Location", "/", true);
+        server.send(302, "text/plain", "");
+    });
+
+    server.begin();
+    routes_initialized = true;
+    DebugManager::println(DebugCategory::WiFi, "WiFiManager: Webserver-Routen aktiv");
+}
+
+void WiFiManager::handleScan() {
+    int n = WiFi.scanComplete();
+
+    if (n == WIFI_SCAN_RUNNING) {
+        server.send(200, "application/json", "[]");
+        return;
+    }
+
+    // Deduplizieren (mehrere APs mit gleichem Namen) + nach Signalstärke sortieren
+    std::vector<int> idx;
+    for (int i = 0; i < n; i++) {
+        String name = WiFi.SSID(i);
+        if (name.isEmpty()) continue;
+        bool dup = false;
+        for (int j : idx) {
+            if (WiFi.SSID(j) == name) { dup = true; break; }
+        }
+        if (!dup) idx.push_back(i);
+    }
+    std::sort(idx.begin(), idx.end(), [](int a, int b) {
+        return WiFi.RSSI(a) > WiFi.RSSI(b);
+    });
+
+    DynamicJsonDocument doc(1024);
+    JsonArray arr = doc.to<JsonArray>();
+    for (int i : idx) {
+        arr.add(WiFi.SSID(i));
+    }
+
+    WiFi.scanDelete();
+    WiFi.scanNetworks(true);
+
+    String json;
+    serializeJson(arr, json);
+    server.send(200, "application/json", json);
+}
+
+void WiFiManager::handleSave() {
+    DebugManager::println(DebugCategory::WiFi, "WiFiManager: SAVE REQUEST RECEIVED");
+    
+    String new_ssid = server.arg("ssid");
+    String new_password = server.arg("wifi_pass");
+    String new_mqtt_server = server.arg("mqtt_server");
+    String new_mqtt_user = server.arg("mqtt_user");
+    String new_mqtt_password = server.arg("mqtt_pass");
+    new_ssid.trim();
+    new_password.trim();
+    new_mqtt_server.trim();
+    new_mqtt_user.trim();
+    new_mqtt_password.trim();
+    int new_mqtt_port = server.arg("mqtt_port").toInt();
+    if (new_mqtt_port == 0) new_mqtt_port = 1883;
+
+    // Bestimme, ob nur MQTT oder nur WiFi oder beides gespeichert werden soll
+    bool has_ssid = !new_ssid.isEmpty();
+    bool has_mqtt_server = !new_mqtt_server.isEmpty();
+
+    // Wenn nur MQTT Parameter, nur MQTT speichern (kein WiFi-Test)
+    if (has_mqtt_server && !has_ssid) {
+        DebugManager::println(DebugCategory::WiFi, "WiFiManager: Speichern nur MQTT-Parameter");
+        Preferences prefs;
+        if (!prefs.begin("wordclock", false)) {
+            server.send(500, "application/json", "{\"status\":\"error\",\"msg\":\"Speichern fehlgeschlagen\"}");
+            return;
+        }
+        prefs.putString("mqtt_server", new_mqtt_server);
+        prefs.putInt("mqtt_port", new_mqtt_port);
+        prefs.putString("mqtt_user", new_mqtt_user);
+        prefs.putString("mqtt_pass", new_mqtt_password);
+        prefs.end();
+
+        // Neuladen + einfache Bestätigung
+        loadConfig();
+        server.send(200, "application/json", "{\"status\":\"ok\"}");
+        return;
+    }
+
+    // Wenn nur WiFi Parameter: speichern + Test
+    if (has_ssid && !has_mqtt_server) {
+        DebugManager::println(DebugCategory::WiFi, "WiFiManager: Speichern nur WiFi-Parameter");
+        
+        // Benutze aktuelle MQTT-Konfiguration
+        String current_mqtt_server = String("");
+        String current_mqtt_user = String("");
+        String current_mqtt_password = String("");
+        int current_mqtt_port = 1883;
+
+        Preferences prefs;
+        if (prefs.begin("wordclock", true)) {
+            current_mqtt_server = prefs.getString("mqtt_server", "");
+            current_mqtt_user = prefs.getString("mqtt_user", "");
+            current_mqtt_password = prefs.getString("mqtt_pass", "");
+            current_mqtt_port = prefs.getInt("mqtt_port", 1883);
+            prefs.end();
+        }
+
+        saveConfig(new_ssid, new_password, current_mqtt_server, current_mqtt_user, current_mqtt_password, current_mqtt_port);
+
+        // Direkt verifizieren
+        loadConfig();
+        if (ssid != new_ssid) {
+            server.send(500, "application/json", "{\"status\":\"error\",\"msg\":\"Speichern fehlgeschlagen\"}");
+            return;
+        }
+
+        // WLAN-Verbindungstest
+        DebugManager::println(DebugCategory::WiFi, "WiFiManager: Teste gespeicherte WLAN-Daten...");
+        WiFi.mode(WIFI_STA);
+        WiFi.disconnect(true);
+        waitMs(150);
+        WiFi.begin(new_ssid.c_str(), new_password.c_str());
+
+        int attempts = 0;
+        while (WiFi.status() != WL_CONNECTED && attempts < 24) {
+            waitMs(500);
+            DebugManager::print(DebugCategory::WiFi, "+");
+            attempts++;
+        }
+        DebugManager::println(DebugCategory::WiFi);
+
+        if (WiFi.status() != WL_CONNECTED) {
+            server.send(400, "application/json", "{\"status\":\"error\",\"msg\":\"WLAN-Verbindung fehlgeschlagen\"}");
+            return;
+        }
+
+        server.send(200, "application/json", "{\"status\":\"ok\"}");
+        return;
+    }
+
+    // Fallback: beide Parameter oder keiner - alte Logik
+    if (!new_ssid.isEmpty()) {
+        saveConfig(new_ssid, new_password, new_mqtt_server, new_mqtt_user, new_mqtt_password, new_mqtt_port);
+
+        // Direkt verifizieren, dass die Daten wirklich in Preferences gelandet sind.
+        loadConfig();
+        if (ssid != new_ssid) {
+            server.send(500, "application/json", "{\"status\":\"error\",\"msg\":\"Speichern fehlgeschlagen\"}");
+            return;
+        }
+
+        // Verbindungstest vor Reboot: bei Fehler im Setup bleiben statt Endlosschleife.
+        DebugManager::println(DebugCategory::WiFi, "WiFiManager: Teste gespeicherte WLAN-Daten...");
+        WiFi.mode(WIFI_STA);
+        WiFi.disconnect(true);
+        waitMs(150);
+        WiFi.begin(new_ssid.c_str(), new_password.c_str());
+
+        int attempts = 0;
+        while (WiFi.status() != WL_CONNECTED && attempts < 24) {
+            waitMs(500);
+            DebugManager::print(DebugCategory::WiFi, "+");
+            attempts++;
+        }
+        DebugManager::println(DebugCategory::WiFi);
+
+        if (WiFi.status() != WL_CONNECTED) {
+            server.send(400, "application/json", "{\"status\":\"error\",\"msg\":\"WLAN-Verbindung fehlgeschlagen\"}");
+            return;
+        }
+
+        server.send(200, "application/json", "{\"status\":\"ok\"}");
+    } else {
+        server.send(400, "application/json", "{\"status\":\"error\",\"msg\":\"SSID fehlt\"}");
+    }
+}
+
+void WiFiManager::handleStatus() {
+    DynamicJsonDocument doc(4096);
+    doc["state"] = powerState ? "ON" : "OFF";
+    doc["effect"] = currentEffect;
+    doc["brightness"] = brightness;
+
+    char color_hex[8];
+    snprintf(color_hex, sizeof(color_hex), "#%06lX", (unsigned long)(color & 0xFFFFFF));
+    doc["color"] = color_hex;
+    doc["ip"] = WiFi.isConnected() ? WiFi.localIP().toString() : "offline";
+    doc["rssi"] = WiFi.isConnected() ? WiFi.RSSI() : -127;
+    doc["uptime_s"] = millis() / 1000;
+    doc["rtc_available"] = rtcManager.isAvailable();
+    doc["rtc_temp_c"] = rtcManager.getTemperatureC();
+    doc["rtc_osf"] = rtcManager.hasOscillatorStopFlag();
+    doc["rtc_battery_warning"] = rtcManager.hasBatteryWarning();
+    doc["rtc_temp_warning"] = rtcManager.hasTemperatureWarning();
+    doc["rtc_warning"] = rtcManager.hasHealthWarning();
+    doc["mqtt_connected"] = mqttManager.isConnected();
+    doc["mem_free"] = MemoryManager::getFreeRam();
+    doc["mem_total"] = ESP.getHeapSize();
+    doc["mem_max_alloc"] = ESP.getMaxAllocHeap();
+    doc["mem_min_free"] = ESP.getMinFreeHeap();
+    doc["mem_level"] = MemoryManager::memoryLevelText(MemoryManager::getMemoryLevel());
+    doc["mem_warning_threshold"] = MemoryManager::WARNING_THRESHOLD;
+    doc["mem_critical_threshold"] = MemoryManager::CRITICAL_THRESHOLD;
+
+    JsonArray matrix = doc.createNestedArray("matrix");
+    for (int y = 0; y < HEIGHT; y++) {
+        JsonArray row = matrix.createNestedArray();
+        for (int x = 0; x < WIDTH; x++) {
+            uint32_t c = strip->getPixelColor(XY(x, y));
+            // NeoPixel on this board is GRB-ordered internally.
+            // For the web UI we export canonical RGB hex (#RRGGBB).
+            uint8_t r = (uint8_t)((c >> 8) & 0xFF);
+            uint8_t g = (uint8_t)((c >> 16) & 0xFF);
+            uint8_t b = (uint8_t)(c & 0xFF);
+            char hex[7];
+            snprintf(hex, sizeof(hex), "%02X%02X%02X",
+                (unsigned int)r,
+                (unsigned int)g,
+                (unsigned int)b);
+            row.add(hex);
+        }
+    }
+
+    String payload;
+    serializeJson(doc, payload);
+    server.send(200, "application/json", payload);
+}
+
+void WiFiManager::handlePreview() {
+    String stateArg = server.arg("state");
+    String effectArg = server.arg("effect");
+    String colorArg = server.arg("color");
+    String brightnessArg = server.arg("brightness");
+
+    stateArg.trim();
+    effectArg.trim();
+    colorArg.trim();
+    brightnessArg.trim();
+
+    DebugManager::print(DebugCategory::WiFi, "Live preview request: state=");
+    DebugManager::print(DebugCategory::WiFi, stateArg);
+    DebugManager::print(DebugCategory::WiFi, " effect=");
+    DebugManager::print(DebugCategory::WiFi, effectArg);
+    DebugManager::print(DebugCategory::WiFi, " color=");
+    DebugManager::print(DebugCategory::WiFi, colorArg);
+    DebugManager::print(DebugCategory::WiFi, " brightness=");
+    DebugManager::println(DebugCategory::WiFi, brightnessArg);
+
+    bool hasPower = !stateArg.isEmpty();
+    bool newPower = hasPower ? (stateArg == "ON") : powerState;
+
+    bool hasBrightness = !brightnessArg.isEmpty();
+    uint8_t newBrightness = brightness;
+    if (hasBrightness) {
+        int b = brightnessArg.toInt();
+        if (b < 0) b = 0;
+        if (b > 255) b = 255;
+        newBrightness = (uint8_t)b;
+    }
+
+    bool hasColor = false;
+    uint32_t newColor = color;
+    if (!colorArg.isEmpty()) {
+        if (colorArg.startsWith("#")) {
+            colorArg = colorArg.substring(1);
+        }
+        if (colorArg.length() == 6) {
+            uint32_t parsed = (uint32_t)strtoul(colorArg.c_str(), nullptr, 16);
+            newColor = parsed & 0xFFFFFF;
+            hasColor = true;
+        }
+    }
+
+    bool hasEffect = !effectArg.isEmpty();
+
+    applyControlUpdate(
+        hasPower, newPower,
+        hasBrightness, newBrightness,
+        hasColor, newColor,
+        hasEffect, effectArg,
+        false,  // web preview should react instantly
+        true,   // render updates
+        true    // publish resulting state
+    );
+
+    handleStatus();
+}
+
+void WiFiManager::handleQuickTest() {
+    String action = server.arg("action");
+    action.trim();
+
+    if (action == "all_on") {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                uint8_t r = (color >> 16) & 0xFF;
+                uint8_t g = (color >> 8) & 0xFF;
+                uint8_t b = color & 0xFF;
+                strip->setPixelColor(XY(x, y), makeColorWithBrightness(r, g, b));
+            }
+        }
+        strip->show();
+    } else if (action == "all_off") {
+        clearMatrix();
+        strip->show();
+    } else if (action == "clock_test") {
+        struct tm t;
+        if (getLocalTime(&t)) {
+            showTime(t.tm_hour, t.tm_min);
+        } else {
+            showTime(12, 0);
+        }
+    } else if (action == "gradient") {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                uint8_t r = (uint8_t)((x * 255) / max(1, WIDTH - 1));
+                uint8_t g = (uint8_t)((y * 255) / max(1, HEIGHT - 1));
+                uint8_t b = 255 - r;
+                strip->setPixelColor(XY(x, y), makeColorWithBrightness(r, g, b));
+            }
+        }
+        strip->show();
+    }
+    // Color tests
+    else if (action == "color_red") {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                strip->setPixelColor(XY(x, y), makeColorWithBrightness(255, 0, 0));
+            }
+        }
+        strip->show();
+    } else if (action == "color_green") {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                strip->setPixelColor(XY(x, y), makeColorWithBrightness(0, 255, 0));
+            }
+        }
+        strip->show();
+    } else if (action == "color_blue") {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                strip->setPixelColor(XY(x, y), makeColorWithBrightness(0, 0, 255));
+            }
+        }
+        strip->show();
+    } else if (action == "color_yellow") {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                strip->setPixelColor(XY(x, y), makeColorWithBrightness(255, 255, 0));
+            }
+        }
+        strip->show();
+    } else if (action == "color_cyan") {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                strip->setPixelColor(XY(x, y), makeColorWithBrightness(0, 255, 255));
+            }
+        }
+        strip->show();
+    } else if (action == "color_magenta") {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                strip->setPixelColor(XY(x, y), makeColorWithBrightness(255, 0, 255));
+            }
+        }
+        strip->show();
+    }
+    // Brightness tests (using white)
+    else if (action == "brightness_0") {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                strip->setPixelColor(XY(x, y), 0);
+            }
+        }
+        strip->show();
+    } else if (action == "brightness_25") {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                strip->setPixelColor(XY(x, y), strip->Color(64, 64, 64));
+            }
+        }
+        strip->show();
+    } else if (action == "brightness_50") {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                strip->setPixelColor(XY(x, y), makeColorWithBrightness(255, 255, 255));
+            }
+        }
+        strip->show();
+    } else if (action == "brightness_75") {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                strip->setPixelColor(XY(x, y), strip->Color(192, 192, 192));
+            }
+        }
+        strip->show();
+    } else if (action == "brightness_100") {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                strip->setPixelColor(XY(x, y), makeColorWithBrightness(255, 255, 255));
+            }
+        }
+        strip->show();
+    }
+    // Special tests
+    else if (action == "rainbow") {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                uint16_t hue = (uint16_t)(((x + y) * 65535) / (WIDTH + HEIGHT));
+                uint32_t c = strip->ColorHSV(hue, 255, 255);
+                strip->setPixelColor(XY(x, y), c);
+            }
+        }
+        strip->show();
+    } else if (action == "blink") {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                strip->setPixelColor(XY(x, y), makeColorWithBrightness(255, 255, 255));
+            }
+        }
+        strip->show();
+        delay(300);
+        clearMatrix();
+        strip->show();
+        delay(300);
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                strip->setPixelColor(XY(x, y), makeColorWithBrightness(255, 255, 255));
+            }
+        }
+        strip->show();
+    } else if (action == "pulse") {
+        for (int step = 0; step < 20; step++) {
+            uint8_t bright = (step < 10) ? (step * 25) : ((19 - step) * 25);
+            for (int y = 0; y < HEIGHT; y++) {
+                for (int x = 0; x < WIDTH; x++) {
+                    strip->setPixelColor(XY(x, y), strip->Color(bright, 0, 0));
+                }
+            }
+            strip->show();
+            delay(30);
+        }
+    } else if (action == "spiral") {
+        for (int step = 0; step < 12; step++) {
+            clearMatrix();
+            for (int y = 0; y < HEIGHT; y++) {
+                for (int x = 0; x < WIDTH; x++) {
+                    int dist = abs(x - WIDTH/2) + abs(y - HEIGHT/2);
+                    if (dist % 3 == step % 3) {
+                        strip->setPixelColor(XY(x, y), makeColorWithBrightness(0, 255, 255));
+                    }
+                }
+            }
+            strip->show();
+            delay(150);
+        }
+    }
+
+    server.send(200, "application/json", "{\"status\":\"ok\"}");
+}
