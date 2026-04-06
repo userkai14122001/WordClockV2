@@ -5,6 +5,7 @@
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <esp_https_ota.h>
+#include <esp_crt_bundle.h>
 #include <ArduinoJson.h>
 
 #ifndef FIRMWARE_VERSION
@@ -136,9 +137,9 @@ void performHttpsOtaUpdate(const char* firmwareUrl) {
     http_config.url = firmwareUrl;
     http_config.timeout_ms = 10000;
     http_config.transport_type = HTTP_TRANSPORT_OVER_SSL;
-    http_config.skip_cert_common_name_check = true;
-    http_config.use_global_ca_store = false;
-    http_config.cert_pem = NULL;
+    // GitHub OTA requires TLS server verification. Use ESP-IDF root cert bundle.
+    http_config.crt_bundle_attach = arduino_esp_crt_bundle_attach;
+    http_config.skip_cert_common_name_check = false;
 
     esp_err_t ret = esp_https_ota(&http_config);
 
