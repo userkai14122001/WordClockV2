@@ -7,6 +7,7 @@
 #include "MemoryManager.h"
 #include "DebugManager.h"
 #include "SystemControl.h"
+#include "ota_https_update.h"
 #include "matrix.h"
 #include "effects.h"
 #include <SPIFFS.h>
@@ -208,6 +209,9 @@ void WiFiManager::setupWebRoutes() {
     server.on("/mqtt", [this]() {
         server.send(200, "text/html", setup_html_page);
     });
+    server.on("/ota", [this]() {
+        server.send(200, "text/html", setup_html_page);
+    });
     server.on("/live", [this]() {
         server.send(200, "text/html", live_html_page);
     });
@@ -234,6 +238,12 @@ void WiFiManager::setupWebRoutes() {
     });
     server.on("/api/quicktest", HTTP_POST, [this]() {
         handleQuickTest();
+    });
+    server.on("/api/ota/info", HTTP_GET, [this]() {
+        handleOtaInfo();
+    });
+    server.on("/api/ota/check", HTTP_POST, [this]() {
+        handleOtaCheck();
     });
 
     // Frontplate SVG for exact live overlay
@@ -724,4 +734,39 @@ void WiFiManager::handleQuickTest() {
     }
 
     server.send(200, "application/json", "{\"status\":\"ok\"}");
+}
+
+void WiFiManager::handleOtaInfo() {
+    DynamicJsonDocument doc(384);
+    doc["status"] = "ok";
+    doc["fw_version"] = getFirmwareVersion();
+    doc["wifi_connected"] = WiFi.isConnected();
+    doc["ip"] = WiFi.isConnected() ? WiFi.localIP().toString() : "offline";
+
+    String payload;
+    serializeJson(doc, payload);
+    server.send(200, "application/json", payload);
+}
+
+void WiFiManager::handleOtaCheck() {
+    DynamicJsonDocument doc(384);
+    doc["status"] = "ok";
+    doc["fw_version"] = getFirmwareVersion();
+
+    if (!WiFi.isConnected()) {
+        doc["status"] = "error";
+        doc["message"] = "Kein WLAN verbunden";
+        String payload;
+        serializeJson(doc, payload);
+        server.send(400, "application/json", payload);
+        return;
+    }
+
+    bool started = checkForUpdateAndInstall(true);
+    doc["update_started"] = started;
+    doc["message"] = started ? "Update gestartet" : "Keine neuere Version gefunden";
+
+    String payload;
+    serializeJson(doc, payload);
+    server.send(200, "application/json", payload);
 }

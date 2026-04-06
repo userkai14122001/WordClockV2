@@ -65,6 +65,7 @@ private:
     String rssi_topic;
     String ip_topic;
     String mqtt_state_topic;
+    String version_topic;
     String reboot_command_topic;
 
     // Effect tuning control topics

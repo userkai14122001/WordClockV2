@@ -5,6 +5,7 @@
 #include "StateManager.h"
 #include "RTCManager.h"
 #include "SystemControl.h"
+#include "ota_https_update.h"
 
 // Effect tuning parameters defined in main.cpp
 extern uint8_t  effectSpeed;
@@ -30,6 +31,7 @@ MQTTManager::MQTTManager(WiFiClient& wifi_client, const String& device_id)
             rssi_topic("wordclock/rssi"),
             ip_topic("wordclock/ip"),
             mqtt_state_topic("wordclock/mqtt_state"),
+            version_topic("wordclock/version"),
             reboot_command_topic("wordclock/reboot/set"),
             speed_command_topic("wordclock/speed/set"),
             speed_state_topic("wordclock/speed/state"),
@@ -306,6 +308,21 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     serializeJson(ipDoc, ipCfg);
     mqtt.publish("homeassistant/sensor/wordclock_ip/config", ipCfg.c_str(), true);
 
+    DynamicJsonDocument versionDoc(512);
+    versionDoc["name"] = "WordClock Version";
+    versionDoc["object_id"] = "wordclock_version";
+    versionDoc["unique_id"] = device_id + "_version";
+    versionDoc["state_topic"] = version_topic;
+    versionDoc["availability_topic"] = availability_topic;
+    versionDoc["payload_available"] = "online";
+    versionDoc["payload_not_available"] = "offline";
+    versionDoc["entity_category"] = "diagnostic";
+    versionDoc["icon"] = "mdi:tag-text-outline";
+    attachDevice(versionDoc);
+    String versionCfg;
+    serializeJson(versionDoc, versionCfg);
+    mqtt.publish("homeassistant/sensor/wordclock_version/config", versionCfg.c_str(), true);
+
     DynamicJsonDocument mqttStateDoc(512);
     mqttStateDoc["name"] = "WordClock MQTT State";
     mqttStateDoc["object_id"] = "wordclock_mqtt_state";
@@ -528,12 +545,14 @@ void MQTTManager::publishTelemetry() {
     String uptime = String(millis() / 1000UL);
     String rssi = String(WiFi.RSSI());
     String ip = WiFi.isConnected() ? WiFi.localIP().toString() : "offline";
+    const char* fwVersion = getFirmwareVersion();
 
     mqtt.publish(availability_topic.c_str(), "online", true);
     mqtt.publish(mqtt_state_topic.c_str(), "connected", true);
     mqtt.publish(uptime_topic.c_str(), uptime.c_str(), true);
     mqtt.publish(rssi_topic.c_str(), rssi.c_str(), true);
     mqtt.publish(ip_topic.c_str(), ip.c_str(), true);
+    mqtt.publish(version_topic.c_str(), fwVersion, true);
     // Publish current tuning values so HA sliders reflect device state
     mqtt.publish(speed_state_topic.c_str(), String(effectSpeed).c_str(), true);
     mqtt.publish(intensity_state_topic.c_str(), String(effectIntensity).c_str(), true);

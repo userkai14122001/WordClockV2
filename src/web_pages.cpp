@@ -35,20 +35,22 @@ const char home_html_page[] PROGMEM = R"rawliteral(
     <a href="/main">Main</a>
     <a href="/wifi">Wifi</a>
     <a href="/mqtt">MQTT</a>
+    <a href="/ota">OTA</a>
     <a href="/live">Live</a>
     <a href="/test">Test</a>
 </div>
 <div class="wrap">
     <div class="hero">
         <h2>WordClock Hauptseite</h2>
-        <p>Wähle eine Unterseite über die Top-Leiste oder die Kacheln unten.</p>
+        <p>Waehle eine Unterseite ueber die Top-Leiste oder die Kacheln unten.</p>
     </div>
     <div class="grid">
-        <div class="card"><h3>Main</h3><p>Konfiguration und Neustart.</p><a class="btn" href="/main">Öffnen</a></div>
-        <div class="card"><h3>Wifi</h3><p>WLAN-Einstellungen und Netzwerkscan.</p><a class="btn" href="/wifi">Öffnen</a></div>
-        <div class="card"><h3>MQTT</h3><p>Broker, User und Port konfigurieren.</p><a class="btn" href="/mqtt">Öffnen</a></div>
-        <div class="card"><h3>Live</h3><p>Live-Vorschau und Steuerung.</p><a class="btn" href="/live">Öffnen</a></div>
-        <div class="card"><h3>Test</h3><p>Schnelltests für LEDs und Clock.</p><a class="btn" href="/test">Öffnen</a></div>
+        <div class="card"><h3>Main</h3><p>Konfiguration und Neustart.</p><a class="btn" href="/main">Oeffnen</a></div>
+        <div class="card"><h3>Wifi</h3><p>WLAN-Einstellungen und Netzwerkscan.</p><a class="btn" href="/wifi">Oeffnen</a></div>
+        <div class="card"><h3>MQTT</h3><p>Broker, User und Port konfigurieren.</p><a class="btn" href="/mqtt">Oeffnen</a></div>
+        <div class="card"><h3>OTA</h3><p>Firmware checken und Update starten.</p><a class="btn" href="/ota">Oeffnen</a></div>
+        <div class="card"><h3>Live</h3><p>Live-Vorschau und Steuerung.</p><a class="btn" href="/live">Oeffnen</a></div>
+        <div class="card"><h3>Test</h3><p>Schnelltests fuer LEDs und Clock.</p><a class="btn" href="/test">Oeffnen</a></div>
     </div>
 </div>
 </body>
@@ -142,6 +144,7 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
     <a href="/main">Main</a>
     <a href="/wifi">Wifi</a>
     <a href="/mqtt">MQTT</a>
+    <a href="/ota">OTA</a>
     <a href="/live">Live</a>
     <a href="/test">Test</a>
 </div>
@@ -154,14 +157,14 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
         <div id="wifiSection" style="display:none;">
             <h3>WLAN Einstellungen</h3>
 
-            <label>Netzwerk auswählen:</label><br>
+            <label>Netzwerk auswaehlen:</label><br>
             <select id="ssid_list" name="ssid"></select>
             <input id="ssid_manual" type="text" placeholder="oder SSID manuell eingeben" style="margin-top:4px;">
 
             <label>WLAN Passwort:</label><br>
             <div style="position:relative;">
                 <input name="wifi_pass" id="wifi_pass" type="password" placeholder="optional">
-                <span onclick="toggleWifi()" style="position:absolute; right:10px; top:12px; cursor:pointer;">👁</span>
+                <span onclick="toggleWifi()" style="position:absolute; right:10px; top:12px; cursor:pointer;">Show</span>
             </div>
 
             <button id="saveBtn" type="button" onclick="saveSettings()">Speichern</button>
@@ -182,15 +185,24 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
             <label>MQTT Passwort:</label><br>
             <div style="position:relative;">
                 <input name="mqtt_pass" id="mqtt_pass" type="password" placeholder="optional">
-                <span onclick="toggleMQTT()" style="position:absolute; right:10px; top:12px; cursor:pointer;">👁</span>
+                <span onclick="toggleMQTT()" style="position:absolute; right:10px; top:12px; cursor:pointer;">Show</span>
             </div>
 
             <button id="saveBtn" type="button" onclick="saveSettings()">Speichern</button>
         </div>
 
+        <div id="otaSection" style="display:none; text-align:left;">
+            <h3>OTA Update</h3>
+            <p>Aktuelle Firmware: <b id="otaFwVersion">-</b></p>
+            <p>Netzwerkstatus: <b id="otaWifi">-</b></p>
+            <button type="button" onclick="loadOtaInfo()">Status aktualisieren</button>
+            <button type="button" onclick="checkOtaNow()">Jetzt auf Update pruefen</button>
+            <p id="otaMsg" style="font-size:14px; min-height:20px;"></p>
+        </div>
+
         <div id="mainSection" style="display:none;">
             <h3>Allgemein</h3>
-            <p>Wähle eine Option unten aus.</p>
+            <p>Waehle eine Option unten aus.</p>
         </div>
 
     </form>
@@ -207,6 +219,7 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
     const path = location.pathname;
     const wifiSection = document.getElementById('wifiSection');
     const mqttSection = document.getElementById('mqttSection');
+    const otaSection = document.getElementById('otaSection');
     const mainSection = document.getElementById('mainSection');
     const rebootBtn = document.getElementById('rebootBtn');
     const liveBtn = document.getElementById('liveBtn');
@@ -221,6 +234,12 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
         rebootBtn.style.display = 'block';
         liveBtn.style.display = 'block';
         document.querySelector('h2').textContent = 'MQTT Konfiguration';
+    } else if (path === '/ota') {
+        otaSection.style.display = 'block';
+        rebootBtn.style.display = 'block';
+        liveBtn.style.display = 'block';
+        document.querySelector('h2').textContent = 'OTA Firmware Update';
+        loadOtaInfo();
     } else {
         mainSection.style.display = 'block';
         rebootBtn.style.display = 'block';
@@ -304,7 +323,7 @@ function toggleMQTT() {
 function saveSettings() {
     let btn = document.getElementById("saveBtn");
     btn.style.background = "#777";
-    btn.innerText = "Speichere…";
+    btn.innerText = "Speichere...";
 
     const path = location.pathname;
     let params = new URLSearchParams();
@@ -351,12 +370,42 @@ function saveSettings() {
 }
 
 // ---------------------------------------------------------
-// Neustart mit Bestätigung
+// Neustart mit Best+�tigung
 // ---------------------------------------------------------
 function confirmReboot() {
     if (!confirm("WordClock wirklich neu starten?")) return;
     fetch("/reboot");
-    alert("WordClock startet neu…");
+    alert("WordClock startet neu...");
+}
+
+async function loadOtaInfo() {
+    const msg = document.getElementById('otaMsg');
+    msg.textContent = 'Lade OTA Status...';
+    try {
+        const r = await fetch('/api/ota/info');
+        const j = await r.json();
+        document.getElementById('otaFwVersion').textContent = j.fw_version || '-';
+        document.getElementById('otaWifi').textContent = j.wifi_connected ? ('Verbunden (' + (j.ip || '-') + ')') : 'Offline';
+        msg.textContent = '';
+    } catch (_) {
+        msg.textContent = 'OTA Status konnte nicht geladen werden';
+    }
+}
+
+async function checkOtaNow() {
+    const msg = document.getElementById('otaMsg');
+    msg.textContent = 'Pruefe Version...';
+    try {
+        const r = await fetch('/api/ota/check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: ''
+        });
+        const j = await r.json();
+        msg.textContent = j.message || (r.ok ? 'Pruefung abgeschlossen' : 'Fehler');
+    } catch (_) {
+        msg.textContent = 'OTA Pruefung fehlgeschlagen';
+    }
 }
 </script>
 
@@ -472,6 +521,7 @@ const char live_html_page[] PROGMEM = R"rawliteral(
     <a href="/main">Main</a>
     <a href="/wifi">Wifi</a>
     <a href="/mqtt">MQTT</a>
+    <a href="/ota">OTA</a>
     <a href="/live">Live</a>
     <a href="/test">Test</a>
 </div>
@@ -561,7 +611,7 @@ const layoutRows = [
     'DREIYOUVIER',
     'SECHSSIEBEN',
     'ZEHNEUNZWEI',
-    'AACHTZWÖLFF',
+    'AACHTZW+�LFF',
     'EINSUHR....'
 ];
 
@@ -768,6 +818,7 @@ const char test_html_page[] PROGMEM = R"rawliteral(
     <a href="/main">Main</a>
     <a href="/wifi">Wifi</a>
     <a href="/mqtt">MQTT</a>
+    <a href="/ota">OTA</a>
     <a href="/live">Live</a>
     <a href="/test">Test</a>
 </div>
@@ -787,14 +838,14 @@ const char test_html_page[] PROGMEM = R"rawliteral(
         <div class="section-title">Farb-Tests</div>
         <div class="grid">
             <button style="background:#e74c3c" onclick="quick('color_red')">Rot</button>
-            <button style="background:#27ae60" onclick="quick('color_green')">Grün</button>
+            <button style="background:#27ae60" onclick="quick('color_green')">Gr++n</button>
             <button style="background:#3498db" onclick="quick('color_blue')">Blau</button>
             <button style="background:#f39c12" onclick="quick('color_yellow')">Gelb</button>
             <button style="background:#1abc9c" onclick="quick('color_cyan')">Cyan</button>
             <button style="background:#e91e63" onclick="quick('color_magenta')">Magenta</button>
         </div>
 
-        <div class="section-title">Helligkeit (50% Weiß)</div>
+        <div class="section-title">Helligkeit (50% Wei+�)</div>
         <div class="grid">
             <button class="info" onclick="quick('brightness_0')">0%</button>
             <button class="info" onclick="quick('brightness_25')">25%</button>
