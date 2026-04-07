@@ -135,13 +135,20 @@ void performHttpsOtaUpdate(const char* firmwareUrl) {
 
     esp_http_client_config_t http_config = {};
     http_config.url = firmwareUrl;
-    http_config.timeout_ms = 10000;
+    http_config.timeout_ms = 15000;
     http_config.transport_type = HTTP_TRANSPORT_OVER_SSL;
     // GitHub OTA requires TLS server verification. Use ESP-IDF root cert bundle.
     http_config.crt_bundle_attach = arduino_esp_crt_bundle_attach;
     http_config.skip_cert_common_name_check = false;
 
     esp_err_t ret = esp_https_ota(&http_config);
+    if (ret != ESP_OK) {
+        DebugManager::printf(DebugCategory::OTA,
+                             "[OTA] HTTPS OTA strict TLS fehlgeschlagen (%d), retry mit relaxter CN-Pruefung...\n",
+                             ret);
+        http_config.skip_cert_common_name_check = true;
+        ret = esp_https_ota(&http_config);
+    }
 
     if (ret == ESP_OK) {
         DebugManager::println(DebugCategory::OTA, "[OTA] OTA erfolgreich! Neustart...");
