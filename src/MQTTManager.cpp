@@ -47,6 +47,7 @@ MQTTManager::MQTTManager(WiFiClient& wifi_client, const String& device_id)
             palette_state_topic("wordclock/palette/state"),
             hue_shift_command_topic("wordclock/hueshift/set"),
             hue_shift_state_topic("wordclock/hueshift/state"),
+            ota_check_command_topic("wordclock/ota_check/set"),
             last_reconnect_attempt(0),
             last_telemetry_publish(0) {
     mqtt.setBufferSize(2048);  // Discovery-Payload ~1100 Bytes (Palette+HueShift), Default wäre nur 256
@@ -103,6 +104,7 @@ void MQTTManager::connect() {
         mqtt.subscribe(service_command_topic.c_str());
         mqtt.subscribe(palette_command_topic.c_str());
         mqtt.subscribe(hue_shift_command_topic.c_str());
+        mqtt.subscribe(ota_check_command_topic.c_str());
         publishDiscovery();
         publishTelemetry();
     } else {
@@ -323,6 +325,21 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     serializeJson(versionDoc, versionCfg);
     mqtt.publish("homeassistant/sensor/wordclock_version/config", versionCfg.c_str(), true);
 
+    // --- Update: Check-Button ---
+    DynamicJsonDocument otaCheckDoc(512);
+    otaCheckDoc["name"] = "WordClock Update pr\u00fcfen";
+    otaCheckDoc["object_id"] = "wordclock_update_check";
+    otaCheckDoc["unique_id"] = device_id + "_ota_check";
+    otaCheckDoc["command_topic"] = ota_check_command_topic;
+    otaCheckDoc["payload_press"] = "CHECK";
+    otaCheckDoc["entity_category"] = "config";
+    otaCheckDoc["icon"] = "mdi:update";
+    otaCheckDoc["availability_topic"] = availability_topic;
+    attachDevice(otaCheckDoc);
+    String otaCheckCfg;
+    serializeJson(otaCheckDoc, otaCheckCfg);
+    mqtt.publish("homeassistant/button/wordclock_ota_check/config", otaCheckCfg.c_str(), true);
+
     DynamicJsonDocument mqttStateDoc(512);
     mqttStateDoc["name"] = "WordClock MQTT State";
     mqttStateDoc["object_id"] = "wordclock_mqtt_state";
@@ -494,7 +511,7 @@ void MQTTManager::publishTuningDiscovery() {
 
     // --- Farbpalette ---
     DynamicJsonDocument palDoc(768);
-    palDoc["name"] = "WordClock Farbpalette";
+    palDoc["name"] = "WordClock Farbe - Palette";
     palDoc["object_id"] = "wordclock_farbpalette";
     palDoc["unique_id"] = device_id + "_palette";
     palDoc["command_topic"] = palette_command_topic;
@@ -516,7 +533,7 @@ void MQTTManager::publishTuningDiscovery() {
 
     // --- Hue Shift ---
     DynamicJsonDocument hueDoc(512);
-    hueDoc["name"] = "WordClock Farbverschiebung";
+    hueDoc["name"] = "WordClock Farbe - Farbverschiebung";
     hueDoc["object_id"] = "wordclock_farbverschiebung";
     hueDoc["unique_id"] = device_id + "_hueshift";
     hueDoc["command_topic"] = hue_shift_command_topic;
@@ -721,6 +738,13 @@ void MQTTManager::internalCallback(const String& topic, const String& payload) {
         mqtt.publish(palette_state_topic.c_str(), paletteNames[effectPalette], true);
         DebugManager::printf(DebugCategory::MQTT, "MQTTManager: Palette set to %s (%d)\n", paletteNames[effectPalette], effectPalette);
         logCallbackDuration("palette");
+        return;
+    }
+
+    if (topic == ota_check_command_topic && payload == "CHECK") {
+        DebugManager::println(DebugCategory::MQTT, "MQTTManager: OTA check via MQTT ausgeloest");
+        checkForUpdateAndInstall(true);
+        logCallbackDuration("ota_check");
         return;
     }
 

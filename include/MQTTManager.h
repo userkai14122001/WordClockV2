@@ -88,6 +88,9 @@ private:
     String hue_shift_command_topic;
     String hue_shift_state_topic;
 
+    // OTA update topics
+    String ota_check_command_topic;
+
     unsigned long last_reconnect_attempt;
     unsigned long last_telemetry_publish;
     static const unsigned long RECONNECT_INTERVAL = 5000;
