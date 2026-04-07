@@ -16,9 +16,9 @@ void WaterDropEffect::update() {
     if (millis() - _lastFrame < frameDelay) return;
     _lastFrame = millis();
 
-    uint8_t colR_val = colR(color);
-    uint8_t colG_val = colG(color);
-    uint8_t colB_val = colB(color);
+    uint8_t colR_val = hasUserColor() ? colR(color) : 255;
+    uint8_t colG_val = hasUserColor() ? colG(color) : 255;
+    uint8_t colB_val = hasUserColor() ? colB(color) : 255;
 
     const float cx         = (WIDTH  - 1) / 2.0f;
     const float cy         = (HEIGHT - 1) / 2.0f;

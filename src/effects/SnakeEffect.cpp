@@ -810,9 +810,10 @@ void SnakeEffect::update() {
         }
     }
 
-    // Schlange: Farbverlauf Kopf -> Schwanz
+    // Schlange: Farbverlauf Kopf -> Schwanz; Intensity skaliert Gesamthelligkeit
+    const float bodyBright = intensityMapF(0.50f, 1.0f);
     for (int i = 0; i < _len; i++) {
-        float    fade = 1.0f - (float)i / (float)_len * 0.75f;
+        float    fade = (1.0f - (float)i / (float)_len * 0.75f) * bodyBright;
         uint32_t c;
         if (useColor) {
             c = makeColorWithBrightness(

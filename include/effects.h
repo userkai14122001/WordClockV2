@@ -93,9 +93,12 @@ public:
 };
 
 class LoveYouEffect : public Effect {
+    unsigned long _lastFrame = 0;
+    float         _phase     = 0.0f;
 public:
     const char* name() const override { return "love"; }
     void update() override;
+    void reset() override { _phase = 0.0f; }
 };
 
 class ColorloopEffect : public Effect {

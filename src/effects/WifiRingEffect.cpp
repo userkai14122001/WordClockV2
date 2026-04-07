@@ -44,6 +44,9 @@ void WifiRingEffect::update() {
     if (millis() - _lastFrame < frameDelay) return;
     _lastFrame = millis();
 
+    // Density selects which ring to animate (0=outer perimeter ... 4=innermost)
+    const int activeRing = (_ringStep > 0) ? _ring : (int)densityMap(0, 4);
+
     uint32_t col = _fixedColor ? _fixedColor : color;
     clearMatrix();
 
@@ -51,17 +54,18 @@ void WifiRingEffect::update() {
     if (col == 0) {
         R = 90; G = 170; B = 255;
     }
+    // Intensity: head brightness AND trail length (high = bright long comet)
     const float headScale = intensityMapF(0.45f, 1.00f);
 
     // _ringStep > 0 means draw multiple rings (e.g. every second ring in setup mode).
-    int startRing = _ring;
-    int endRing = (_ringStep > 0) ? 10 : (_ring + 1);
+    int startRing = activeRing;
+    int endRing = (_ringStep > 0) ? 10 : (activeRing + 1);
     int step = (_ringStep > 0) ? _ringStep : 1;
 
     for (int r = startRing; r < endRing; r += step) {
         int total = ringLength(r);
         if (total <= 0) break;
-        int trail = max(1, (int)densityMap(max(1, total / 10), max(2, total / 2)));
+        int trail = max(1, (int)(total * intensityMapF(0.12f, 0.45f)));
 
         for (int i = 0; i < trail; i++) {
             float fade = 1.0f - (float)i / trail;
