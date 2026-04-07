@@ -179,13 +179,6 @@ namespace {
     }
 }
 
-static inline void waitMs(uint32_t ms) {
-    unsigned long start = millis();
-    while (millis() - start < ms) {
-        yield();
-    }
-}
-
 const char* getFirmwareVersion() {
     return FIRMWARE_VERSION;
 }
@@ -220,6 +213,8 @@ void performHttpsOtaUpdate(const char* firmwareUrl) {
         DebugManager::println(DebugCategory::OTA,
                               "[OTA] esp_https_ota fehlgeschlagen, fallback via HTTPClient/Update...");
         if (performHttpsOtaViaHttpClient(firmwareUrl)) {
+            DebugManager::println(DebugCategory::OTA,
+                                  "[OTA] Fallback OTA via HTTPClient erfolgreich");
             ret = ESP_OK;
         }
     }
