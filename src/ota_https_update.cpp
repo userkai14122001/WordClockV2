@@ -3,6 +3,7 @@
 #include "SystemControl.h"
 #include <Arduino.h>
 #include <HTTPClient.h>
+#include <Update.h>
 #include <WiFiClientSecure.h>
 #include <esp_https_ota.h>
 #include <esp_crt_bundle.h>
@@ -111,6 +112,71 @@ namespace {
         info.firmwareUrl = firmwareUrl;
         return true;
     }
+
+    static bool performHttpsOtaViaHttpClient(const char* firmwareUrl) {
+        WiFiClientSecure client;
+        client.setInsecure();
+
+        HTTPClient http;
+        if (!http.begin(client, firmwareUrl)) {
+            DebugManager::println(DebugCategory::OTA, "[OTA] HTTPClient begin fehlgeschlagen");
+            return false;
+        }
+
+        http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+        http.setTimeout(20000);
+        const int code = http.GET();
+        if (code != HTTP_CODE_OK) {
+            DebugManager::printf(DebugCategory::OTA,
+                                 "[OTA] HTTPClient download fehlgeschlagen: %d\n",
+                                 code);
+            http.end();
+            return false;
+        }
+
+        const int contentLength = http.getSize();
+        if (contentLength <= 0) {
+            DebugManager::println(DebugCategory::OTA,
+                                  "[OTA] HTTPClient ungueltige Content-Length");
+            http.end();
+            return false;
+        }
+
+        if (!Update.begin((size_t)contentLength, U_FLASH)) {
+            DebugManager::printf(DebugCategory::OTA,
+                                 "[OTA] Update.begin fehlgeschlagen: %s\n",
+                                 Update.errorString());
+            http.end();
+            return false;
+        }
+
+        WiFiClient* stream = http.getStreamPtr();
+        const size_t written = Update.writeStream(*stream);
+        const bool complete = Update.end();
+        http.end();
+
+        if (!complete) {
+            DebugManager::printf(DebugCategory::OTA,
+                                 "[OTA] Update.end fehlgeschlagen: %s\n",
+                                 Update.errorString());
+            return false;
+        }
+
+        if (written != (size_t)contentLength) {
+            DebugManager::printf(DebugCategory::OTA,
+                                 "[OTA] Bytes unvollstaendig: %u/%u\n",
+                                 (unsigned)written,
+                                 (unsigned)contentLength);
+            return false;
+        }
+
+        if (!Update.isFinished()) {
+            DebugManager::println(DebugCategory::OTA, "[OTA] Update nicht abgeschlossen");
+            return false;
+        }
+
+        return true;
+    }
 }
 
 static inline void waitMs(uint32_t ms) {
@@ -148,6 +214,14 @@ void performHttpsOtaUpdate(const char* firmwareUrl) {
                              ret);
         http_config.skip_cert_common_name_check = true;
         ret = esp_https_ota(&http_config);
+    }
+
+    if (ret != ESP_OK) {
+        DebugManager::println(DebugCategory::OTA,
+                              "[OTA] esp_https_ota fehlgeschlagen, fallback via HTTPClient/Update...");
+        if (performHttpsOtaViaHttpClient(firmwareUrl)) {
+            ret = ESP_OK;
+        }
     }
 
     if (ret == ESP_OK) {
