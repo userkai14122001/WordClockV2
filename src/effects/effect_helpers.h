@@ -41,6 +41,10 @@ static inline int32_t intensityMap(int32_t minVal, int32_t maxVal) {
     uint8_t i = clampIntensity();
     return minVal + (int32_t)(maxVal - minVal) * (i - 1) / 99;
 }
+static inline float intensityMapF(float minVal, float maxVal) {
+    uint8_t i = clampIntensity();
+    return minVal + (maxVal - minVal) * (float)(i - 1) / 99.0f;
+}
 static inline uint8_t clampDensity() {
     return effectDensity < 1 ? 1 : (effectDensity > 100 ? 100 : effectDensity);
 }
@@ -63,3 +67,23 @@ static inline void waitMs(uint32_t ms) {
 static inline uint8_t colR(uint32_t c) { return (c >> 16) & 0xFF; }
 static inline uint8_t colG(uint32_t c) { return (c >> 8)  & 0xFF; }
 static inline uint8_t colB(uint32_t c) { return  c        & 0xFF; }
+static inline bool hasUserColor() { return color != 0; }
+static inline uint16_t colorToHue16(uint32_t rgb, uint16_t fallbackHue = 0) {
+    uint8_t r = colR(rgb), g = colG(rgb), b = colB(rgb);
+    uint8_t maxCh = max(r, max(g, b));
+    uint8_t minCh = min(r, min(g, b));
+    if (maxCh == minCh) return fallbackHue;
+
+    int32_t delta = (int32_t)maxCh - (int32_t)minCh;
+    int32_t hueDeg;
+    if (maxCh == r) {
+        hueDeg = ((int32_t)(g - b) * 60) / delta;
+        if (g < b) hueDeg += 360;
+    } else if (maxCh == g) {
+        hueDeg = ((int32_t)(b - r) * 60) / delta + 120;
+    } else {
+        hueDeg = ((int32_t)(r - g) * 60) / delta + 240;
+    }
+
+    return (uint16_t)((uint32_t)(((hueDeg % 360) + 360) % 360) * 65535UL / 360UL);
+}

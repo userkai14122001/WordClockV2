@@ -2,8 +2,9 @@
 // Bälle prallen physikalisch von den Wänden ab. Jeder Ball hinterlässt
 // einen kurz nachglühenden Schweif-Trail.
 // Speed:     Bewegungsgeschwindigkeit der Bälle
-// Intensity: Anzahl der Bälle (2..MAX_BALLS)
-// Color:     0 = jeder Ball eigene Farbe; sonst Grundfarbe mit Helligkeitsvariation
+// Intensity: Trail-Stärke und Nachleuchten
+// Density:   Anzahl der Bälle (2..MAX_BALLS)
+// Color:     0 = jeder Ball eigene Farbe; sonst Grundfarbe mit leichten Hue-Offsets
 
 #include "effect_helpers.h"
 #include "DebugManager.h"
@@ -29,6 +30,11 @@ void BouncingBallsEffect::update() {
     const int ballCount = 2 + (int)densityMap(0, MAX_BALLS - 2);
     const float speedScale = speedMapF(0.3f, 1.4f);
     const float gravityY = speedMapF(0.020f, 0.060f);
+    const uint8_t trailDecay = (uint8_t)intensityMap(100, 28);
+    const uint8_t trailBase = (uint8_t)intensityMap(100, 165);
+    const uint8_t trailSat = (uint8_t)intensityMap(160, 255);
+    const bool useColor = hasUserColor();
+    const uint16_t baseHue = colorToHue16(color, 0);
 
     if (gravityPhaseStart == 0) gravityPhaseStart = millis();
     float phase = (millis() - gravityPhaseStart) * 0.0017f;
@@ -65,7 +71,7 @@ void BouncingBallsEffect::update() {
     for (int y = 0; y < HEIGHT; y++)
         for (int x = 0; x < WIDTH; x++) {
             int idx = y * WIDTH + x;
-            if (_trail[idx] > 70) _trail[idx] -= 70;
+            if (_trail[idx] > trailDecay) _trail[idx] -= trailDecay;
             else                  _trail[idx]  = 0;
         }
 
@@ -124,7 +130,7 @@ void BouncingBallsEffect::update() {
         int px = (int)(b.x + 0.5f);
         int py = (int)(b.y + 0.5f);
         if (px >= 0 && px < WIDTH && py >= 0 && py < HEIGHT)
-            _trail[py * WIDTH + px] = (uint8_t)(120 + (int)(b.energy * 1.2f));
+            _trail[py * WIDTH + px] = (uint8_t)min(255, trailBase + (int)(b.energy * 1.1f));
     }
 
     // Rendern: Trail + Ballköpfe
@@ -145,7 +151,11 @@ void BouncingBallsEffect::update() {
                 if (d < minDist) { minDist = d; nearest = i; }
             }
 
-            uint32_t c = ledMatrix.colorHSV(_balls[nearest].hue, 240, (uint8_t)(fade * 255));
+            uint16_t hue = _balls[nearest].hue;
+            if (useColor) {
+                hue = (uint16_t)(baseHue + nearest * 2400U + (uint16_t)(_balls[nearest].energy * 35.0f));
+            }
+            uint32_t c = ledMatrix.colorHSV(hue, trailSat, (uint8_t)(fade * 255));
             uint8_t r = (c >> 16) & 0xFF;
             uint8_t g = (c >> 8)  & 0xFF;
             uint8_t b =  c        & 0xFF;
@@ -158,7 +168,11 @@ void BouncingBallsEffect::update() {
         int px = (int)(_balls[i].x + 0.5f);
         int py = (int)(_balls[i].y + 0.5f);
         if (px < 0 || px >= WIDTH || py < 0 || py >= HEIGHT) continue;
-        uint32_t c = ledMatrix.colorHSV(_balls[i].hue, 240, 255);
+        uint16_t hue = _balls[i].hue;
+        if (useColor) {
+            hue = (uint16_t)(baseHue + i * 2400U + 700U);
+        }
+        uint32_t c = ledMatrix.colorHSV(hue, 255, 255);
         uint8_t r = (c >> 16) & 0xFF;
         uint8_t g = (c >> 8)  & 0xFF;
         uint8_t b =  c        & 0xFF;

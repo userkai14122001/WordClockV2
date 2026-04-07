@@ -1,7 +1,8 @@
 // TwinkleEffect.cpp
 // Zufällige Pixel flackern auf und ab – wie ein Sternenhimmel.
 // Speed:     wie schnell die Sterne pulsieren
-// Intensity: wie viele Sterne gleichzeitig sichtbar sind (1..MAX_STARS)
+// Intensity: Helligkeit und Glitzer-Stärke der Sterne
+// Density:   wie viele Sterne gleichzeitig sichtbar sind
 // Color:     Grundfarbe; mit leichter Farbton-Variation pro Stern
 
 #include "effect_helpers.h"
@@ -20,6 +21,8 @@ void TwinkleEffect::update() {
 
     // Anzahl aktiver Sterne: density 1-100 → 3..MAX_STARS
     const int starCount = 3 + (int)densityMap(0, MAX_STARS - 3);
+    const float intensityScale = intensityMapF(0.25f, 1.00f);
+    const uint8_t rainbowSat = (uint8_t)intensityMap(160, 255);
 
     // Beim ersten Aufruf oder nach reset(): Sterne initialisieren
     // Erkennungsmerkmal: speed == 0 bedeutet uninitialisiert
@@ -52,6 +55,8 @@ void TwinkleEffect::update() {
         // Sinus auf [0..1] mappen; sin8 liefert 0..255 für eine volle Welle
         // Wir nutzen (sin(phase)+1)/2 als Helligkeit
         float bright = (sinf(s.phase * 0.02454f) + 1.0f) * 0.5f;  // 0.02454 = 2π/256
+        bright *= intensityScale;
+        if (bright > 1.0f) bright = 1.0f;
 
         if (bright < 0.05f) {
             // Stern ist "aus" → neue zufällige Position vergeben
@@ -74,7 +79,7 @@ void TwinkleEffect::update() {
             b = min(255, (int)b + glitter);
         } else {
             // Rainbow-Modus: jeder Stern hat eigenen Farbton
-            uint32_t c = ledMatrix.colorHSV(s.hue, 220, (uint8_t)(bright * 255));
+            uint32_t c = ledMatrix.colorHSV(s.hue, rainbowSat, (uint8_t)(bright * 255));
             r = (c >> 16) & 0xFF;
             g = (c >> 8)  & 0xFF;
             b =  c        & 0xFF;

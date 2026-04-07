@@ -17,10 +17,12 @@ void InwardRippleEffect::update() {
     const float maxDist = sqrtf(cx*cx + cy*cy);
 
     // Weniger gleichzeitig aktive Wellen, dafuer weicher und gleichmaessiger.
-    const int   numWaves    = 1 + (int)intensityMap(0, 2);
+    const int   numWaves    = 1 + (int)densityMap(0, 2);
     const float waveSpacing = (maxDist + 1.8f) / (float)numWaves;
-    const float baseWidth   = 1.05f;
+    const float baseWidth   = intensityMapF(0.70f, 1.80f);
     const float radiusStep  = speedMapF(0.05f, 0.18f);
+    const float waveBoost   = intensityMapF(0.70f, 1.25f);
+    const float ambientBase = intensityMapF(0.02f, 0.08f);
 
     if (_radius < 0.0f) _radius = maxDist + 1.0f;
 
@@ -50,15 +52,15 @@ void InwardRippleEffect::update() {
                 float diff  = fabsf(dist - waveRadius);
                 float sigma = max(0.55f, wWidth * 0.65f);
                 float fade  = expf(-(diff * diff) / (2.0f * sigma * sigma));
-                fade *= 0.35f + proximity * 0.55f;
+                fade *= (0.30f + proximity * 0.55f) * waveBoost;
                 waveLight += fade;
             }
 
             float centerGlow = 1.0f - dist / (maxDist + 0.01f);
             centerGlow = max(0.0f, centerGlow);
-            centerGlow = centerGlow * centerGlow * 0.16f;
+            centerGlow = centerGlow * centerGlow * intensityMapF(0.08f, 0.24f);
 
-            float ambient = 0.03f + centerGlow;
+            float ambient = ambientBase + centerGlow;
             float total   = min(1.0f, ambient + waveLight * 0.85f);
 
             strip->setPixelColor(

@@ -72,6 +72,8 @@ void EnchantmentEffect::update() {
     const float cy = (HEIGHT - 1) / 2.0f;
 
     const int targetParticles = 6 + (int)densityMap(0, MAX_PARTICLES - 6);
+    const float glowStrength = intensityMapF(0.25f, 0.95f);
+    const float trailStrength = intensityMapF(0.18f, 0.55f);
 
     if (!_seeded) {
         for (int i = 0; i < MAX_PARTICLES; i++) {
@@ -116,7 +118,8 @@ void EnchantmentEffect::update() {
 
         float lifeFade = 1.0f - (p.life / p.maxLife);
         if (lifeFade < 0.0f) lifeFade = 0.0f;
-        float bright = 0.30f + lifeFade * 0.70f;
+        float bright = glowStrength * (0.25f + lifeFade * 0.75f);
+        if (bright > 1.0f) bright = 1.0f;
 
         uint8_t r, g, b;
         if (useColor) {
@@ -134,7 +137,7 @@ void EnchantmentEffect::update() {
         int py = (int)roundf(p.y);
         addPixelSaturated(px, py, r, g, b);
         addPixelSaturated(px - (int)(p.vx > 0 ? 1 : -1), py - (int)(p.vy > 0 ? 1 : -1),
-                          (uint8_t)(r * 0.35f), (uint8_t)(g * 0.35f), (uint8_t)(b * 0.35f));
+                          (uint8_t)(r * trailStrength), (uint8_t)(g * trailStrength), (uint8_t)(b * trailStrength));
     }
 
     // Center glyph glow like an enchantment table hotspot
@@ -143,7 +146,9 @@ void EnchantmentEffect::update() {
         uint8_t cg = useColor ? baseG : 200;
         uint8_t cb = useColor ? baseB : 255;
         addPixelSaturated((int)roundf(cx), (int)roundf(cy),
-                          (uint8_t)(cr * 0.45f), (uint8_t)(cg * 0.45f), (uint8_t)(cb * 0.45f));
+                          (uint8_t)(cr * glowStrength * 0.50f),
+                          (uint8_t)(cg * glowStrength * 0.50f),
+                          (uint8_t)(cb * glowStrength * 0.50f));
     }
 
     strip->show();

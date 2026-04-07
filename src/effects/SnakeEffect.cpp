@@ -456,10 +456,12 @@ void SnakeEffect::update() {
         if (nowMs - _celebLastFrame < 40) return;
         _celebLastFrame = nowMs;
 
+        const int sparkleDiv = max(2, (int)densityMap(6, 2));
+
         // Goldenes Feuerwerk: zufällige Pixel leuchten gold/gelb auf
         for (int y = 0; y < HEIGHT; y++) {
             for (int x = 0; x < WIDTH; x++) {
-                uint8_t r = random(0, 2) ? (uint8_t)random(180, 255) : 0;
+                uint8_t r = (random(0, sparkleDiv) == 0) ? (uint8_t)random(180, 255) : 0;
                 uint8_t g = r ? (uint8_t)(r * 0.75f) : 0;
                 uint32_t c = r ? makeColorWithBrightness(r, g, 0) : 0;
                 ledMatrix.setPixelXYDirect(x, y, c);
@@ -789,10 +791,13 @@ void SnakeEffect::update() {
 
     const uint16_t bgHue   = (uint16_t)(baseHue + 32768U); // Komplementaer  (180 deg)
     const uint16_t foodHue = (uint16_t)(baseHue + 21845U); // Triadisch      (120 deg)
+    const uint8_t bgSat = (uint8_t)densityMap(140, 220);
+    const uint8_t bgVal = (uint8_t)densityMap(16, 72);
+    const uint8_t foodVal = (uint8_t)intensityMap(180, 255);
 
     // Hintergrund: alle freien Pixel in gedimmter Komplementaerfarbe
     {
-        uint32_t bgRaw = ledMatrix.colorHSV(bgHue, 200, 45);
+        uint32_t bgRaw = ledMatrix.colorHSV(bgHue, bgSat, bgVal);
         uint32_t bgC   = makeColorWithBrightness(
             (bgRaw >> 16) & 0xFF, (bgRaw >> 8) & 0xFF, bgRaw & 0xFF);
         for (int y = 0; y < HEIGHT; y++) {
@@ -825,7 +830,7 @@ void SnakeEffect::update() {
 
     // Futter: triadische Farbe (120 deg versetzt von Schlange)
     {
-        uint32_t fRaw = ledMatrix.colorHSV(foodHue, 255, 255);
+        uint32_t fRaw = ledMatrix.colorHSV(foodHue, 255, foodVal);
         ledMatrix.setPixelXYDirect(_foodX, _foodY, makeColorWithBrightness(
             (fRaw >> 16) & 0xFF, (fRaw >> 8) & 0xFF, fRaw & 0xFF));
     }

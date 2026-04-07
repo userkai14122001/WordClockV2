@@ -3,6 +3,7 @@
 
 void Fire2DEffect::update() {
     uint8_t fireSpeed = clampSpeed();
+    uint8_t fireDensity = clampDensity();
     fireSpeed = (uint8_t)min(100, (int)fireSpeed + 10);
     uint16_t frameInterval = 80 - (uint32_t)(80 - 10) * (fireSpeed - 1) / 99;
     if (millis() - _last < frameInterval) return;
@@ -20,6 +21,7 @@ void Fire2DEffect::update() {
 
     const uint8_t intensity = clampIntensity();
     const float intensityNorm = (float)(intensity - 1) / 99.0f;
+    const float densityNorm = (float)(fireDensity - 1) / 99.0f;
 
     // Intensity steuert die aktive Flammenhoehe: 1 -> 2 Reihen, 100 -> volle Matrix.
     int activeRows = 2 + (int)(((uint32_t)(HEIGHT - 2) * (uint32_t)(intensity - 1)) / 99U);
@@ -86,7 +88,7 @@ void Fire2DEffect::update() {
     // 3. Re-ignite bottom bed: low intensity = kleine Glut, high = breite lodernde Basis.
     uint8_t sparkMin = (uint8_t)intensityMap(95, 210);
     uint8_t sparkMax = (uint8_t)intensityMap(150, 255);
-    int sources = 1 + (int)(((uint32_t)(WIDTH + 2) * (uint32_t)(intensity - 1)) / 99U);
+    int sources = 1 + (int)(((uint32_t)(WIDTH + 2) * (uint32_t)(fireDensity - 1)) / 99U);
     int tongueWidthMax = 1 + (int)(((uint32_t)2 * (uint32_t)(intensity - 1)) / 99U); // 1..3
 
     for (int i = 0; i < sources; i++) {
@@ -136,7 +138,8 @@ void Fire2DEffect::update() {
     // 4. Tiny sparks: very rare, small and short-lived.
     uint8_t emberHeatMin = (uint8_t)intensityMap(55, 95);
     uint8_t emberHeatMax = (uint8_t)intensityMap(80, 130);
-    int spawnDivider = (int)intensityMap(520, 180);
+    int spawnDivider = (int)densityMap(560, 150);
+    int maxActiveEmbers = 1 + (int)(densityNorm * 3.0f);
 
     int activeEmbers = 0;
     for (int i = 0; i < EMBER_COUNT; i++) {
@@ -153,7 +156,7 @@ void Fire2DEffect::update() {
             if (e.y < (float)flameTopY - 1.0f || e.heat == 0 || e.x < -0.5f || e.x >= (float)WIDTH + 0.5f) {
                 e.active = false;
             }
-        } else if (activeEmbers < 2 && random(0, max(2, spawnDivider)) == 0) {
+        } else if (activeEmbers < maxActiveEmbers && random(0, max(2, spawnDivider)) == 0) {
             e.x = (float)random(0, WIDTH);
             e.y = (float)(HEIGHT - 1 - random(0, min(2, activeRows - 1)));
             e.speed = 0.09f + intensityNorm * 0.30f + (float)random(0, 6) * 0.02f;

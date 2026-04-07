@@ -1,9 +1,9 @@
 // AuroraEffect.cpp
 // Sanft schwingende horizontale Lichtvorhänge wie Polarlichter.
 // Speed:     Driftgeschwindigkeit der Vorhänge
-// Intensity: Sättigung / Farbtiefe (wenig = pastell, viel = kräftig)
-// Color:     ignoriert – Aurora verwendet immer ihr eigenes Farbspektrum
-//            (Blau, Grün, Violett, Türkis)
+// Intensity: Helligkeit und Kontrast der Vorhänge
+// Density:   Detailgrad / Anzahl sichtbarer Wellenstrukturen
+// Color:     optionaler Farbanker; 0 = klassisches Aurora-Spektrum
 
 #include "effect_helpers.h"
 
@@ -19,33 +19,44 @@ void AuroraEffect::update() {
     if (millis() - _lastFrame < frameDelay) return;
     _lastFrame = millis();
 
+    const float detailScale = densityMapF(0.80f, 1.45f);
+    const float brightScale = intensityMapF(0.70f, 1.30f);
+
     // Offset driftet kontinuierlich
     const float driftStep = speedMapF(0.008f, 0.06f);
     _offset += driftStep;
 
-    // Sättigung aus Intensity (80..240)
-    const uint8_t sat = (uint8_t)intensityMap(80, 240);
+    const bool userColor = hasUserColor();
+    const uint16_t baseHue = userColor ? colorToHue16(color, 21845U) : 21845U;
+    const float hueBase = (float)baseHue / 65535.0f;
+    const float hueSwingX = densityMapF(0.08f, 0.22f);
+    const float hueSwingY = densityMapF(0.04f, 0.12f);
+    const uint8_t sat = userColor ? (uint8_t)intensityMap(190, 255) : 255;
 
     for (int y = 0; y < HEIGHT; y++) {
         // Jede Zeile: wellenförmige Helligkeit entlang X
         for (int x = 0; x < WIDTH; x++) {
             // Mehrere überlagerte Sinuswellen erzeugen organisches Rauschen
-            float v  = sinf(x * 0.55f + _offset * 1.1f + y * 0.3f);
-            v       += sinf(x * 0.30f - _offset * 0.7f + y * 0.5f) * 0.6f;
-            v       += sinf((x + y) * 0.25f + _offset * 0.9f) * 0.4f;
+            float v  = sinf(x * (0.42f + detailScale * 0.18f) + _offset * 1.1f + y * 0.3f);
+            v       += sinf(x * (0.22f + detailScale * 0.14f) - _offset * 0.7f + y * 0.5f) * 0.6f;
+            v       += sinf((x + y) * (0.18f + detailScale * 0.10f) + _offset * 0.9f) * 0.4f;
             // v in [-2..2] → normieren auf [0..1]
             float t  = (v + 2.0f) / 4.0f;
 
             // Helligkeit: untere Hälfte dunkler (Vorhang-Fußpunkt)
             float yFade = 1.0f - (float)y / ((float)HEIGHT * 1.4f);
-            float bright = t * yFade;
+            float bright = t * yFade * brightScale;
             if (bright < 0.0f) bright = 0.0f;
+            if (bright > 1.0f) bright = 1.0f;
 
-            // Farbton: Aurora-Palette – Grün(21845) über Türkis(32768) nach Blau/Violett(43690)
-            // Variiert sanft mit x und Zeit
-            float hueFrac = 0.33f + sinf(x * 0.2f + _offset * 0.5f) * 0.18f
-                                  + sinf(y * 0.15f + _offset * 0.3f) * 0.10f;
-            uint16_t hue = (uint16_t)(hueFrac * 65535.0f);  // Grün-Türkis-Blau-Violett
+            float hueFrac = hueBase + sinf(x * 0.2f + _offset * 0.5f) * hueSwingX
+                                    + sinf(y * 0.15f + _offset * 0.3f) * hueSwingY;
+            if (!userColor) {
+                hueFrac += 0.04f;
+            }
+            while (hueFrac < 0.0f) hueFrac += 1.0f;
+            while (hueFrac > 1.0f) hueFrac -= 1.0f;
+            uint16_t hue = (uint16_t)(hueFrac * 65535.0f);
 
             uint8_t val = (uint8_t)(bright * 255.0f);
             if (val < 4) { strip->setPixelColor(XY(x, y), 0); continue; }

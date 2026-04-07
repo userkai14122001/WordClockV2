@@ -11,6 +11,7 @@ void WaterDropEffect::update() {
     const uint16_t frameDelay = speedToDelay(10, 150);
     const float ringWidth     = 1.0f + intensityMap(0, 40) * 0.1f;
     const float radiusStep    = speedMapF(0.05f, 0.35f);
+    const float edgeSoftness  = densityMapF(0.85f, 1.65f);
 
     if (millis() - _lastFrame < frameDelay) return;
     _lastFrame = millis();
@@ -37,8 +38,9 @@ void WaterDropEffect::update() {
             float dx   = x - cx, dy = y - cy;
             float dist = sqrt(dx*dx + dy*dy);
             float diff = fabs(dist - _radius);
-            if (diff < currentRingWidth) {
-                float fade = 1.0f - diff / currentRingWidth;
+            float effectiveWidth = currentRingWidth * edgeSoftness;
+            if (diff < effectiveWidth) {
+                float fade = 1.0f - diff / effectiveWidth;
                 strip->setPixelColor(XY(x, y),
                     makeColorWithBrightness(colR_val * fade, colG_val * fade, colB_val * fade));
             }

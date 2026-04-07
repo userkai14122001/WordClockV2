@@ -40,13 +40,18 @@ void WifiRingEffect::update() {
         sWifiRingDebugLogged = true;
     }
 
-    if (millis() - _lastFrame < 60) return;
+    const uint16_t frameDelay = speedToDelay(25, 120);
+    if (millis() - _lastFrame < frameDelay) return;
     _lastFrame = millis();
 
     uint32_t col = _fixedColor ? _fixedColor : color;
     clearMatrix();
 
     uint8_t R = colR(col), G = colG(col), B = colB(col);
+    if (col == 0) {
+        R = 90; G = 170; B = 255;
+    }
+    const float headScale = intensityMapF(0.45f, 1.00f);
 
     // _ringStep > 0 means draw multiple rings (e.g. every second ring in setup mode).
     int startRing = _ring;
@@ -56,11 +61,12 @@ void WifiRingEffect::update() {
     for (int r = startRing; r < endRing; r += step) {
         int total = ringLength(r);
         if (total <= 0) break;
-        int trail = max(1, total / 4);
+        int trail = max(1, (int)densityMap(max(1, total / 10), max(2, total / 2)));
 
         for (int i = 0; i < trail; i++) {
             float fade = 1.0f - (float)i / trail;
-            uint32_t c = makeColorWithBrightness(R * fade, G * fade, B * fade);
+            float bright = fade * headScale;
+            uint32_t c = makeColorWithBrightness(R * bright, G * bright, B * bright);
             int pos = (_headPos[r] - i + total) % total;
             setRingPixel(r, pos, c);
         }
