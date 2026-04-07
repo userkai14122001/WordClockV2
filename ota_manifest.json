@@ -1,5 +1,5 @@
 {
-  "version": "0.1.5",
+  "version": "0.1.6",
   "firmware_url": "https://raw.githubusercontent.com/userkai14122001/WordClockV2/main/firmware/firmware.bin",
-  "notes": "OTA fallback via HTTPClient Update"
+  "notes": "OTA validation release 0.1.6"
 }
