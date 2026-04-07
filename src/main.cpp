@@ -200,6 +200,7 @@ static uint16_t gBootWifiTargetFrames = 0;
 static uint16_t gBootMqttFrames = 0;
 static uint8_t gBootMinuteDotIndex = 0;
 static bool gBootMqttConfigured = false;
+static bool gBootSuppressVisuals = false;
 static WifiRingEffect gBootMqttRingFx(1, 0xFF9900);
 
 static uint16_t bootWifiAnimOnePassFrames() {
@@ -543,33 +544,27 @@ void setup() {
         stateManager.saveToPreferences();
     }
 
-    // Boot-safety: avoid a completely dark panel due to persisted values.
-    if (brightness < 10) {
-        DebugManager::print(DebugCategory::Boot, "Persisted brightness too low, fallback to 120 (was ");
+    bool bootStateCorrected = false;
+    if (brightness < ControlConfig::BRIGHTNESS_MIN || brightness > ControlConfig::BRIGHTNESS_MAX) {
+        DebugManager::print(DebugCategory::Boot, "Persisted brightness invalid, fallback to default (was ");
         DebugManager::print(DebugCategory::Boot, brightness);
         DebugManager::println(DebugCategory::Boot, ")");
         brightness = ControlConfig::DEFAULT_BRIGHTNESS;
         stateManager.setBrightness(brightness);
-    }
-    if (color == 0x000000) {
-        DebugManager::println(DebugCategory::Boot, "Persisted color was black, fallback to orange");
-        color = ControlConfig::DEFAULT_COLOR;
-        stateManager.setColor(color);
-    }
-    if (!powerState) {
-        DebugManager::println(DebugCategory::Boot, "Persisted power was OFF, forcing ON for safe boot");
-        powerState = true;
-        stateManager.setPowerState(true);
+        bootStateCorrected = true;
     }
 
-    // Always boot into clock mode, regardless of previously persisted effect.
-    if (currentEffect != "clock") {
-        DebugManager::print(DebugCategory::Boot, "Boot default effect override: '");
-        DebugManager::print(DebugCategory::Boot, currentEffect);
-        DebugManager::println(DebugCategory::Boot, "' -> 'clock'");
+    if (currentEffect != "clock" && effectManager.getEffect(currentEffect) == nullptr) {
+        DebugManager::print(DebugCategory::Boot, "Persisted effect invalid, fallback to clock: ");
+        DebugManager::println(DebugCategory::Boot, currentEffect);
+        currentEffect = "clock";
+        stateManager.setCurrentEffect(currentEffect);
+        bootStateCorrected = true;
     }
-    currentEffect = "clock";
-    stateManager.setCurrentEffect("clock");
+
+    if (bootStateCorrected) {
+        stateManager.saveToPreferences();
+    }
 
     ledMatrix.setBrightness(brightness);
 
@@ -578,7 +573,8 @@ void setup() {
     strip->show();
 
     gBootActive = true;
-    gBootPhase = BootPhase::StartupSweep;
+    gBootSuppressVisuals = !powerState;
+    gBootPhase = gBootSuppressVisuals ? BootPhase::WifiConnect : BootPhase::StartupSweep;
     gBootPhaseStartMs = millis();
     gBootLastStepMs = 0;
     gBootStartupColumn = 0;
@@ -700,7 +696,9 @@ static void updateBootSequence() {
         gBootActive = false;
         clearMatrix();
         strip->show();
-        handleCurrentEffect();
+        if (powerState) {
+            handleCurrentEffect();
+        }
         logBootSection(F("Boot Completed"));
         return;
     }
@@ -813,13 +811,17 @@ static void updateBootSequence() {
                 gBootMqttRingFx.reset();
                 gBootMqttFrames = 0;
                 gBootLastStepMs = 0;
-                gBootPhase = BootPhase::MqttAnim;
-                logBootSection(F("MQTT Load Animation"));
+                gBootPhase = gBootSuppressVisuals ? BootPhase::MqttConnect : BootPhase::MqttAnim;
+                if (!gBootSuppressVisuals) {
+                    logBootSection(F("MQTT Load Animation"));
+                }
             } else {
                 gBootMinuteDotIndex = 0;
                 gBootLastStepMs = 0;
-                gBootPhase = BootPhase::MqttFallbackDots;
-                logBootSection(F("MQTT Missing -> Minute LED Loader"));
+                gBootPhase = gBootSuppressVisuals ? BootPhase::Done : BootPhase::MqttFallbackDots;
+                if (!gBootSuppressVisuals) {
+                    logBootSection(F("MQTT Missing -> Minute LED Loader"));
+                }
             }
             return;
         }

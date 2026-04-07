@@ -46,7 +46,8 @@ MQTTManager::MQTTManager(WiFiClient& wifi_client, const String& device_id)
             rtc_battery_warning_topic("wordclock/rtc/battery_warning"),
             ota_check_command_topic("wordclock/ota_check/set"),
             last_reconnect_attempt(0),
-            last_telemetry_publish(0) {
+            last_telemetry_publish(0),
+            last_connect_ms(0) {
     mqtt.setBufferSize(2048);  // Discovery-Payload kann ~1100 Bytes gross sein, Default wäre nur 256
     mqtt.setCallback([this](char* topic, byte* payload, unsigned int length) {
         String msg;
@@ -92,6 +93,16 @@ void MQTTManager::connect() {
     if (mqtt.connect(device_id.c_str(), user.c_str(), password.c_str(),
                      availability_topic.c_str(), 0, true, "offline")) {
         DebugManager::println(DebugCategory::MQTT, "MQTTManager: Verbunden!");
+        last_connect_ms = millis();
+
+        // Publish device truth before accepting commands so HA resyncs to the clock's persisted state.
+        publishDiscovery();
+        publishState(StateManager::getInstance().getPowerState(),
+                     StateManager::getInstance().getCurrentEffect(),
+                     StateManager::getInstance().getColor(),
+                     StateManager::getInstance().getBrightness());
+        publishTelemetry();
+
         mqtt.subscribe(command_topic.c_str());
         mqtt.subscribe(reboot_command_topic.c_str());
         mqtt.subscribe(speed_command_topic.c_str());
@@ -100,8 +111,6 @@ void MQTTManager::connect() {
         mqtt.subscribe(transition_command_topic.c_str());
         mqtt.subscribe(tuning_reset_command_topic.c_str());
         mqtt.subscribe(ota_check_command_topic.c_str());
-        publishDiscovery();
-        publishTelemetry();
     } else {
         DebugManager::print(DebugCategory::MQTT, "MQTTManager: Verbindung fehlgeschlagen, Fehler: ");
         DebugManager::println(DebugCategory::MQTT, mqtt.state());
@@ -610,6 +619,13 @@ void MQTTManager::internalCallback(const String& topic, const String& payload) {
     DebugManager::print(DebugCategory::MQTT, ": ");
     DebugManager::println(DebugCategory::MQTT, payload);
 
+    if (isCommandTopic(topic) && last_connect_ms != 0 && (millis() - last_connect_ms) < COMMAND_IGNORE_AFTER_CONNECT_MS) {
+        DebugManager::print(DebugCategory::MQTT, "MQTTManager: Ignoring command during post-connect grace window on topic ");
+        DebugManager::println(DebugCategory::MQTT, topic);
+        logCallbackDuration("ignored_after_connect");
+        return;
+    }
+
     if (topic == reboot_command_topic && payload == "REBOOT") {
         DebugManager::println(DebugCategory::MQTT, "MQTTManager: Reboot command received");
         mqtt.publish(mqtt_state_topic.c_str(), "rebooting", true);
@@ -700,4 +716,15 @@ void MQTTManager::logSlowPublish(const char* label, const String& topic, uint32_
                          topic.c_str(),
                          (unsigned long)durationUs,
                          ok ? "ok" : "failed");
+}
+
+bool MQTTManager::isCommandTopic(const String& topic) const {
+    return topic == command_topic ||
+           topic == reboot_command_topic ||
+           topic == speed_command_topic ||
+           topic == intensity_command_topic ||
+           topic == density_command_topic ||
+           topic == transition_command_topic ||
+           topic == tuning_reset_command_topic ||
+           topic == ota_check_command_topic;
 }

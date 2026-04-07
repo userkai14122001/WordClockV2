@@ -1,5 +1,5 @@
 {
-  "version": "0.2.3",
+  "version": "0.2.4",
   "firmware_url": "https://raw.githubusercontent.com/userkai14122001/WordClockV2/main/firmware/firmware.bin",
-  "notes": "LoveYou: breathing color effect; WaterDrop: fallback to white; WifiRing: density selects ring; Snake: intensity scales body brightness"
+  "notes": "preserve saved power/effect/color after OTA reboot; ignore stale MQTT commands briefly after reconnect"
 }

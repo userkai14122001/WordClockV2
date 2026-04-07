@@ -88,8 +88,10 @@ private:
 
     unsigned long last_reconnect_attempt;
     unsigned long last_telemetry_publish;
+    unsigned long last_connect_ms;
     static const unsigned long RECONNECT_INTERVAL = 5000;
     static const unsigned long TELEMETRY_INTERVAL = 30000;
+    static const unsigned long COMMAND_IGNORE_AFTER_CONNECT_MS = 2000;
     
     MQTTCallback on_message;
     
@@ -98,6 +100,7 @@ private:
     void publishDiagnosticsDiscovery();
     void publishTuningDiscovery();
     void publishTelemetry();
+    bool isCommandTopic(const String& topic) const;
 };
 
 #endif
