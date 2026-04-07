@@ -1,5 +1,5 @@
 {
-  "version": "0.1.7",
+  "version": "0.1.8",
   "firmware_url": "https://raw.githubusercontent.com/userkai14122001/WordClockV2/main/firmware/firmware.bin",
-  "notes": "finalized OTA fallback release 0.1.7"
+  "notes": "default debug off, remove unused HA palette/service"
 }

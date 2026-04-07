@@ -40,11 +40,8 @@ MQTTManager::MQTTManager(WiFiClient& wifi_client, const String& device_id)
             transition_command_topic("wordclock/transition/set"),
             transition_state_topic("wordclock/transition/state"),
             tuning_reset_command_topic("wordclock/tuning_reset/set"),
-            service_command_topic("wordclock/service/set"),
             rtc_temp_topic("wordclock/rtc/temperature"),
             rtc_battery_warning_topic("wordclock/rtc/battery_warning"),
-            palette_command_topic("wordclock/palette/set"),
-            palette_state_topic("wordclock/palette/state"),
             hue_shift_command_topic("wordclock/hueshift/set"),
             hue_shift_state_topic("wordclock/hueshift/state"),
             ota_check_command_topic("wordclock/ota_check/set"),
@@ -101,8 +98,6 @@ void MQTTManager::connect() {
         mqtt.subscribe(intensity_command_topic.c_str());
         mqtt.subscribe(transition_command_topic.c_str());
         mqtt.subscribe(tuning_reset_command_topic.c_str());
-        mqtt.subscribe(service_command_topic.c_str());
-        mqtt.subscribe(palette_command_topic.c_str());
         mqtt.subscribe(hue_shift_command_topic.c_str());
         mqtt.subscribe(ota_check_command_topic.c_str());
         publishDiscovery();
@@ -493,43 +488,9 @@ void MQTTManager::publishTuningDiscovery() {
     serializeJson(resetDoc, resetCfg);
     mqtt.publish("homeassistant/button/wordclock_tuning_reset/config", resetCfg.c_str(), true);
 
-    // Service command endpoint for automations/scripts.
-    DynamicJsonDocument serviceDoc(512);
-    serviceDoc["name"] = "WordClock Service";
-    serviceDoc["object_id"] = "wordclock_service";
-    serviceDoc["unique_id"] = device_id + "_service";
-    serviceDoc["command_topic"] = service_command_topic;
-    serviceDoc["availability_topic"] = availability_topic;
-    serviceDoc["mode"] = "text";
-    serviceDoc["entity_category"] = "config";
-    serviceDoc["icon"] = "mdi:console-network";
-    serviceDoc["command_template"] = "{{ value }}";
-    attachDevice(serviceDoc);
-    String serviceCfg;
-    serializeJson(serviceDoc, serviceCfg);
-    mqtt.publish("homeassistant/text/wordclock_service/config", serviceCfg.c_str(), true);
-
-    // --- Farbpalette ---
-    DynamicJsonDocument palDoc(768);
-    palDoc["name"] = "WordClock Farbe - Palette";
-    palDoc["object_id"] = "wordclock_farbpalette";
-    palDoc["unique_id"] = device_id + "_palette";
-    palDoc["command_topic"] = palette_command_topic;
-    palDoc["state_topic"] = palette_state_topic;
-    palDoc["availability_topic"] = availability_topic;
-    palDoc["icon"] = "mdi:palette";
-    palDoc["entity_category"] = "config";
-    palDoc["retain"] = true;
-    JsonArray palOpts = palDoc.createNestedArray("options");
-    palOpts.add("Auto");
-    palOpts.add("Warm");
-    palOpts.add("Cool");
-    palOpts.add("Natur");
-    palOpts.add("Candy");
-    attachDevice(palDoc);
-    String palCfg;
-    serializeJson(palDoc, palCfg);
-    mqtt.publish("homeassistant/select/wordclock_palette/config", palCfg.c_str(), true);
+    // Entfernte HA-Entities aktiv aus Discovery loeschen (retained empty payload).
+    mqtt.publish("homeassistant/text/wordclock_service/config", "", true);
+    mqtt.publish("homeassistant/select/wordclock_palette/config", "", true);
 
     // --- Hue Shift ---
     DynamicJsonDocument hueDoc(512);
@@ -575,10 +536,6 @@ void MQTTManager::publishTelemetry() {
     mqtt.publish(intensity_state_topic.c_str(), String(effectIntensity).c_str(), true);
     mqtt.publish(transition_state_topic.c_str(), String(transitionMs).c_str(), true);
 
-    // Palette: publish name matching the select options
-    static const char* paletteNames[] = {"Auto", "Warm", "Cool", "Natur", "Candy"};
-    uint8_t pidx = effectPalette < 5 ? effectPalette : 0;
-    mqtt.publish(palette_state_topic.c_str(), paletteNames[pidx], true);
     mqtt.publish(hue_shift_state_topic.c_str(), String(effectHueShift).c_str(), true);
 
     // RTC health telemetry
@@ -642,11 +599,9 @@ void MQTTManager::internalCallback(const String& topic, const String& payload) {
         stateManager.setPalette(effectPalette);
         stateManager.setHueShift(effectHueShift);
         stateManager.scheduleSave();
-        static const char* paletteNames[] = {"Auto", "Warm", "Cool", "Natur", "Candy"};
         mqtt.publish(speed_state_topic.c_str(),      String(effectSpeed).c_str(),     true);
         mqtt.publish(intensity_state_topic.c_str(),  String(effectIntensity).c_str(), true);
         mqtt.publish(transition_state_topic.c_str(), String(transitionMs).c_str(),   true);
-        mqtt.publish(palette_state_topic.c_str(),    paletteNames[effectPalette],     true);
         mqtt.publish(hue_shift_state_topic.c_str(),  String(effectHueShift).c_str(),  true);
         DebugManager::println(DebugCategory::MQTT, "MQTTManager: Tuning reset to defaults");
     };
@@ -707,37 +662,6 @@ void MQTTManager::internalCallback(const String& topic, const String& payload) {
     if (topic == tuning_reset_command_topic && payload == "RESET") {
         resetTuningToDefaults();
         logCallbackDuration("tuning_reset");
-        return;
-    }
-
-    if (topic == service_command_topic) {
-        String service = payload;
-        service.trim();
-        service.toLowerCase();
-        if (service == "default" || service == "defaults" || service == "tuning_default" || service == "reset_tuning") {
-            resetTuningToDefaults();
-        } else {
-            DebugManager::print(DebugCategory::MQTT, "MQTTManager: Unknown service command: ");
-            DebugManager::println(DebugCategory::MQTT, payload);
-        }
-        logCallbackDuration("service");
-        return;
-    }
-
-    if (topic == palette_command_topic) {
-        static const char* paletteNames[] = {"Auto", "Warm", "Cool", "Natur", "Candy"};
-        String p = payload;
-        p.trim();
-        uint8_t idx = 0;
-        for (uint8_t i = 0; i < 5; i++) {
-            if (p.equalsIgnoreCase(paletteNames[i])) { idx = i; break; }
-        }
-        effectPalette = idx;
-        stateManager.setPalette(effectPalette);
-        stateManager.scheduleSave();
-        mqtt.publish(palette_state_topic.c_str(), paletteNames[effectPalette], true);
-        DebugManager::printf(DebugCategory::MQTT, "MQTTManager: Palette set to %s (%d)\n", paletteNames[effectPalette], effectPalette);
-        logCallbackDuration("palette");
         return;
     }
 

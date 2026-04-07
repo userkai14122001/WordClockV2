@@ -15,25 +15,25 @@ namespace {
     };
 
     DebugCategoryMeta gDebugCategories[] = {
-        {DebugCategory::Boot, "boot", "Boot sequence and startup flow", "startup", nullptr, nullptr, true},
-        {DebugCategory::Main, "main", "Main control flow and control updates", "core", nullptr, nullptr, true},
-        {DebugCategory::Loop, "loop", "Main loop timing warnings", "timing", nullptr, nullptr, true},
-        {DebugCategory::MQTT, "mqtt", "MQTT connect, callback and publish logs", "broker", nullptr, nullptr, true},
-        {DebugCategory::WiFi, "wifi", "WiFi, web server and setup mode logs", "web", "network", nullptr, true},
-        {DebugCategory::RTC, "rtc", "RTC and I2C diagnostics", "clockchip", nullptr, nullptr, true},
-        {DebugCategory::Time, "time", "NTP and timezone sync logs", "ntp", nullptr, nullptr, true},
-        {DebugCategory::State, "state", "State persistence and state changes", "prefs", "preferences", nullptr, true},
-        {DebugCategory::EffectManager, "effectmanager", "Effect manager switching and registration", "fxmgr", "effects-manager", nullptr, true},
-        {DebugCategory::Effects, "effects", "Individual effect diagnostics", "effect", "fx", nullptr, true},
-        {DebugCategory::LEDMatrix, "ledmatrix", "LED matrix initialization and direct LED diagnostics", "led", "matrix", nullptr, true},
-        {DebugCategory::Memory, "memory", "Heap and fallback diagnostics", "ram", nullptr, nullptr, true},
-        {DebugCategory::OTA, "ota", "OTA update diagnostics", "update", nullptr, nullptr, true},
-        {DebugCategory::Serial, "serial", "Serial command parser diagnostics", "cli", "console", nullptr, true},
-        {DebugCategory::Test, "test", "Smoke, selftest and manual debug routines", "tests", nullptr, nullptr, true},
+        {DebugCategory::Boot, "boot", "Boot sequence and startup flow", "startup", nullptr, nullptr, false},
+        {DebugCategory::Main, "main", "Main control flow and control updates", "core", nullptr, nullptr, false},
+        {DebugCategory::Loop, "loop", "Main loop timing warnings", "timing", nullptr, nullptr, false},
+        {DebugCategory::MQTT, "mqtt", "MQTT connect, callback and publish logs", "broker", nullptr, nullptr, false},
+        {DebugCategory::WiFi, "wifi", "WiFi, web server and setup mode logs", "web", "network", nullptr, false},
+        {DebugCategory::RTC, "rtc", "RTC and I2C diagnostics", "clockchip", nullptr, nullptr, false},
+        {DebugCategory::Time, "time", "NTP and timezone sync logs", "ntp", nullptr, nullptr, false},
+        {DebugCategory::State, "state", "State persistence and state changes", "prefs", "preferences", nullptr, false},
+        {DebugCategory::EffectManager, "effectmanager", "Effect manager switching and registration", "fxmgr", "effects-manager", nullptr, false},
+        {DebugCategory::Effects, "effects", "Individual effect diagnostics", "effect", "fx", nullptr, false},
+        {DebugCategory::LEDMatrix, "ledmatrix", "LED matrix initialization and direct LED diagnostics", "led", "matrix", nullptr, false},
+        {DebugCategory::Memory, "memory", "Heap and fallback diagnostics", "ram", nullptr, nullptr, false},
+        {DebugCategory::OTA, "ota", "OTA update diagnostics", "update", nullptr, nullptr, false},
+        {DebugCategory::Serial, "serial", "Serial command parser diagnostics", "cli", "console", nullptr, false},
+        {DebugCategory::Test, "test", "Smoke, selftest and manual debug routines", "tests", nullptr, nullptr, false},
     };
 
     bool gDebugEnabled[static_cast<size_t>(DebugCategory::Count)] = {
-        true, true, true, true, true, true, true, true, true, true, true, true, true, true, true
+        false, false, false, false, false, false, false, false, false, false, false, false, false, false, false
     };
 
     bool equalsIgnoreCase(const String& input, const char* candidate) {

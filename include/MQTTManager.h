@@ -76,15 +76,12 @@ private:
     String transition_command_topic;
     String transition_state_topic;
     String tuning_reset_command_topic;
-    String service_command_topic;
 
     // RTC telemetry topics
     String rtc_temp_topic;
     String rtc_battery_warning_topic;
 
     // Palette & hue shift topics
-    String palette_command_topic;
-    String palette_state_topic;
     String hue_shift_command_topic;
     String hue_shift_state_topic;
 
