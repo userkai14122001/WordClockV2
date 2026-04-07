@@ -147,7 +147,7 @@ static constexpr uint32_t MQTT_PUBLISH_WARN_US = 30000;
 static constexpr unsigned long MAIN_LOOP_WARN_MS = 50;
 static constexpr uint32_t EFFECT_UPDATE_WARN_US = 12000;
 static constexpr unsigned long LOOP_HEARTBEAT_MS = 2000;
-static constexpr unsigned long OTA_AUTO_CHECK_INTERVAL_MS = 6UL * 60UL * 60UL * 1000UL;
+static constexpr unsigned long OTA_AUTO_CHECK_INTERVAL_MS = 5UL * 60UL * 1000UL;
 static constexpr unsigned long OTA_FIRST_CHECK_DELAY_MS = 2UL * 60UL * 1000UL;
 
 // ---------------------------------------------------------
