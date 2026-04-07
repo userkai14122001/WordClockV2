@@ -12,7 +12,6 @@ extern uint8_t  effectSpeed;
 extern uint8_t  effectIntensity;
 extern uint16_t transitionMs;
 extern uint8_t  effectPalette;
-extern uint16_t effectHueShift;
 
 static inline void waitMs(uint32_t ms) {
     unsigned long start = millis();
@@ -42,12 +41,10 @@ MQTTManager::MQTTManager(WiFiClient& wifi_client, const String& device_id)
             tuning_reset_command_topic("wordclock/tuning_reset/set"),
             rtc_temp_topic("wordclock/rtc/temperature"),
             rtc_battery_warning_topic("wordclock/rtc/battery_warning"),
-            hue_shift_command_topic("wordclock/hueshift/set"),
-            hue_shift_state_topic("wordclock/hueshift/state"),
             ota_check_command_topic("wordclock/ota_check/set"),
             last_reconnect_attempt(0),
             last_telemetry_publish(0) {
-    mqtt.setBufferSize(2048);  // Discovery-Payload ~1100 Bytes (Palette+HueShift), Default wäre nur 256
+    mqtt.setBufferSize(2048);  // Discovery-Payload kann ~1100 Bytes gross sein, Default wäre nur 256
     mqtt.setCallback([this](char* topic, byte* payload, unsigned int length) {
         String msg;
         for (unsigned int i = 0; i < length; i++) {
@@ -98,7 +95,6 @@ void MQTTManager::connect() {
         mqtt.subscribe(intensity_command_topic.c_str());
         mqtt.subscribe(transition_command_topic.c_str());
         mqtt.subscribe(tuning_reset_command_topic.c_str());
-        mqtt.subscribe(hue_shift_command_topic.c_str());
         mqtt.subscribe(ota_check_command_topic.c_str());
         publishDiscovery();
         publishTelemetry();
@@ -491,26 +487,7 @@ void MQTTManager::publishTuningDiscovery() {
     // Entfernte HA-Entities aktiv aus Discovery loeschen (retained empty payload).
     mqtt.publish("homeassistant/text/wordclock_service/config", "", true);
     mqtt.publish("homeassistant/select/wordclock_palette/config", "", true);
-
-    // --- Hue Shift ---
-    DynamicJsonDocument hueDoc(512);
-    hueDoc["name"] = "WordClock Farbe - Farbverschiebung";
-    hueDoc["object_id"] = "wordclock_farbverschiebung";
-    hueDoc["unique_id"] = device_id + "_hueshift";
-    hueDoc["command_topic"] = hue_shift_command_topic;
-    hueDoc["state_topic"] = hue_shift_state_topic;
-    hueDoc["availability_topic"] = availability_topic;
-    hueDoc["min"] = ControlConfig::HUE_SHIFT_MIN;
-    hueDoc["max"] = ControlConfig::HUE_SHIFT_MAX;
-    hueDoc["step"] = 1;
-    hueDoc["unit_of_measurement"] = "°";
-    hueDoc["icon"] = "mdi:rotate-right";
-    hueDoc["entity_category"] = "config";
-    hueDoc["retain"] = true;
-    attachDevice(hueDoc);
-    String hueCfg;
-    serializeJson(hueDoc, hueCfg);
-    mqtt.publish("homeassistant/number/wordclock_hueshift/config", hueCfg.c_str(), true);
+    mqtt.publish("homeassistant/number/wordclock_hueshift/config", "", true);
 
     DebugManager::println(DebugCategory::MQTT, "MQTTManager: Tuning discovery published");
 }
@@ -535,8 +512,6 @@ void MQTTManager::publishTelemetry() {
     mqtt.publish(speed_state_topic.c_str(), String(effectSpeed).c_str(), true);
     mqtt.publish(intensity_state_topic.c_str(), String(effectIntensity).c_str(), true);
     mqtt.publish(transition_state_topic.c_str(), String(transitionMs).c_str(), true);
-
-    mqtt.publish(hue_shift_state_topic.c_str(), String(effectHueShift).c_str(), true);
 
     // RTC health telemetry
     extern RTCManager rtcManager;
@@ -592,17 +567,14 @@ void MQTTManager::internalCallback(const String& topic, const String& payload) {
         effectIntensity = ControlConfig::DEFAULT_INTENSITY;
         transitionMs    = ControlConfig::DEFAULT_TRANSITION_MS;
         effectPalette   = ControlConfig::DEFAULT_PALETTE;
-        effectHueShift  = ControlConfig::DEFAULT_HUE_SHIFT;
         stateManager.setSpeed(effectSpeed);
         stateManager.setIntensity(effectIntensity);
         stateManager.setTransitionMs(transitionMs);
         stateManager.setPalette(effectPalette);
-        stateManager.setHueShift(effectHueShift);
         stateManager.scheduleSave();
         mqtt.publish(speed_state_topic.c_str(),      String(effectSpeed).c_str(),     true);
         mqtt.publish(intensity_state_topic.c_str(),  String(effectIntensity).c_str(), true);
         mqtt.publish(transition_state_topic.c_str(), String(transitionMs).c_str(),   true);
-        mqtt.publish(hue_shift_state_topic.c_str(),  String(effectHueShift).c_str(),  true);
         DebugManager::println(DebugCategory::MQTT, "MQTTManager: Tuning reset to defaults");
     };
 
@@ -672,19 +644,6 @@ void MQTTManager::internalCallback(const String& topic, const String& payload) {
         return;
     }
 
-    if (topic == hue_shift_command_topic) {
-        int val = payload.toInt();
-        if (val >= ControlConfig::HUE_SHIFT_MIN && val <= ControlConfig::HUE_SHIFT_MAX) {
-            effectHueShift = (uint16_t)val;
-            stateManager.setHueShift(effectHueShift);
-            stateManager.scheduleSave();
-            mqtt.publish(hue_shift_state_topic.c_str(), String(effectHueShift).c_str(), true);
-            DebugManager::printf(DebugCategory::MQTT, "MQTTManager: HueShift set to %d\n", effectHueShift);
-        }
-        logCallbackDuration("hueshift");
-        return;
-    }
-    
     if (on_message) {
         on_message(topic, payload);
     }

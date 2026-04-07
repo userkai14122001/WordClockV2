@@ -81,10 +81,6 @@ private:
     String rtc_temp_topic;
     String rtc_battery_warning_topic;
 
-    // Palette & hue shift topics
-    String hue_shift_command_topic;
-    String hue_shift_state_topic;
-
     // OTA update topics
     String ota_check_command_topic;
 
