@@ -21,6 +21,10 @@ static constexpr uint8_t SPEED_MAX = 100;
 static constexpr uint8_t INTENSITY_MIN = 1;
 static constexpr uint8_t INTENSITY_MAX = 100;
 
+static constexpr uint8_t DEFAULT_DENSITY = 50;
+static constexpr uint8_t DENSITY_MIN = 1;
+static constexpr uint8_t DENSITY_MAX = 100;
+
 static constexpr uint16_t TRANSITION_MIN_MS = 200;
 static constexpr uint16_t TRANSITION_MAX_MS = 10000;
 

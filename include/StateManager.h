@@ -46,6 +46,8 @@ public:
     // Additional tuning parameters
     void setIntensity(uint8_t intensity);
     uint8_t getIntensity() const { return intensity; }
+    void setDensity(uint8_t density);
+    uint8_t getDensity() const { return density; }
     void setTransitionMs(uint16_t transition_ms);
     uint16_t getTransitionMs() const { return transition_ms; }
 
@@ -82,6 +84,7 @@ private:
     uint8_t brightness = 120;
     uint8_t speed = 50;
     uint8_t intensity = 50;
+    uint8_t density = 50;
     uint16_t transition_ms = 1000;
     uint8_t palette = 0;
     uint16_t hue_shift = 0;

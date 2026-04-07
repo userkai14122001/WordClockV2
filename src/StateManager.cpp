@@ -97,6 +97,13 @@ void StateManager::setIntensity(uint8_t intensity) {
     DebugManager::println(DebugCategory::State, intensity);
 }
 
+void StateManager::setDensity(uint8_t density) {
+    density = constrain(density, ControlConfig::DENSITY_MIN, ControlConfig::DENSITY_MAX);
+    this->density = density;
+    DebugManager::print(DebugCategory::State, "StateManager: Density set to ");
+    DebugManager::println(DebugCategory::State, density);
+}
+
 void StateManager::setTransitionMs(uint16_t transition_ms) {
     transition_ms = constrain(transition_ms, ControlConfig::TRANSITION_MIN_MS, ControlConfig::TRANSITION_MAX_MS);
     this->transition_ms = transition_ms;
@@ -148,6 +155,7 @@ void StateManager::saveToPreferences() {
     prefs.putUChar("brightness", brightness);
     prefs.putUChar("speed", speed);
     prefs.putUChar("intensity", intensity);
+    prefs.putUChar("density", density);
     prefs.putUShort("transition", transition_ms);
     prefs.putUChar("palette", palette);
     prefs.putUShort("hue_shift", hue_shift);
@@ -186,6 +194,7 @@ void StateManager::loadFromPreferences() {
     brightness = prefs.getUChar("brightness", ControlConfig::DEFAULT_BRIGHTNESS);
     speed = prefs.getUChar("speed", ControlConfig::DEFAULT_SPEED);
     intensity = prefs.getUChar("intensity", ControlConfig::DEFAULT_INTENSITY);
+    density = prefs.getUChar("density", ControlConfig::DEFAULT_DENSITY);
     transition_ms = prefs.getUShort("transition", ControlConfig::DEFAULT_TRANSITION_MS);
     palette   = prefs.getUChar("palette", ControlConfig::DEFAULT_PALETTE);
     hue_shift = prefs.getUShort("hue_shift", ControlConfig::DEFAULT_HUE_SHIFT);

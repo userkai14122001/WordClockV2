@@ -73,6 +73,8 @@ private:
     String speed_state_topic;
     String intensity_command_topic;
     String intensity_state_topic;
+    String density_command_topic;
+    String density_state_topic;
     String transition_command_topic;
     String transition_state_topic;
     String tuning_reset_command_topic;

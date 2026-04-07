@@ -71,7 +71,7 @@ void EnchantmentEffect::update() {
     const float cx = (WIDTH - 1) / 2.0f;
     const float cy = (HEIGHT - 1) / 2.0f;
 
-    const int targetParticles = 6 + (int)intensityMap(0, MAX_PARTICLES - 6);
+    const int targetParticles = 6 + (int)densityMap(0, MAX_PARTICLES - 6);
 
     if (!_seeded) {
         for (int i = 0; i < MAX_PARTICLES; i++) {

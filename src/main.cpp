@@ -108,6 +108,7 @@ uint8_t brightness   = ControlConfig::DEFAULT_BRIGHTNESS;
 // Effect tuning parameters (accessible from effects.cpp via extern)
 uint8_t  effectSpeed     = ControlConfig::DEFAULT_SPEED;
 uint8_t  effectIntensity = ControlConfig::DEFAULT_INTENSITY;
+uint8_t  effectDensity   = ControlConfig::DEFAULT_DENSITY;
 uint16_t transitionMs    = ControlConfig::DEFAULT_TRANSITION_MS;
 uint8_t  effectPalette   = ControlConfig::DEFAULT_PALETTE;
 uint16_t effectHueShift  = ControlConfig::DEFAULT_HUE_SHIFT;
@@ -512,6 +513,7 @@ void setup() {
     brightness = stateManager.getBrightness();
     effectSpeed     = stateManager.getSpeed();
     effectIntensity = stateManager.getIntensity();
+    effectDensity   = stateManager.getDensity();
     transitionMs    = stateManager.getTransitionMs();
     effectPalette   = stateManager.getPalette();
     effectHueShift  = stateManager.getHueShift();
@@ -525,6 +527,11 @@ void setup() {
     if (effectIntensity < ControlConfig::INTENSITY_MIN || effectIntensity > ControlConfig::INTENSITY_MAX) {
         effectIntensity = ControlConfig::DEFAULT_INTENSITY;
         stateManager.setIntensity(effectIntensity);
+        tuningCorrected = true;
+    }
+    if (effectDensity < ControlConfig::DENSITY_MIN || effectDensity > ControlConfig::DENSITY_MAX) {
+        effectDensity = ControlConfig::DEFAULT_DENSITY;
+        stateManager.setDensity(effectDensity);
         tuningCorrected = true;
     }
     if (transitionMs < ControlConfig::TRANSITION_MIN_MS || transitionMs > ControlConfig::TRANSITION_MAX_MS) {

@@ -26,7 +26,7 @@ void BouncingBallsEffect::update() {
     if (millis() - _lastFrame < frameDelay) return;
     _lastFrame = millis();
 
-    const int ballCount = 2 + (int)intensityMap(0, MAX_BALLS - 2);
+    const int ballCount = 2 + (int)densityMap(0, MAX_BALLS - 2);
     const float speedScale = speedMapF(0.3f, 1.4f);
     const float gravityY = speedMapF(0.020f, 0.060f);
 

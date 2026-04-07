@@ -18,8 +18,8 @@ void TwinkleEffect::update() {
     if (millis() - _lastFrame < frameDelay) return;
     _lastFrame = millis();
 
-    // Anzahl aktiver Sterne: intensity 1-100 → 3..MAX_STARS
-    const int starCount = 3 + (int)intensityMap(0, MAX_STARS - 3);
+    // Anzahl aktiver Sterne: density 1-100 → 3..MAX_STARS
+    const int starCount = 3 + (int)densityMap(0, MAX_STARS - 3);
 
     // Beim ersten Aufruf oder nach reset(): Sterne initialisieren
     // Erkennungsmerkmal: speed == 0 bedeutet uninitialisiert

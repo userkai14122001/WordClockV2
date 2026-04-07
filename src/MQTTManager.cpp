@@ -10,6 +10,7 @@
 // Effect tuning parameters defined in main.cpp
 extern uint8_t  effectSpeed;
 extern uint8_t  effectIntensity;
+extern uint8_t  effectDensity;
 extern uint16_t transitionMs;
 extern uint8_t  effectPalette;
 
@@ -36,6 +37,8 @@ MQTTManager::MQTTManager(WiFiClient& wifi_client, const String& device_id)
             speed_state_topic("wordclock/speed/state"),
             intensity_command_topic("wordclock/intensity/set"),
             intensity_state_topic("wordclock/intensity/state"),
+            density_command_topic("wordclock/density/set"),
+            density_state_topic("wordclock/density/state"),
             transition_command_topic("wordclock/transition/set"),
             transition_state_topic("wordclock/transition/state"),
             tuning_reset_command_topic("wordclock/tuning_reset/set"),
@@ -93,6 +96,7 @@ void MQTTManager::connect() {
         mqtt.subscribe(reboot_command_topic.c_str());
         mqtt.subscribe(speed_command_topic.c_str());
         mqtt.subscribe(intensity_command_topic.c_str());
+        mqtt.subscribe(density_command_topic.c_str());
         mqtt.subscribe(transition_command_topic.c_str());
         mqtt.subscribe(tuning_reset_command_topic.c_str());
         mqtt.subscribe(ota_check_command_topic.c_str());
@@ -450,6 +454,25 @@ void MQTTManager::publishTuningDiscovery() {
     serializeJson(intDoc, intCfg);
     mqtt.publish("homeassistant/number/wordclock_intensity/config", intCfg.c_str(), true);
 
+    // --- Density ---
+    DynamicJsonDocument denDoc(512);
+    denDoc["name"] = "WordClock Objekt-Dichte";
+    denDoc["object_id"] = "wordclock_dichte";
+    denDoc["unique_id"] = device_id + "_density";
+    denDoc["command_topic"] = density_command_topic;
+    denDoc["state_topic"] = density_state_topic;
+    denDoc["availability_topic"] = availability_topic;
+    denDoc["min"] = ControlConfig::DENSITY_MIN;
+    denDoc["max"] = ControlConfig::DENSITY_MAX;
+    denDoc["step"] = 1;
+    denDoc["unit_of_measurement"] = "%";
+    denDoc["icon"] = "mdi:texture-box";
+    denDoc["retain"] = true;
+    attachDevice(denDoc);
+    String denCfg;
+    serializeJson(denDoc, denCfg);
+    mqtt.publish("homeassistant/number/wordclock_density/config", denCfg.c_str(), true);
+
     // --- Transition ---
     DynamicJsonDocument transDoc(512);
     transDoc["name"] = "WordClock \u00dcbergang";
@@ -511,6 +534,7 @@ void MQTTManager::publishTelemetry() {
     // Publish current tuning values so HA sliders reflect device state
     mqtt.publish(speed_state_topic.c_str(), String(effectSpeed).c_str(), true);
     mqtt.publish(intensity_state_topic.c_str(), String(effectIntensity).c_str(), true);
+    mqtt.publish(density_state_topic.c_str(), String(effectDensity).c_str(), true);
     mqtt.publish(transition_state_topic.c_str(), String(transitionMs).c_str(), true);
 
     // RTC health telemetry
@@ -565,15 +589,18 @@ void MQTTManager::internalCallback(const String& topic, const String& payload) {
     auto resetTuningToDefaults = [&]() {
         effectSpeed     = ControlConfig::DEFAULT_SPEED;
         effectIntensity = ControlConfig::DEFAULT_INTENSITY;
+        effectDensity   = ControlConfig::DEFAULT_DENSITY;
         transitionMs    = ControlConfig::DEFAULT_TRANSITION_MS;
         effectPalette   = ControlConfig::DEFAULT_PALETTE;
         stateManager.setSpeed(effectSpeed);
         stateManager.setIntensity(effectIntensity);
+        stateManager.setDensity(effectDensity);
         stateManager.setTransitionMs(transitionMs);
         stateManager.setPalette(effectPalette);
         stateManager.scheduleSave();
         mqtt.publish(speed_state_topic.c_str(),      String(effectSpeed).c_str(),     true);
         mqtt.publish(intensity_state_topic.c_str(),  String(effectIntensity).c_str(), true);
+        mqtt.publish(density_state_topic.c_str(),    String(effectDensity).c_str(),   true);
         mqtt.publish(transition_state_topic.c_str(), String(transitionMs).c_str(),   true);
         DebugManager::println(DebugCategory::MQTT, "MQTTManager: Tuning reset to defaults");
     };
@@ -615,6 +642,19 @@ void MQTTManager::internalCallback(const String& topic, const String& payload) {
             DebugManager::printf(DebugCategory::MQTT, "MQTTManager: Intensity set to %d\n", effectIntensity);
         }
         logCallbackDuration("intensity");
+        return;
+    }
+
+    if (topic == density_command_topic) {
+        int val = payload.toInt();
+        if (val >= ControlConfig::DENSITY_MIN && val <= ControlConfig::DENSITY_MAX) {
+            effectDensity = (uint8_t)val;
+            stateManager.setDensity(effectDensity);
+            stateManager.scheduleSave();
+            mqtt.publish(density_state_topic.c_str(), String(effectDensity).c_str(), true);
+            DebugManager::printf(DebugCategory::MQTT, "MQTTManager: Density set to %d\n", effectDensity);
+        }
+        logCallbackDuration("density");
         return;
     }
 

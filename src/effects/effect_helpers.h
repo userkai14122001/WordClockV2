@@ -11,6 +11,7 @@
 // Variables defined in main.cpp / effects.cpp
 extern uint8_t  effectSpeed;
 extern uint8_t  effectIntensity;
+extern uint8_t  effectDensity;   // 0-100, controls object count (balls, particles, stars, etc.)
 extern uint16_t transitionMs;
 extern uint8_t  effectPalette;   // 0=Auto 1=Warm 2=Cool 3=Natur 4=Candy
 extern uint16_t effectHueShift;  // 0-359 degrees
@@ -39,6 +40,17 @@ static inline float speedMapF(float minVal, float maxVal) {
 static inline int32_t intensityMap(int32_t minVal, int32_t maxVal) {
     uint8_t i = clampIntensity();
     return minVal + (int32_t)(maxVal - minVal) * (i - 1) / 99;
+}
+static inline uint8_t clampDensity() {
+    return effectDensity < 1 ? 1 : (effectDensity > 100 ? 100 : effectDensity);
+}
+static inline int32_t densityMap(int32_t minVal, int32_t maxVal) {
+    uint8_t d = clampDensity();
+    return minVal + (int32_t)(maxVal - minVal) * (d - 1) / 99;
+}
+static inline float densityMapF(float minVal, float maxVal) {
+    uint8_t d = clampDensity();
+    return minVal + (maxVal - minVal) * (float)(d - 1) / 99.0f;
 }
 static inline void waitMs(uint32_t ms) {
     unsigned long start = millis();
