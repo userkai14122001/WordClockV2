@@ -1,4 +1,4 @@
-#include "web_pages.h"
+﻿#include "web_pages.h"
 
 const char home_html_page[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
@@ -132,7 +132,7 @@ const char home_html_page[] PROGMEM = R"rawliteral(
 <div class="wrap">
     <div class="hero">
         <h2>WordClock Control Hub</h2>
-        <p>Moderne Steuerzentrale fuer Setup, Live-Regie, OTA und Tests.</p>
+        <p>Moderne Steuerzentrale für Setup, Live-Regie, OTA und Tests.</p>
         <div class="tagRow">
             <span class="tag">Live Status</span>
             <span class="tag">OTA Ready</span>
@@ -140,12 +140,12 @@ const char home_html_page[] PROGMEM = R"rawliteral(
         </div>
     </div>
     <div class="grid">
-        <div class="card"><h3>Main</h3><p>Systemueberblick und Zugriff auf alle Einstellungen.</p><a class="btn" href="/main">Oeffnen</a></div>
-        <div class="card"><h3>Wifi</h3><p>WLAN setzen, Netze scannen und Neustart ausloesen.</p><a class="btn" href="/wifi">Oeffnen</a></div>
-        <div class="card"><h3>MQTT</h3><p>Broker, User, Port und Verbindung sauber einrichten.</p><a class="btn" href="/mqtt">Oeffnen</a></div>
-        <div class="card"><h3>OTA</h3><p>Firmware-Status ansehen und Updates manuell starten.</p><a class="btn" href="/ota">Oeffnen</a></div>
-        <div class="card"><h3>Live</h3><p>Direkte Effekt- und Farbregie mit Matrix-Vorschau.</p><a class="btn" href="/live">Oeffnen</a></div>
-        <div class="card"><h3>Test</h3><p>Quicktests fuer LEDs, Farben, Clock und Muster.</p><a class="btn" href="/test">Oeffnen</a></div>
+        <div class="card"><h3>Main</h3><p>Systemüberblick und Zugriff auf alle Einstellungen.</p><a class="btn" href="/main">Öffnen</a></div>
+        <div class="card"><h3>Wifi</h3><p>WLAN setzen, Netze scannen und Neustart auslösen.</p><a class="btn" href="/wifi">Öffnen</a></div>
+        <div class="card"><h3>MQTT</h3><p>Broker, User, Port und Verbindung sauber einrichten.</p><a class="btn" href="/mqtt">Öffnen</a></div>
+        <div class="card"><h3>OTA</h3><p>Firmware-Status ansehen und Updates manuell starten.</p><a class="btn" href="/ota">Öffnen</a></div>
+        <div class="card"><h3>Live</h3><p>Direkte Effekt- und Farbregie mit Matrix-Vorschau.</p><a class="btn" href="/live">Öffnen</a></div>
+        <div class="card"><h3>Test</h3><p>Quicktests für LEDs, Farben, Clock und Muster.</p><a class="btn" href="/test">Öffnen</a></div>
     </div>
 </div>
 </body>
@@ -357,7 +357,7 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
         <div id="wifiSection" style="display:none;">
             <h3>WLAN Einstellungen</h3>
 
-            <label>Netzwerk auswaehlen:</label><br>
+            <label>Netzwerk auswählen:</label><br>
             <select id="ssid_list" name="ssid"></select>
             <input id="ssid_manual" type="text" placeholder="oder SSID manuell eingeben" style="margin-top:4px;">
 
@@ -396,13 +396,13 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
             <p>Aktuelle Firmware: <b id="otaFwVersion">-</b></p>
             <p>Netzwerkstatus: <b id="otaWifi">-</b></p>
             <button type="button" onclick="loadOtaInfo()">Status aktualisieren</button>
-            <button type="button" onclick="checkOtaNow()">Jetzt auf Update pruefen</button>
+            <button type="button" onclick="checkOtaNow()">Jetzt auf Update prüfen</button>
             <p id="otaMsg" style="font-size:14px; min-height:20px;"></p>
         </div>
 
         <div id="mainSection" style="display:none;">
             <h3>Allgemein</h3>
-            <p>Waehle eine Option unten aus.</p>
+            <p>Wähle eine Option unten aus.</p>
         </div>
 
             </form>
@@ -429,8 +429,8 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
             <div class="box">
                 <h3>Quick Access</h3>
                 <p class="muted">Direkter Wechsel in Regie und Tests.</p>
-                <button type="button" onclick="location.href='/live'">Live-Regie oeffnen</button>
-                <button type="button" onclick="location.href='/test'">Tests oeffnen</button>
+                <button type="button" onclick="location.href='/live'">Live-Regie öffnen</button>
+                <button type="button" onclick="location.href='/test'">Tests öffnen</button>
             </div>
         </div>
     </div>
@@ -603,7 +603,7 @@ function saveSettings() {
 }
 
 // ---------------------------------------------------------
-// Neustart mit Best+�tigung
+// Neustart mit Best+ï¿½tigung
 // ---------------------------------------------------------
 function confirmReboot() {
     if (!confirm("WordClock wirklich neu starten?")) return;
@@ -627,7 +627,7 @@ async function loadOtaInfo() {
 
 async function checkOtaNow() {
     const msg = document.getElementById('otaMsg');
-    msg.textContent = 'Pruefe Version...';
+    msg.textContent = 'Prüfe Version...';
     try {
         const r = await fetch('/api/ota/check', {
             method: 'POST',
@@ -635,9 +635,9 @@ async function checkOtaNow() {
             body: ''
         });
         const j = await r.json();
-        msg.textContent = j.message || (r.ok ? 'Pruefung abgeschlossen' : 'Fehler');
+        msg.textContent = j.message || (r.ok ? 'Prüfung abgeschlossen' : 'Fehler');
     } catch (_) {
-        msg.textContent = 'OTA Pruefung fehlgeschlagen';
+        msg.textContent = 'OTA Prüfung fehlgeschlagen';
     }
 }
 
@@ -669,7 +669,7 @@ async function refreshSetupStatus() {
             '<div class="detailKey">Farbe</div><div class="detailVal">' + (s.color || '-') + '</div>' +
             '<div class="detailKey">Helligkeit</div><div class="detailVal">' + (s.brightness || '-') + '</div>' +
             '<div class="detailKey">RTC Temperatur</div><div class="detailVal">' + rtcTempText + '</div>' +
-            '<div class="detailKey">RTC OSF/Batterie</div><div class="detailVal">' + (s.rtc_battery_warning ? 'Auffaellig' : 'OK') + '</div>' +
+            '<div class="detailKey">RTC OSF/Batterie</div><div class="detailVal">' + (s.rtc_battery_warning ? 'Auffällig' : 'OK') + '</div>' +
             '<div class="detailKey">RAM Frei</div><div class="detailVal">' + memFree + ' B</div>' +
             '<div class="detailKey">RAM Nutzung</div><div class="detailVal">' + memUsedPct + '%</div>' +
             '<div class="detailKey">Max Block</div><div class="detailVal">' + (s.mem_max_alloc || 0) + ' B</div>';
@@ -1232,8 +1232,8 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             <span class="eyebrow">Live control website</span>
             <h1>One control surface for light, motion and timing.</h1>
             <p>
-                Direkte Regie fuer Effekt, Farbe, Helligkeit, Geschwindigkeit, Intensitaet,
-                Objektdichte und Uebergang. Dazu Live-Telemetrie, Matrix-Vorschau und Schnelltests
+                Direkte Regie für Effekt, Farbe, Helligkeit, Geschwindigkeit, Intensität,
+                Objektdichte und Übergang. Dazu Live-Telemetrie, Matrix-Vorschau und Schnelltests
                 in einer durchgehenden Website.
             </p>
             <div class="heroMeta">
@@ -1361,7 +1361,7 @@ const char live_html_page[] PROGMEM = R"rawliteral(
                     </div>
 
                     <div class="field">
-                        <div class="fieldRow"><label for="intensity">Intensitaet</label><span class="metricBadge" id="intensityValue">50%</span></div>
+                        <div class="fieldRow"><label for="intensity">Intensität</label><span class="metricBadge" id="intensityValue">50%</span></div>
                         <input id="intensity" type="range" min="1" max="100" value="50">
                     </div>
 
@@ -1371,7 +1371,7 @@ const char live_html_page[] PROGMEM = R"rawliteral(
                     </div>
 
                     <div class="field">
-                        <div class="fieldRow"><label for="transitionMs">Uebergang</label><span class="metricBadge" id="transitionValue">1000 ms</span></div>
+                        <div class="fieldRow"><label for="transitionMs">Übergang</label><span class="metricBadge" id="transitionValue">1000 ms</span></div>
                         <input id="transitionMs" type="range" min="200" max="10000" step="50" value="1000">
                     </div>
 
@@ -1541,11 +1541,11 @@ function renderDetails(s, rtcTempText, memFree, memUsedPct) {
         ['Farbe', s.color || '-'],
         ['Helligkeit', String(s.brightness)],
         ['Geschwindigkeit', String(s.speed) + '%'],
-        ['Intensitaet', String(s.intensity) + '%'],
+        ['Intensität', String(s.intensity) + '%'],
         ['Objektdichte', String(s.density) + '%'],
-        ['Uebergang', String(s.transition_ms) + ' ms'],
+        ['Übergang', String(s.transition_ms) + ' ms'],
         ['RTC Temperatur', rtcTempText],
-        ['RTC OSF/Batterie', s.rtc_battery_warning ? 'Auffaellig' : 'OK'],
+        ['RTC OSF/Batterie', s.rtc_battery_warning ? 'Auffällig' : 'OK'],
         ['RAM Frei', String(memFree) + ' B'],
         ['RAM Nutzung', memUsedPct + '%'],
         ['Max Block', String(s.mem_max_alloc || 0) + ' B']
@@ -1842,7 +1842,7 @@ const char test_html_page[] PROGMEM = R"rawliteral(
 <div class="wrap">
     <div class="hero">
         <h2>WordClock Test Deck</h2>
-        <p>Diagnose fuer Farben, Helligkeit, Muster und Segment-Checks in Studio-Optik.</p>
+        <p>Diagnose für Farben, Helligkeit, Muster und Segment-Checks in Studio-Optik.</p>
     </div>
     <div class="card">
         <p class="sub">Tests werden ca. 3 Sekunden gehalten, damit du das Ergebnis stabil siehst.</p>
@@ -1858,7 +1858,7 @@ const char test_html_page[] PROGMEM = R"rawliteral(
         <div class="section-title">Farb-Tests</div>
         <div class="grid">
             <button style="background:#e74c3c" onclick="quick('color_red')">Rot</button>
-            <button style="background:#27ae60" onclick="quick('color_green')">Gruen</button>
+            <button style="background:#27ae60" onclick="quick('color_green')">Grün</button>
             <button style="background:#3498db" onclick="quick('color_blue')">Blau</button>
             <button style="background:#f39c12" onclick="quick('color_yellow')">Gelb</button>
             <button style="background:#1abc9c" onclick="quick('color_cyan')">Cyan</button>
@@ -1916,7 +1916,7 @@ async function quick(action) {
     setButtonsDisabled(true);
 
     const msg = document.getElementById('msg');
-    msg.textContent = 'Fuehre Test aus (3s Haltedauer)...';
+    msg.textContent = 'Führe Test aus (3s Haltedauer)...';
     const p = new URLSearchParams();
     p.set('action', action);
     p.set('hold_ms', '3000');
@@ -1927,7 +1927,7 @@ async function quick(action) {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: p
         });
-        msg.textContent = r.ok ? 'Test ausgefuehrt' : 'Fehler beim Test';
+        msg.textContent = r.ok ? 'Test ausgeführt' : 'Fehler beim Test';
     } catch (_) {
         msg.textContent = 'Fehler beim Test';
     }
@@ -1951,3 +1951,4 @@ async function quick(action) {
 </body>
 </html>
 )rawliteral";
+
