@@ -9,23 +9,26 @@ const char home_html_page[] PROGMEM = R"rawliteral(
 <title>WordClock Control Hub</title>
 <style>
     :root {
-        --bg-a: #0a1622;
-        --bg-b: #101f33;
-        --panel: rgba(17, 31, 50, 0.92);
-        --panel-soft: rgba(24, 42, 67, 0.9);
-        --line: #2f4d72;
-        --line-strong: #3f6799;
-        --text: #eef5ff;
-        --muted: #9fb7d7;
-        --accent: #43c4ff;
-        --accent-2: #4ef3c6;
+        --bg-a: #0f131c;
+        --bg-b: #1a2230;
+        --panel: rgba(23, 30, 43, 0.92);
+        --panel-soft: rgba(31, 40, 56, 0.9);
+        --line: rgba(154, 168, 190, 0.22);
+        --line-strong: rgba(188, 201, 224, 0.46);
+        --text: #f3f5fb;
+        --muted: #acb3c4;
+        --accent: #93a2be;
+        --accent-warm: #f2a15a;
     }
     * { box-sizing: border-box; }
     body {
         margin: 0;
         color: var(--text);
         font-family: "Sora", "Manrope", "Segoe UI", sans-serif;
-        background: radial-gradient(circle at 10% 0%, #17375a 0%, var(--bg-b) 36%, var(--bg-a) 100%);
+        background:
+            radial-gradient(circle at 12% 0%, rgba(147, 162, 190, 0.22), transparent 28%),
+            radial-gradient(circle at 88% 10%, rgba(242, 161, 90, 0.12), transparent 24%),
+            linear-gradient(180deg, var(--bg-b) 0%, var(--bg-a) 100%);
         min-height: 100vh;
     }
     .topnav {
@@ -37,7 +40,7 @@ const char home_html_page[] PROGMEM = R"rawliteral(
         flex-wrap: wrap;
         align-items: center;
         padding: 10px 10px;
-        background: rgba(11, 22, 35, 0.82);
+        background: rgba(19, 26, 38, 0.82);
         border-bottom: 1px solid var(--line);
         backdrop-filter: blur(8px);
     }
@@ -47,7 +50,7 @@ const char home_html_page[] PROGMEM = R"rawliteral(
         padding: 8px 11px;
         border-radius: 10px;
         border: 1px solid var(--line);
-        background: linear-gradient(145deg, #18304b, #12263e);
+        background: linear-gradient(145deg, rgba(44, 56, 77, 0.96), rgba(28, 36, 50, 0.96));
         font-size: 13px;
     }
     .topnav a:hover { border-color: var(--line-strong); }
@@ -57,7 +60,7 @@ const char home_html_page[] PROGMEM = R"rawliteral(
         overflow: hidden;
         border-radius: 16px;
         border: 1px solid var(--line-strong);
-        background: linear-gradient(140deg, rgba(33, 65, 102, 0.95), rgba(19, 36, 58, 0.98));
+        background: linear-gradient(145deg, rgba(37, 47, 66, 0.96), rgba(22, 29, 42, 0.98));
         padding: 18px;
         margin-bottom: 14px;
     }
@@ -69,18 +72,18 @@ const char home_html_page[] PROGMEM = R"rawliteral(
         border-radius: 50%;
         right: -90px;
         top: -120px;
-        background: radial-gradient(circle, rgba(79, 204, 255, 0.35), transparent 70%);
+        background: radial-gradient(circle, rgba(242, 161, 90, 0.24), transparent 70%);
     }
     .hero h2 { margin: 0 0 8px; font-size: 24px; letter-spacing: 0.01em; }
-    .hero p { margin: 0; color: #d7e7fd; }
+    .hero p { margin: 0; color: #d7dde9; }
     .tagRow { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
     .tag {
         padding: 5px 9px;
         border-radius: 999px;
         font-size: 12px;
-        border: 1px solid #507aa7;
-        color: #ddf2ff;
-        background: rgba(21, 44, 70, 0.9);
+        border: 1px solid rgba(188, 201, 224, 0.32);
+        color: #edf2fb;
+        background: rgba(37, 48, 66, 0.92);
     }
     .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px; }
     .card {
@@ -97,13 +100,13 @@ const char home_html_page[] PROGMEM = R"rawliteral(
         margin-top:10px;
         padding:8px 10px;
         border-radius:10px;
-        border:1px solid #4f86bc;
+        border:1px solid rgba(188, 201, 224, 0.32);
         color:#fff;
         text-decoration:none;
-        background: linear-gradient(145deg, #2f6ca5, #245782);
+        background: linear-gradient(145deg, rgba(73, 90, 120, 0.98), rgba(44, 56, 77, 0.98));
         font-size:13px;
     }
-    .btn:hover { border-color: #69b4ff; }
+    .btn:hover { border-color: rgba(242, 161, 90, 0.44); }
     @media (max-width:480px) {
         .wrap { padding: 10px 6px 16px; }
         .topnav { padding: 8px 4px; gap: 4px; }
@@ -159,30 +162,33 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
 
 <style>
     :root {
-        --bg-a: #08131e;
-        --bg-b: #122640;
-        --panel: rgba(19, 34, 54, 0.92);
-        --panel-soft: rgba(24, 44, 71, 0.9);
-        --line: #2d4b6d;
-        --line-strong: #3f6898;
-        --text: #eef6ff;
-        --muted: #9eb6d6;
+        --bg-a: #0f131c;
+        --bg-b: #1a2230;
+        --panel: rgba(23, 30, 43, 0.92);
+        --panel-soft: rgba(31, 40, 56, 0.9);
+        --line: rgba(154, 168, 190, 0.22);
+        --line-strong: rgba(188, 201, 224, 0.46);
+        --text: #f3f5fb;
+        --muted: #acb3c4;
         --ok: #7af0a8;
-        --warn: #ff9f9f;
+        --warn: #f6b3a5;
     }
     * { box-sizing: border-box; }
     body {
         margin: 0;
         color: var(--text);
         font-family: "Sora", "Manrope", "Segoe UI", sans-serif;
-        background: radial-gradient(circle at 4% 0%, #1a3a5f 0%, var(--bg-b) 35%, var(--bg-a) 100%);
+        background:
+            radial-gradient(circle at 6% 0%, rgba(147, 162, 190, 0.22), transparent 26%),
+            radial-gradient(circle at 94% 12%, rgba(242, 161, 90, 0.12), transparent 24%),
+            linear-gradient(180deg, var(--bg-b) 0%, var(--bg-a) 100%);
         min-height: 100vh;
     }
     .topnav {
         position: sticky;
         top: 0;
         z-index: 10;
-        background: rgba(9, 18, 30, 0.84);
+        background: rgba(19, 26, 38, 0.84);
         border-bottom: 1px solid var(--line);
         padding: 10px;
         display: flex;
@@ -194,7 +200,7 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
         color: var(--text);
         text-decoration: none;
         border: 1px solid var(--line);
-        background: linear-gradient(145deg, #17304b, #10253d);
+        background: linear-gradient(145deg, rgba(44, 56, 77, 0.96), rgba(28, 36, 50, 0.96));
         border-radius: 10px;
         padding: 7px 10px;
         font-size: 13px;
@@ -208,12 +214,12 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
     .hero {
         border-radius: 16px;
         border: 1px solid var(--line-strong);
-        background: linear-gradient(140deg, rgba(28, 60, 96, 0.95), rgba(17, 33, 53, 0.97));
+        background: linear-gradient(145deg, rgba(37, 47, 66, 0.96), rgba(22, 29, 42, 0.98));
         padding: 14px 16px;
         margin-bottom: 12px;
     }
     .hero h2 { margin: 0 0 6px; font-size: 24px; }
-    .hero p { margin: 0; color: #d8e6fb; }
+    .hero p { margin: 0; color: #d7dde9; }
     .box {
         background: var(--panel);
         padding: 16px 14px;
@@ -226,19 +232,19 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
         padding: 11px;
         margin: 8px 0;
         border-radius: 10px;
-        border: 1px solid #446486;
+        border: 1px solid rgba(188, 201, 224, 0.28);
         font-size: 15px;
         box-sizing: border-box;
         color: var(--text);
-        background: #12253b;
+        background: rgba(26, 34, 49, 0.92);
     }
     h3 { margin: 8px 0 8px; }
-    label { color: #cfe1f7; font-size: 13px; display: block; text-align: left; }
+    label { color: #d6dde9; font-size: 13px; display: block; text-align: left; }
     button {
         width: 100%;
         padding: 11px;
-        background: linear-gradient(145deg, #2f6da7, #255989);
-        border: 1px solid #4f86bc;
+        background: linear-gradient(145deg, rgba(73, 90, 120, 0.98), rgba(44, 56, 77, 0.98));
+        border: 1px solid rgba(188, 201, 224, 0.32);
         color: white;
         font-size: 14px;
         border-radius: 10px;
@@ -247,15 +253,15 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
         transition: border-color 0.2s ease;
         box-sizing: border-box;
     }
-    button:hover { border-color: #69b4ff; }
+    button:hover { border-color: rgba(242, 161, 90, 0.44); }
     .layout { display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; }
     .stack { display: grid; gap: 12px; }
     .statusGrid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; margin-top:10px; }
-    .statusItem { background:#162a43; border:1px solid #36567a; border-radius:10px; padding:8px 10px; }
-    .statusLabel { color:#9fb8d9; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; }
+    .statusItem { background:rgba(29, 38, 53, 0.92); border:1px solid rgba(188, 201, 224, 0.2); border-radius:10px; padding:8px 10px; }
+    .statusLabel { color:#acb3c4; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; }
     .statusValue { color:#f4f8ff; font-size:15px; font-weight:700; margin-top:3px; }
     .detailTable { margin-top:10px; display:grid; grid-template-columns:1fr auto; gap:6px 10px; font-size:14px; }
-    .detailKey { color:#a8c0df; text-align:left; }
+    .detailKey { color:#acb3c4; text-align:left; }
     .detailVal { color:#f4f8ff; text-align:right; }
     .muted { color: var(--muted); font-size: 13px; }
     .ok { color: var(--ok); }
@@ -626,16 +632,16 @@ const char live_html_page[] PROGMEM = R"rawliteral(
 <title>WordClock Studio</title>
 <style>
         :root {
-            --bg: #0b171a;
-            --bg-soft: #11262a;
-            --panel: rgba(16, 32, 36, 0.9);
-            --panel-soft: rgba(22, 42, 46, 0.9);
-            --line: rgba(128, 176, 168, 0.24);
-            --line-strong: rgba(111, 190, 174, 0.52);
-            --text: #eefaf5;
-            --muted: #9fc2b8;
-            --accent: #5fc3ad;
-            --accent-strong: #2f9d8b;
+            --bg: #0f131c;
+            --bg-soft: #171d28;
+            --panel: rgba(23, 30, 43, 0.9);
+            --panel-soft: rgba(30, 38, 53, 0.9);
+            --line: rgba(154, 168, 190, 0.24);
+            --line-strong: rgba(188, 201, 224, 0.52);
+            --text: #f3f5fb;
+            --muted: #acb3c4;
+            --accent: #9aa9c4;
+            --accent-strong: #6e7f9e;
             --accent-warm: #f2a15a;
             --ok: #8de8ac;
             --warn: #f6b3a5;
@@ -645,16 +651,16 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             --radius-md: 14px;
         }
         [data-theme="light"] {
-            --bg: #f4f7f5;
-            --bg-soft: #e6eeea;
+            --bg: #f4f5f9;
+            --bg-soft: #e9ecf2;
             --panel: rgba(255, 255, 255, 0.88);
-            --panel-soft: rgba(244, 250, 247, 0.92);
-            --line: rgba(63, 108, 100, 0.2);
-            --line-strong: rgba(54, 122, 109, 0.44);
-            --text: #102622;
-            --muted: #4d6f66;
-            --accent: #2f9d8b;
-            --accent-strong: #287767;
+            --panel-soft: rgba(247, 248, 252, 0.92);
+            --line: rgba(80, 95, 120, 0.2);
+            --line-strong: rgba(67, 85, 114, 0.44);
+            --text: #192233;
+            --muted: #5e677a;
+            --accent: #7f8da9;
+            --accent-strong: #5d6880;
             --accent-warm: #b96d2a;
             --ok: #268b46;
             --warn: #b05643;
@@ -667,8 +673,8 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             color: var(--text);
             font-family: "Manrope", "Segoe UI", sans-serif;
             background:
-                radial-gradient(circle at top left, rgba(95, 195, 173, 0.22), transparent 30%),
-                radial-gradient(circle at 85% 12%, rgba(242, 161, 90, 0.16), transparent 25%),
+                radial-gradient(circle at top left, rgba(147, 162, 190, 0.24), transparent 30%),
+                radial-gradient(circle at 85% 12%, rgba(242, 161, 90, 0.14), transparent 25%),
                 linear-gradient(180deg, var(--bg-soft) 0%, var(--bg) 100%);
             min-height: 100vh;
         }
@@ -703,7 +709,7 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             width: 42px;
             height: 42px;
             border-radius: 14px;
-            background: linear-gradient(145deg, var(--accent), var(--accent-warm));
+            background: linear-gradient(145deg, #94a4bf, var(--accent-warm));
             box-shadow: 0 10px 30px color-mix(in srgb, var(--accent) 45%, transparent);
         }
         .brandText strong {
@@ -756,7 +762,7 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             min-height: 230px;
             border-color: var(--line-strong);
             background:
-                radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 24%, transparent), transparent 36%),
+                radial-gradient(circle at top right, color-mix(in srgb, #9aa9c4 28%, transparent), transparent 36%),
                 linear-gradient(145deg, color-mix(in srgb, var(--panel-soft) 94%, transparent), color-mix(in srgb, var(--panel) 94%, transparent));
         }
         .heroCard:after {
@@ -819,8 +825,8 @@ const char live_html_page[] PROGMEM = R"rawliteral(
         .miniPanel {
             padding: 14px;
             border-radius: var(--radius-lg);
-            border: 1px solid rgba(113, 167, 227, 0.16);
-            background: rgba(17, 31, 49, 0.72);
+            border: 1px solid color-mix(in srgb, var(--line-strong) 34%, transparent);
+            background: color-mix(in srgb, var(--panel-soft) 88%, transparent);
         }
         .miniLabel {
             color: var(--muted);
@@ -864,9 +870,9 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             gap: 6px;
             padding: 7px 10px;
             border-radius: 999px;
-            border: 1px solid rgba(113, 167, 227, 0.2);
-            background: rgba(14, 28, 43, 0.78);
-            color: #d4e9ff;
+            border: 1px solid color-mix(in srgb, var(--line-strong) 38%, transparent);
+            background: color-mix(in srgb, var(--panel-soft) 86%, transparent);
+            color: color-mix(in srgb, var(--text) 88%, white 12%);
             font-size: 12px;
         }
         .statusGrid {
@@ -1022,7 +1028,7 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             gap: 10px;
         }
         .fieldRow label {
-            color: #d7e7fb;
+            color: color-mix(in srgb, var(--text) 88%, var(--muted) 12%);
             font-size: 13px;
             font-weight: 600;
         }
@@ -1033,9 +1039,9 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             min-width: 68px;
             padding: 6px 10px;
             border-radius: 999px;
-            border: 1px solid rgba(113, 167, 227, 0.22);
-            background: rgba(15, 29, 46, 0.74);
-            color: #daf0ff;
+            border: 1px solid color-mix(in srgb, var(--line-strong) 38%, transparent);
+            background: color-mix(in srgb, var(--panel-soft) 88%, transparent);
+            color: color-mix(in srgb, var(--text) 92%, white 8%);
             font-size: 12px;
             font-weight: 700;
         }
@@ -1066,7 +1072,7 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             border-color: color-mix(in srgb, var(--accent) 55%, transparent);
         }
         button.secondary {
-            background: rgba(16, 31, 49, 0.92);
+            background: color-mix(in srgb, var(--panel-soft) 90%, transparent);
         }
         button.warn {
             background: linear-gradient(145deg, color-mix(in srgb, #ff7f6b 26%, transparent), color-mix(in srgb, #7c2921 86%, transparent));
@@ -1098,7 +1104,7 @@ const char live_html_page[] PROGMEM = R"rawliteral(
         }
         .sectionText {
             margin: 0 0 14px;
-            color: #c2d8ef;
+            color: color-mix(in srgb, var(--text) 76%, var(--muted) 24%);
             font-size: 14px;
             line-height: 1.6;
         }
@@ -1622,26 +1628,29 @@ const char test_html_page[] PROGMEM = R"rawliteral(
 <title>WordClock Test</title>
 <style>
     :root {
-        --bg-a: #071321;
-        --bg-b: #102742;
-        --panel: rgba(18, 35, 57, 0.9);
-        --line: #355879;
-        --line-strong: #4a7fb3;
-        --text: #f1f6ff;
-        --muted: #aac0dd;
+        --bg-a: #0f131c;
+        --bg-b: #1a2230;
+        --panel: rgba(23, 30, 43, 0.92);
+        --line: rgba(154, 168, 190, 0.22);
+        --line-strong: rgba(188, 201, 224, 0.46);
+        --text: #f3f5fb;
+        --muted: #acb3c4;
     }
     * { box-sizing: border-box; }
     body {
         margin: 0;
         font-family: "Sora", "Manrope", "Segoe UI", sans-serif;
-        background: radial-gradient(circle at 0% 0%, #193c61 0%, var(--bg-b) 36%, var(--bg-a) 100%);
+        background:
+            radial-gradient(circle at 0% 0%, rgba(147, 162, 190, 0.22), transparent 26%),
+            radial-gradient(circle at 100% 8%, rgba(242, 161, 90, 0.12), transparent 22%),
+            linear-gradient(180deg, var(--bg-b) 0%, var(--bg-a) 100%);
         color: var(--text);
     }
     .topnav {
         position:sticky;
         top:0;
         z-index:10;
-        background: rgba(10, 20, 32, 0.84);
+        background: rgba(19, 26, 38, 0.84);
         border-bottom:1px solid var(--line);
         padding:10px;
         display:flex;
@@ -1655,7 +1664,7 @@ const char test_html_page[] PROGMEM = R"rawliteral(
         padding:8px 11px;
         border:1px solid var(--line);
         border-radius:10px;
-        background:linear-gradient(145deg, #18314c, #10253d);
+        background:linear-gradient(145deg, rgba(44, 56, 77, 0.96), rgba(28, 36, 50, 0.96));
         font-size:13px;
     }
     .topnav a:hover { border-color: var(--line-strong); }
@@ -1672,16 +1681,16 @@ const char test_html_page[] PROGMEM = R"rawliteral(
         width:100%;
         padding:10px 8px;
         border-radius:10px;
-        border:1px solid #5f82b0;
-        background:linear-gradient(145deg, #2f6ea9, #245987);
+        border:1px solid rgba(188, 201, 224, 0.32);
+        background:linear-gradient(145deg, rgba(73, 90, 120, 0.98), rgba(44, 56, 77, 0.98));
         color:#fff;
         cursor:pointer;
         font-size:13px;
     }
-    button.warn { background:linear-gradient(145deg, #9a4d58, #7f3742); border-color:#c56f79; }
-    button.info { background:linear-gradient(145deg, #3f729f, #2f5678); }
+    button.warn { background:linear-gradient(145deg, rgba(170, 92, 92, 0.98), rgba(120, 48, 48, 0.98)); border-color:rgba(245, 179, 165, 0.42); }
+    button.info { background:linear-gradient(145deg, rgba(92, 103, 122, 0.98), rgba(58, 67, 82, 0.98)); }
     .msg { color:#cfdcf2; margin-top:10px; min-height:20px; font-size:13px; }
-    .section-title { margin-top:12px; font-weight:bold; color:#afc8e8; font-size:12px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .section-title { margin-top:12px; font-weight:bold; color:#bfc6d6; font-size:12px; text-transform: uppercase; letter-spacing: 0.04em; }
     .sub { color: var(--muted); margin: 0; }
     @media (max-width:480px) {
         .wrap { padding:8px 4px; }
