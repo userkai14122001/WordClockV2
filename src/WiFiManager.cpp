@@ -16,12 +16,14 @@
 #include <vector>
 #include <algorithm>
 #include <time.h>
+#include <esp_timer.h>
 
 #ifndef WC_API_KEY
 #define WC_API_KEY ""
 #endif
 
 static const byte DNS_PORT = 53;
+static constexpr uint64_t HTTP_WRITE_WINDOW_US = 60ULL * 60ULL * 1000000ULL; // 1 hour since boot
 
 static inline void waitMs(uint32_t ms) {
     unsigned long start = millis();
@@ -100,6 +102,22 @@ static bool requireAuthorizedRequest(WebServer& server) {
         return true;
     }
     sendApiError(server, 401, "unauthorized", "API key fehlt oder ist ungueltig");
+    return false;
+}
+
+static bool isHttpWriteWindowOpen() {
+    return (uint64_t)esp_timer_get_time() <= HTTP_WRITE_WINDOW_US;
+}
+
+static bool requireHttpWriteWindow(WebServer& server, const char* endpointName) {
+    if (isHttpWriteWindowOpen()) {
+        return true;
+    }
+
+    DebugManager::print(DebugCategory::OTA, "[HTTP] Write denied after boot window: ");
+    DebugManager::println(DebugCategory::OTA, endpointName);
+    sendApiError(server, 403, "write_window_closed",
+                 "Schreibender Endpoint nur in den ersten 60 Minuten nach Boot erlaubt");
     return false;
 }
 
@@ -441,6 +459,9 @@ void WiFiManager::setupWebRoutes() {
         if (!requireAuthorizedRequest(server)) {
             return;
         }
+        if (!requireHttpWriteWindow(server, "/reboot")) {
+            return;
+        }
         server.send(200, "text/plain", "Rebooting...");
         waitMs(500);
         rebootDevice("HTTP /reboot", 50);
@@ -496,6 +517,9 @@ void WiFiManager::handleScan() {
 
 void WiFiManager::handleSave() {
     if (!requireAuthorizedRequest(server)) {
+        return;
+    }
+    if (!requireHttpWriteWindow(server, "/save")) {
         return;
     }
 
@@ -689,6 +713,9 @@ void WiFiManager::handlePreview() {
     if (!requireAuthorizedRequest(server)) {
         return;
     }
+    if (!requireHttpWriteWindow(server, "/api/preview")) {
+        return;
+    }
 
     String stateArg = server.arg("state");
     String effectArg = server.arg("effect");
@@ -831,6 +858,9 @@ void WiFiManager::handlePreview() {
 
 void WiFiManager::handleQuickTest() {
     if (!requireAuthorizedRequest(server)) {
+        return;
+    }
+    if (!requireHttpWriteWindow(server, "/api/quicktest")) {
         return;
     }
 
@@ -1142,6 +1172,9 @@ void WiFiManager::handleOtaCheck() {
 
 void WiFiManager::handleOtaProfile() {
     if (!requireAuthorizedRequest(server)) {
+        return;
+    }
+    if (!requireHttpWriteWindow(server, "/api/ota/profile")) {
         return;
     }
 
