@@ -33,6 +33,8 @@ public:
     String getMQTTUser() const { return mqtt_user; }
     String getMQTTPassword() const { return mqtt_password; }
     int getMQTTPort() const { return mqtt_port; }
+    String getOtaProfile() const { return ota_profile; }
+    unsigned long getOtaAutoCheckIntervalMs() const;
     bool isSetupMode() const { return setup_mode; }
     
     // Web Server für Setup
@@ -51,6 +53,7 @@ private:
     String mqtt_user;
     String mqtt_password;
     int mqtt_port;
+    String ota_profile;
     
     bool setup_mode;
     unsigned long setup_start_time;
@@ -63,6 +66,8 @@ private:
     void handleQuickTest();
     void handleOtaInfo();
     void handleOtaCheck();
+    void handleOtaProfile();
+    void setOtaProfile(const String& profile);
 };
 
 #endif

@@ -26,6 +26,15 @@ static inline void waitMs(uint32_t ms) {
     }
 }
 
+static String normalizeOtaProfile(String profile) {
+    profile.trim();
+    profile.toLowerCase();
+    if (profile == "dev" || profile == "norm" || profile == "long") {
+        return profile;
+    }
+    return "long";
+}
+
 extern bool powerState;
 extern String currentEffect;
 extern uint32_t color;
@@ -52,7 +61,7 @@ extern void applyControlUpdate(
 );
 
 WiFiManager::WiFiManager() 
-    : server(80), config_loaded(false), routes_initialized(false), setup_mode(false), setup_start_time(0), mqtt_port(1883) {
+    : server(80), config_loaded(false), routes_initialized(false), setup_mode(false), setup_start_time(0), mqtt_port(1883), ota_profile("long") {
 }
 
 void WiFiManager::loadConfig() {
@@ -67,6 +76,7 @@ void WiFiManager::loadConfig() {
     mqtt_user = prefs.getString("mqtt_user", "");
     mqtt_password = prefs.getString("mqtt_pass", "");
     mqtt_port = prefs.getInt("mqtt_port", 1883);
+    ota_profile = normalizeOtaProfile(prefs.getString("ota_profile", "long"));
     
     prefs.end();
     
@@ -75,6 +85,29 @@ void WiFiManager::loadConfig() {
     DebugManager::print(DebugCategory::WiFi, ", MQTT: ");
     DebugManager::println(DebugCategory::WiFi, mqtt_server.isEmpty() ? "(leer)" : mqtt_server.c_str());
     config_loaded = true;
+}
+
+unsigned long WiFiManager::getOtaAutoCheckIntervalMs() const {
+    if (ota_profile == "dev") {
+        return 2UL * 60UL * 1000UL;
+    }
+    if (ota_profile == "norm") {
+        return 12UL * 60UL * 60UL * 1000UL;
+    }
+    return 7UL * 24UL * 60UL * 60UL * 1000UL;
+}
+
+void WiFiManager::setOtaProfile(const String& profile) {
+    ota_profile = normalizeOtaProfile(profile);
+
+    Preferences otaPrefs;
+    if (!otaPrefs.begin("wifi", false)) {
+        DebugManager::println(DebugCategory::WiFi, "WiFiManager: OTA profile preferences begin failed");
+        return;
+    }
+
+    otaPrefs.putString("ota_profile", ota_profile);
+    otaPrefs.end();
 }
 
 void WiFiManager::saveConfig(const String& new_ssid, const String& new_password,
@@ -249,6 +282,9 @@ void WiFiManager::setupWebRoutes() {
     });
     server.on("/api/ota/check", HTTP_POST, [this]() {
         handleOtaCheck();
+    });
+    server.on("/api/ota/profile", HTTP_POST, [this]() {
+        handleOtaProfile();
     });
 
     // Frontplate SVG for exact live overlay
@@ -487,6 +523,8 @@ void WiFiManager::handleStatus() {
     doc["mem_level"] = MemoryManager::memoryLevelText(MemoryManager::getMemoryLevel());
     doc["mem_warning_threshold"] = MemoryManager::WARNING_THRESHOLD;
     doc["mem_critical_threshold"] = MemoryManager::CRITICAL_THRESHOLD;
+    doc["ota_profile"] = ota_profile;
+    doc["ota_interval_s"] = getOtaAutoCheckIntervalMs() / 1000UL;
 
     JsonArray matrix = doc.createNestedArray("matrix");
     for (int y = 0; y < HEIGHT; y++) {
@@ -841,11 +879,13 @@ void WiFiManager::handleQuickTest() {
 }
 
 void WiFiManager::handleOtaInfo() {
-    DynamicJsonDocument doc(384);
+    DynamicJsonDocument doc(512);
     doc["status"] = "ok";
     doc["fw_version"] = getFirmwareVersion();
     doc["wifi_connected"] = WiFi.isConnected();
     doc["ip"] = WiFi.isConnected() ? WiFi.localIP().toString() : "offline";
+    doc["ota_profile"] = ota_profile;
+    doc["ota_interval_s"] = getOtaAutoCheckIntervalMs() / 1000UL;
 
     String payload;
     serializeJson(doc, payload);
@@ -869,6 +909,21 @@ void WiFiManager::handleOtaCheck() {
     bool started = checkForUpdateAndInstall(true);
     doc["update_started"] = started;
     doc["message"] = started ? "Update gestartet" : "Keine neuere Version gefunden";
+
+    String payload;
+    serializeJson(doc, payload);
+    server.send(200, "application/json", payload);
+}
+
+void WiFiManager::handleOtaProfile() {
+    String profile = server.arg("profile");
+    setOtaProfile(profile);
+
+    DynamicJsonDocument doc(384);
+    doc["status"] = "ok";
+    doc["ota_profile"] = ota_profile;
+    doc["ota_interval_s"] = getOtaAutoCheckIntervalMs() / 1000UL;
+    doc["message"] = "OTA-Profil gespeichert";
 
     String payload;
     serializeJson(doc, payload);

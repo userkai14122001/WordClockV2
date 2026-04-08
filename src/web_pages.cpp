@@ -395,6 +395,14 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
             <h3>OTA Update</h3>
             <p>Aktuelle Firmware: <b id="otaFwVersion">-</b></p>
             <p>Netzwerkstatus: <b id="otaWifi">-</b></p>
+            <label for="otaProfile">OTA Prüfprofil:</label><br>
+            <select id="otaProfile">
+                <option value="long">Long · 1x pro Woche</option>
+                <option value="norm">Norm · alle 12 Stunden</option>
+                <option value="dev">Dev · alle 2 Minuten</option>
+            </select>
+            <p>Aktueller Intervall: <b id="otaIntervalLabel">-</b></p>
+            <button type="button" onclick="saveOtaProfile()">Profil speichern</button>
             <button type="button" onclick="loadOtaInfo()">Status aktualisieren</button>
             <button type="button" onclick="checkOtaNow()">Jetzt auf Update prüfen</button>
             <p id="otaMsg" style="font-size:14px; min-height:20px;"></p>
@@ -619,9 +627,38 @@ async function loadOtaInfo() {
         const j = await r.json();
         document.getElementById('otaFwVersion').textContent = j.fw_version || '-';
         document.getElementById('otaWifi').textContent = j.wifi_connected ? ('Verbunden (' + (j.ip || '-') + ')') : 'Offline';
+        document.getElementById('otaProfile').value = j.ota_profile || 'long';
+        document.getElementById('otaIntervalLabel').textContent = formatOtaIntervalLabel(j.ota_profile || 'long');
         msg.textContent = '';
     } catch (_) {
         msg.textContent = 'OTA Status konnte nicht geladen werden';
+    }
+}
+
+function formatOtaIntervalLabel(profile) {
+    if (profile === 'dev') return 'alle 2 Minuten';
+    if (profile === 'norm') return 'alle 12 Stunden';
+    return '1x pro Woche';
+}
+
+async function saveOtaProfile() {
+    const msg = document.getElementById('otaMsg');
+    const profile = document.getElementById('otaProfile').value || 'long';
+    msg.textContent = 'Speichere OTA-Profil...';
+    try {
+        const p = new URLSearchParams();
+        p.set('profile', profile);
+        const r = await fetch('/api/ota/profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: p
+        });
+        const j = await r.json();
+        document.getElementById('otaProfile').value = j.ota_profile || profile;
+        document.getElementById('otaIntervalLabel').textContent = formatOtaIntervalLabel(j.ota_profile || profile);
+        msg.textContent = j.message || (r.ok ? 'Profil gespeichert' : 'Fehler');
+    } catch (_) {
+        msg.textContent = 'OTA-Profil konnte nicht gespeichert werden';
     }
 }
 
@@ -668,6 +705,7 @@ async function refreshSetupStatus() {
             '<div class="detailKey">IP</div><div class="detailVal ok">' + (s.ip || '-') + '</div>' +
             '<div class="detailKey">Farbe</div><div class="detailVal">' + (s.color || '-') + '</div>' +
             '<div class="detailKey">Helligkeit</div><div class="detailVal">' + (s.brightness || '-') + '</div>' +
+            '<div class="detailKey">OTA-Profil</div><div class="detailVal">' + formatOtaIntervalLabel(s.ota_profile || 'long') + '</div>' +
             '<div class="detailKey">RTC Temperatur</div><div class="detailVal">' + rtcTempText + '</div>' +
             '<div class="detailKey">RTC OSF/Batterie</div><div class="detailVal">' + (s.rtc_battery_warning ? 'Auffällig' : 'OK') + '</div>' +
             '<div class="detailKey">RAM Frei</div><div class="detailVal">' + memFree + ' B</div>' +

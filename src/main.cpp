@@ -147,7 +147,6 @@ static constexpr uint32_t MQTT_PUBLISH_WARN_US = 30000;
 static constexpr unsigned long MAIN_LOOP_WARN_MS = 50;
 static constexpr uint32_t EFFECT_UPDATE_WARN_US = 12000;
 static constexpr unsigned long LOOP_HEARTBEAT_MS = 2000;
-static constexpr unsigned long OTA_AUTO_CHECK_INTERVAL_MS = 60UL * 60UL * 1000UL; // 1 h
 static constexpr unsigned long OTA_FIRST_CHECK_DELAY_MS = 30UL * 1000UL;           // 30 s after boot
 
 // ---------------------------------------------------------
@@ -950,13 +949,14 @@ void loop() {
 
     // OTA auto-check runs only outside setup mode and after boot stabilization.
     const unsigned long nowMs = millis();
+    const unsigned long otaIntervalMs = wifiManager.getOtaAutoCheckIntervalMs();
     const bool otaContextOk = WiFi.isConnected() && !wifiManager.isSetupMode() && !gBootActive;
     if (otaContextOk) {
         if (!sOtaFirstCheckDone && (nowMs - sBootAtMs >= OTA_FIRST_CHECK_DELAY_MS)) {
             sOtaFirstCheckDone = true;
             sLastOtaAutoCheckMs = nowMs;
             checkForUpdateAndInstall(false);
-        } else if (sOtaFirstCheckDone && (nowMs - sLastOtaAutoCheckMs >= OTA_AUTO_CHECK_INTERVAL_MS)) {
+        } else if (sOtaFirstCheckDone && (nowMs - sLastOtaAutoCheckMs >= otaIntervalMs)) {
             sLastOtaAutoCheckMs = nowMs;
             checkForUpdateAndInstall(false);
         }
