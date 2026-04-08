@@ -592,10 +592,9 @@ void WiFiManager::handleStatus() {
         JsonArray row = matrix.createNestedArray();
         for (int x = 0; x < WIDTH; x++) {
             uint32_t c = strip->getPixelColor(XY(x, y));
-            // NeoPixel on this board is GRB-ordered internally.
-            // For the web UI we export canonical RGB hex (#RRGGBB).
-            uint8_t r = (uint8_t)((c >> 8) & 0xFF);
-            uint8_t g = (uint8_t)((c >> 16) & 0xFF);
+            // Export canonical RGB hex (#RRGGBB) for the web UI.
+            uint8_t r = (uint8_t)((c >> 16) & 0xFF);
+            uint8_t g = (uint8_t)((c >> 8) & 0xFF);
             uint8_t b = (uint8_t)(c & 0xFF);
             char hex[7];
             snprintf(hex, sizeof(hex), "%02X%02X%02X",
