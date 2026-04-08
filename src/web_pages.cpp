@@ -2,7 +2,7 @@
 
 const char home_html_page[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -626,23 +626,39 @@ const char live_html_page[] PROGMEM = R"rawliteral(
 <title>WordClock Studio</title>
 <style>
         :root {
-            --bg: #071018;
-            --bg-soft: #0d1c2b;
-            --panel: rgba(13, 24, 39, 0.88);
-            --panel-soft: rgba(17, 31, 49, 0.88);
-            --line: rgba(115, 157, 206, 0.18);
-            --line-strong: rgba(122, 181, 240, 0.42);
-            --text: #eef6ff;
-            --muted: #9db3cf;
-            --accent: #6ad6ff;
-            --accent-strong: #3da2ff;
-            --accent-warm: #ff9f50;
-            --ok: #87f0a7;
-            --warn: #ffb1a8;
+            --bg: #0b171a;
+            --bg-soft: #11262a;
+            --panel: rgba(16, 32, 36, 0.9);
+            --panel-soft: rgba(22, 42, 46, 0.9);
+            --line: rgba(128, 176, 168, 0.24);
+            --line-strong: rgba(111, 190, 174, 0.52);
+            --text: #eefaf5;
+            --muted: #9fc2b8;
+            --accent: #5fc3ad;
+            --accent-strong: #2f9d8b;
+            --accent-warm: #f2a15a;
+            --ok: #8de8ac;
+            --warn: #f6b3a5;
             --shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
             --radius-xl: 24px;
             --radius-lg: 18px;
             --radius-md: 14px;
+        }
+        [data-theme="light"] {
+            --bg: #f4f7f5;
+            --bg-soft: #e6eeea;
+            --panel: rgba(255, 255, 255, 0.88);
+            --panel-soft: rgba(244, 250, 247, 0.92);
+            --line: rgba(63, 108, 100, 0.2);
+            --line-strong: rgba(54, 122, 109, 0.44);
+            --text: #102622;
+            --muted: #4d6f66;
+            --accent: #2f9d8b;
+            --accent-strong: #287767;
+            --accent-warm: #b96d2a;
+            --ok: #268b46;
+            --warn: #b05643;
+            --shadow: 0 18px 50px rgba(22, 40, 36, 0.14);
         }
         * { box-sizing: border-box; }
         html { scroll-behavior: smooth; }
@@ -651,9 +667,9 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             color: var(--text);
             font-family: "Manrope", "Segoe UI", sans-serif;
             background:
-                radial-gradient(circle at top left, rgba(70, 159, 255, 0.24), transparent 28%),
-                radial-gradient(circle at 85% 12%, rgba(255, 155, 80, 0.18), transparent 24%),
-                linear-gradient(180deg, #0a1521 0%, #071018 100%);
+                radial-gradient(circle at top left, rgba(95, 195, 173, 0.22), transparent 30%),
+                radial-gradient(circle at 85% 12%, rgba(242, 161, 90, 0.16), transparent 25%),
+                linear-gradient(180deg, var(--bg-soft) 0%, var(--bg) 100%);
             min-height: 100vh;
         }
         .shell {
@@ -674,7 +690,7 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             padding: 12px 14px;
             border: 1px solid var(--line);
             border-radius: 20px;
-            background: rgba(7, 16, 24, 0.72);
+            background: color-mix(in srgb, var(--panel-soft) 82%, transparent);
             backdrop-filter: blur(14px);
             box-shadow: var(--shadow);
         }
@@ -687,8 +703,8 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             width: 42px;
             height: 42px;
             border-radius: 14px;
-            background: linear-gradient(145deg, rgba(76, 177, 255, 0.95), rgba(75, 255, 208, 0.9));
-            box-shadow: 0 10px 30px rgba(73, 189, 255, 0.32);
+            background: linear-gradient(145deg, var(--accent), var(--accent-warm));
+            box-shadow: 0 10px 30px color-mix(in srgb, var(--accent) 45%, transparent);
         }
         .brandText strong {
             display: block;
@@ -711,13 +727,13 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             padding: 9px 12px;
             border-radius: 999px;
             border: 1px solid var(--line);
-            background: rgba(17, 31, 49, 0.72);
+            background: color-mix(in srgb, var(--panel-soft) 92%, transparent);
             font-size: 13px;
         }
         .navLinks a.active,
         .navLinks a:hover {
             border-color: var(--line-strong);
-            background: rgba(61, 162, 255, 0.16);
+            background: color-mix(in srgb, var(--accent) 18%, transparent);
         }
         .hero {
             display: grid;
@@ -740,8 +756,8 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             min-height: 230px;
             border-color: var(--line-strong);
             background:
-                radial-gradient(circle at top right, rgba(81, 185, 255, 0.24), transparent 36%),
-                linear-gradient(145deg, rgba(16, 40, 67, 0.96), rgba(11, 21, 33, 0.95));
+                radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 24%, transparent), transparent 36%),
+                linear-gradient(145deg, color-mix(in srgb, var(--panel-soft) 94%, transparent), color-mix(in srgb, var(--panel) 94%, transparent));
         }
         .heroCard:after {
             content: "";
@@ -756,9 +772,9 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             display: inline-flex;
             padding: 6px 10px;
             border-radius: 999px;
-            border: 1px solid rgba(109, 173, 241, 0.28);
-            background: rgba(39, 83, 128, 0.28);
-            color: #cbe6ff;
+            border: 1px solid color-mix(in srgb, var(--accent) 34%, transparent);
+            background: color-mix(in srgb, var(--accent) 20%, transparent);
+            color: color-mix(in srgb, var(--text) 90%, white 10%);
             font-size: 11px;
             letter-spacing: 0.08em;
             text-transform: uppercase;
@@ -772,7 +788,7 @@ const char live_html_page[] PROGMEM = R"rawliteral(
         .heroCard p {
             max-width: 620px;
             margin: 0;
-            color: #c4d8ee;
+            color: color-mix(in srgb, var(--text) 78%, var(--muted) 22%);
             font-size: 15px;
             line-height: 1.6;
         }
@@ -785,10 +801,14 @@ const char live_html_page[] PROGMEM = R"rawliteral(
         .heroMeta span {
             padding: 8px 11px;
             border-radius: 999px;
-            border: 1px solid rgba(113, 167, 227, 0.24);
-            background: rgba(15, 28, 43, 0.58);
-            color: #d9ecff;
+            border: 1px solid color-mix(in srgb, var(--line-strong) 55%, transparent);
+            background: color-mix(in srgb, var(--panel-soft) 88%, transparent);
+            color: color-mix(in srgb, var(--text) 85%, white 15%);
             font-size: 12px;
+        }
+        .navLinks a#themeToggle {
+            border-color: color-mix(in srgb, var(--accent-warm) 55%, transparent);
+            background: color-mix(in srgb, var(--accent-warm) 18%, transparent);
         }
         .heroAside {
             padding: 18px;
@@ -856,8 +876,8 @@ const char live_html_page[] PROGMEM = R"rawliteral(
         }
         .statusItem {
             border-radius: var(--radius-md);
-            border: 1px solid rgba(109, 173, 241, 0.16);
-            background: linear-gradient(180deg, rgba(19, 38, 61, 0.9), rgba(13, 24, 39, 0.78));
+            border: 1px solid color-mix(in srgb, var(--line-strong) 40%, transparent);
+            background: linear-gradient(180deg, color-mix(in srgb, var(--panel-soft) 94%, transparent), color-mix(in srgb, var(--panel) 94%, transparent));
             padding: 12px;
             min-height: 92px;
         }
@@ -885,8 +905,8 @@ const char live_html_page[] PROGMEM = R"rawliteral(
         .detailCard {
             padding: 12px;
             border-radius: var(--radius-md);
-            border: 1px solid rgba(113, 167, 227, 0.14);
-            background: rgba(14, 28, 43, 0.68);
+            border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+            background: color-mix(in srgb, var(--panel-soft) 92%, transparent);
         }
         .detailKey {
             color: var(--muted);
@@ -919,18 +939,18 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             position: relative;
             border-radius: calc(var(--radius-xl) - 4px);
             padding: 16px;
-            border: 1px solid rgba(113, 167, 227, 0.16);
+            border: 1px solid color-mix(in srgb, var(--line-strong) 40%, transparent);
             background:
-                radial-gradient(circle at top, rgba(89, 165, 255, 0.16), transparent 34%),
-                linear-gradient(180deg, rgba(14, 28, 43, 0.94), rgba(8, 16, 24, 0.98));
+                radial-gradient(circle at top, color-mix(in srgb, var(--accent) 16%, transparent), transparent 34%),
+                linear-gradient(180deg, color-mix(in srgb, var(--panel-soft) 94%, transparent), color-mix(in srgb, var(--panel) 96%, transparent));
         }
         .matrixWrap {
             width: min(100%, 620px);
             margin: 0 auto;
             padding: 14px;
             border-radius: 22px;
-            border: 1px solid rgba(120, 175, 236, 0.16);
-            background: linear-gradient(180deg, rgba(13, 25, 39, 0.95), rgba(10, 17, 26, 0.98));
+            border: 1px solid color-mix(in srgb, var(--line-strong) 34%, transparent);
+            background: linear-gradient(180deg, color-mix(in srgb, var(--panel-soft) 94%, transparent), color-mix(in srgb, var(--panel) 96%, transparent));
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
             aspect-ratio: 1 / 1;
         }
@@ -1040,16 +1060,16 @@ const char live_html_page[] PROGMEM = R"rawliteral(
         }
         button {
             cursor: pointer;
-            background: linear-gradient(145deg, rgba(70, 159, 255, 0.24), rgba(30, 99, 171, 0.72));
+            background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 26%, transparent), color-mix(in srgb, var(--accent-strong) 76%, transparent));
         }
         button:hover {
-            border-color: rgba(132, 201, 255, 0.5);
+            border-color: color-mix(in srgb, var(--accent) 55%, transparent);
         }
         button.secondary {
             background: rgba(16, 31, 49, 0.92);
         }
         button.warn {
-            background: linear-gradient(145deg, rgba(255, 127, 107, 0.25), rgba(124, 41, 33, 0.86));
+            background: linear-gradient(145deg, color-mix(in srgb, #ff7f6b 26%, transparent), color-mix(in srgb, #7c2921 86%, transparent));
         }
         .colorRow {
             display: grid;
@@ -1060,7 +1080,7 @@ const char live_html_page[] PROGMEM = R"rawliteral(
         .colorSwatch {
             height: 48px;
             border-radius: 14px;
-            border: 1px solid rgba(115, 157, 206, 0.24);
+            border: 1px solid color-mix(in srgb, var(--line-strong) 45%, transparent);
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 10px 22px rgba(0,0,0,0.18);
         }
         .controlActions,
@@ -1136,6 +1156,7 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             <a href="/ota">OTA</a>
             <a class="active" href="/live">Studio</a>
             <a href="/test">Test</a>
+            <a href="#" id="themeToggle">Theme: Dark</a>
         </div>
     </div>
 
@@ -1221,7 +1242,7 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             <section class="panel">
                 <div class="panelHead">
                     <h2>Control studio</h2>
-                    <span id="applyMsg" class="inlineMsg">Bereit</span>
+                    <span id="applyMsg" class="inlineMsg">Auto-Apply aktiv</span>
                 </div>
                 <p class="sectionText">Steuere die Uhr wie eine normale Website: links Telemetrie und Vorschau, rechts alle Controls in einem sauberen Operator-Panel.</p>
                 <div class="controlGrid">
@@ -1288,7 +1309,6 @@ const char live_html_page[] PROGMEM = R"rawliteral(
                     </div>
 
                     <div class="controlActions">
-                        <button onclick="applyLive()">Anwenden</button>
                         <button class="secondary" onclick="applyPreset('balanced')">Balanced</button>
                         <button class="secondary" onclick="applyPreset('dramatic')">Dramatic</button>
                         <button class="secondary" onclick="applyPreset('calm')">Calm</button>
@@ -1303,8 +1323,42 @@ const char live_html_page[] PROGMEM = R"rawliteral(
 let isDirty = false;
 let refreshTimer = null;
 let refreshInFlight = false;
+let applyDebounceTimer = null;
+
+function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('wc_theme', theme);
+    setText('themeToggle', 'Theme: ' + (theme === 'light' ? 'Light' : 'Dark'));
+}
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    setTheme(current === 'dark' ? 'light' : 'dark');
+}
+
+function initTheme() {
+    const saved = localStorage.getItem('wc_theme');
+    const preferred = (saved === 'light' || saved === 'dark') ? saved : 'dark';
+    setTheme(preferred);
+    document.getElementById('themeToggle').addEventListener('click', function(e) {
+        e.preventDefault();
+        toggleTheme();
+    });
+}
 
 function markDirty() { isDirty = true; }
+
+function queueAutoApply(delayMs) {
+    markDirty();
+    const msg = document.getElementById('applyMsg');
+    msg.textContent = 'Auto-Apply...';
+    if (applyDebounceTimer) {
+        clearTimeout(applyDebounceTimer);
+    }
+    applyDebounceTimer = setTimeout(function() {
+        applyLive();
+    }, delayMs || 260);
+}
 
 function setText(id, value) {
     document.getElementById(id).textContent = value;
@@ -1343,7 +1397,7 @@ function applyPreset(name) {
         document.getElementById('transitionMs').value = 2800;
     }
     updateRangeBadges();
-    markDirty();
+    queueAutoApply(140);
 }
 
 const layoutRows = [
@@ -1517,7 +1571,7 @@ async function applyLive() {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: p
     });
-    msg.textContent = r.ok ? 'Angewendet' : 'Fehler beim Anwenden';
+    msg.textContent = r.ok ? 'Auto-Apply aktiv' : 'Fehler beim Anwenden';
     setTimeout(() => { msg.textContent = ''; }, 1500);
     isDirty = false;
     refreshStatus();
@@ -1534,15 +1588,14 @@ async function quick(action) {
     refreshStatus();
 }
 
-document.getElementById('power').addEventListener('change', markDirty);
-document.getElementById('power').addEventListener('change', function() { markDirty(); updateRangeBadges(); });
-document.getElementById('effect').addEventListener('change', function() { markDirty(); updateRangeBadges(); });
-document.getElementById('color').addEventListener('input', function() { markDirty(); updateColorUi(this.value); });
-document.getElementById('brightness').addEventListener('input', function() { markDirty(); updateRangeBadges(); });
-document.getElementById('speed').addEventListener('input', function() { markDirty(); updateRangeBadges(); });
-document.getElementById('intensity').addEventListener('input', function() { markDirty(); updateRangeBadges(); });
-document.getElementById('density').addEventListener('input', function() { markDirty(); updateRangeBadges(); });
-document.getElementById('transitionMs').addEventListener('input', function() { markDirty(); updateRangeBadges(); });
+document.getElementById('power').addEventListener('change', function() { updateRangeBadges(); queueAutoApply(180); });
+document.getElementById('effect').addEventListener('change', function() { updateRangeBadges(); queueAutoApply(180); });
+document.getElementById('color').addEventListener('input', function() { updateColorUi(this.value); queueAutoApply(220); });
+document.getElementById('brightness').addEventListener('input', function() { updateRangeBadges(); queueAutoApply(240); });
+document.getElementById('speed').addEventListener('input', function() { updateRangeBadges(); queueAutoApply(240); });
+document.getElementById('intensity').addEventListener('input', function() { updateRangeBadges(); queueAutoApply(240); });
+document.getElementById('density').addEventListener('input', function() { updateRangeBadges(); queueAutoApply(240); });
+document.getElementById('transitionMs').addEventListener('input', function() { updateRangeBadges(); queueAutoApply(300); });
 
 function startRefreshTimer() {
     const periodMs = Math.floor(1000 / 10);
@@ -1552,6 +1605,7 @@ function startRefreshTimer() {
 
 updateColorUi(document.getElementById('color').value);
 updateRangeBadges();
+initTheme();
 refreshStatus();
 startRefreshTimer();
 </script>

@@ -1,5 +1,5 @@
 {
-  "version": "0.2.11",
+  "version": "0.2.12",
   "firmware_url": "https://raw.githubusercontent.com/userkai14122001/WordClockV2/main/firmware/firmware.bin",
-  "notes": "new website-style onboard UI with advanced effect tuning controls"
+  "notes": "website UI now has auto-apply controls and light/dark theme toggle"
 }
