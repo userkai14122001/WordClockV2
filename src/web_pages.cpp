@@ -6,22 +6,109 @@ const char home_html_page[] PROGMEM = R"rawliteral(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WordClock Main</title>
+<title>WordClock Control Hub</title>
 <style>
-    body { font-family: Arial, sans-serif; background:#111824; color:#eef4ff; margin:0; }
-    .topnav { position:sticky; top:0; z-index:10; background:#1b2738; border-bottom:1px solid #324760; padding:10px 8px; display:flex; gap:8px; flex-wrap:wrap; }
-    .topnav a { color:#e7f0ff; text-decoration:none; padding:8px 10px; border:1px solid #45607f; border-radius:8px; background:#24344a; font-size:13px; }
-    .topnav a:hover { background:#305073; }
-    .wrap { max-width:900px; margin:0 auto; padding:14px 8px; box-sizing:border-box; }
-    .hero { background:#202f44; border:1px solid #3d5572; border-radius:12px; padding:14px; margin-bottom:12px; }
-    .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; }
-    .card { background:#223249; border:1px solid #405a77; border-radius:10px; padding:12px; }
-    .btn { display:inline-block; margin-top:8px; padding:7px 10px; border-radius:8px; border:1px solid #6d8eb8; color:#fff; text-decoration:none; background:#3a69b0; font-size:13px; }
+    :root {
+        --bg-a: #0a1622;
+        --bg-b: #101f33;
+        --panel: rgba(17, 31, 50, 0.92);
+        --panel-soft: rgba(24, 42, 67, 0.9);
+        --line: #2f4d72;
+        --line-strong: #3f6799;
+        --text: #eef5ff;
+        --muted: #9fb7d7;
+        --accent: #43c4ff;
+        --accent-2: #4ef3c6;
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        color: var(--text);
+        font-family: "Sora", "Manrope", "Segoe UI", sans-serif;
+        background: radial-gradient(circle at 10% 0%, #17375a 0%, var(--bg-b) 36%, var(--bg-a) 100%);
+        min-height: 100vh;
+    }
+    .topnav {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+        padding: 10px 10px;
+        background: rgba(11, 22, 35, 0.82);
+        border-bottom: 1px solid var(--line);
+        backdrop-filter: blur(8px);
+    }
+    .topnav a {
+        color: var(--text);
+        text-decoration: none;
+        padding: 8px 11px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: linear-gradient(145deg, #18304b, #12263e);
+        font-size: 13px;
+    }
+    .topnav a:hover { border-color: var(--line-strong); }
+    .wrap { max-width: 1020px; margin: 0 auto; padding: 16px 10px 24px; }
+    .hero {
+        position: relative;
+        overflow: hidden;
+        border-radius: 16px;
+        border: 1px solid var(--line-strong);
+        background: linear-gradient(140deg, rgba(33, 65, 102, 0.95), rgba(19, 36, 58, 0.98));
+        padding: 18px;
+        margin-bottom: 14px;
+    }
+    .hero:before {
+        content: "";
+        position: absolute;
+        width: 260px;
+        height: 260px;
+        border-radius: 50%;
+        right: -90px;
+        top: -120px;
+        background: radial-gradient(circle, rgba(79, 204, 255, 0.35), transparent 70%);
+    }
+    .hero h2 { margin: 0 0 8px; font-size: 24px; letter-spacing: 0.01em; }
+    .hero p { margin: 0; color: #d7e7fd; }
+    .tagRow { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .tag {
+        padding: 5px 9px;
+        border-radius: 999px;
+        font-size: 12px;
+        border: 1px solid #507aa7;
+        color: #ddf2ff;
+        background: rgba(21, 44, 70, 0.9);
+    }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px; }
+    .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 12px;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+    }
+    .card h3 { margin: 2px 0 6px; }
+    .card p { margin: 0; color: var(--muted); min-height: 36px; }
+    .btn {
+        display:inline-block;
+        margin-top:10px;
+        padding:8px 10px;
+        border-radius:10px;
+        border:1px solid #4f86bc;
+        color:#fff;
+        text-decoration:none;
+        background: linear-gradient(145deg, #2f6ca5, #245782);
+        font-size:13px;
+    }
+    .btn:hover { border-color: #69b4ff; }
     @media (max-width:480px) {
-        .wrap { padding: 8px 4px; }
+        .wrap { padding: 10px 6px 16px; }
         .topnav { padding: 8px 4px; gap: 4px; }
         .topnav a { padding: 6px 8px; font-size: 11px; }
-        .grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+        .grid { grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 8px; }
         .card { padding: 10px; }
         .hero { padding: 10px; }
         h2 { margin: 8px 0; font-size: 18px; }
@@ -41,16 +128,21 @@ const char home_html_page[] PROGMEM = R"rawliteral(
 </div>
 <div class="wrap">
     <div class="hero">
-        <h2>WordClock Hauptseite</h2>
-        <p>Waehle eine Unterseite ueber die Top-Leiste oder die Kacheln unten.</p>
+        <h2>WordClock Control Hub</h2>
+        <p>Moderne Steuerzentrale fuer Setup, Live-Regie, OTA und Tests.</p>
+        <div class="tagRow">
+            <span class="tag">Live Status</span>
+            <span class="tag">OTA Ready</span>
+            <span class="tag">MQTT + RTC</span>
+        </div>
     </div>
     <div class="grid">
-        <div class="card"><h3>Main</h3><p>Konfiguration und Neustart.</p><a class="btn" href="/main">Oeffnen</a></div>
-        <div class="card"><h3>Wifi</h3><p>WLAN-Einstellungen und Netzwerkscan.</p><a class="btn" href="/wifi">Oeffnen</a></div>
-        <div class="card"><h3>MQTT</h3><p>Broker, User und Port konfigurieren.</p><a class="btn" href="/mqtt">Oeffnen</a></div>
-        <div class="card"><h3>OTA</h3><p>Firmware checken und Update starten.</p><a class="btn" href="/ota">Oeffnen</a></div>
-        <div class="card"><h3>Live</h3><p>Live-Vorschau und Steuerung.</p><a class="btn" href="/live">Oeffnen</a></div>
-        <div class="card"><h3>Test</h3><p>Schnelltests fuer LEDs und Clock.</p><a class="btn" href="/test">Oeffnen</a></div>
+        <div class="card"><h3>Main</h3><p>Systemueberblick und Zugriff auf alle Einstellungen.</p><a class="btn" href="/main">Oeffnen</a></div>
+        <div class="card"><h3>Wifi</h3><p>WLAN setzen, Netze scannen und Neustart ausloesen.</p><a class="btn" href="/wifi">Oeffnen</a></div>
+        <div class="card"><h3>MQTT</h3><p>Broker, User, Port und Verbindung sauber einrichten.</p><a class="btn" href="/mqtt">Oeffnen</a></div>
+        <div class="card"><h3>OTA</h3><p>Firmware-Status ansehen und Updates manuell starten.</p><a class="btn" href="/ota">Oeffnen</a></div>
+        <div class="card"><h3>Live</h3><p>Direkte Effekt- und Farbregie mit Matrix-Vorschau.</p><a class="btn" href="/live">Oeffnen</a></div>
+        <div class="card"><h3>Test</h3><p>Quicktests fuer LEDs, Farben, Clock und Muster.</p><a class="btn" href="/test">Oeffnen</a></div>
     </div>
 </div>
 </body>
@@ -63,73 +155,116 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WordClock Setup</title>
+<title>WordClock Setup Studio</title>
 
 <style>
+    :root {
+        --bg-a: #08131e;
+        --bg-b: #122640;
+        --panel: rgba(19, 34, 54, 0.92);
+        --panel-soft: rgba(24, 44, 71, 0.9);
+        --line: #2d4b6d;
+        --line-strong: #3f6898;
+        --text: #eef6ff;
+        --muted: #9eb6d6;
+        --ok: #7af0a8;
+        --warn: #ff9f9f;
+    }
+    * { box-sizing: border-box; }
     body {
-        font-family: Arial, sans-serif;
-        background: #111;
-        color: #eee;
-        text-align: center;
         margin: 0;
+        color: var(--text);
+        font-family: "Sora", "Manrope", "Segoe UI", sans-serif;
+        background: radial-gradient(circle at 4% 0%, #1a3a5f 0%, var(--bg-b) 35%, var(--bg-a) 100%);
+        min-height: 100vh;
     }
     .topnav {
         position: sticky;
         top: 0;
         z-index: 10;
-        background: #1a2432;
-        border-bottom: 1px solid #304359;
-        padding: 10px 12px;
+        background: rgba(9, 18, 30, 0.84);
+        border-bottom: 1px solid var(--line);
+        padding: 10px;
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
-        justify-content: center;
+        backdrop-filter: blur(8px);
     }
     .topnav a {
-        color: #eef6ff;
+        color: var(--text);
         text-decoration: none;
-        border: 1px solid #4e6785;
-        background: #26384f;
-        border-radius: 8px;
-        padding: 7px 11px;
-        font-size: 14px;
-    }
-    .topnav a:hover { background: #2f4e70; }
-    .box {
-        background: #222;
-        padding: 16px 12px;
+        border: 1px solid var(--line);
+        background: linear-gradient(145deg, #17304b, #10253d);
         border-radius: 10px;
-        max-width: 420px;
-        margin: 16px auto;
-        box-shadow: 0 0 10px #000;
+        padding: 7px 10px;
+        font-size: 13px;
+    }
+    .topnav a:hover { border-color: var(--line-strong); }
+    .wrap {
+        max-width: 1040px;
+        margin: 0 auto;
+        padding: 16px 10px 24px;
+    }
+    .hero {
+        border-radius: 16px;
+        border: 1px solid var(--line-strong);
+        background: linear-gradient(140deg, rgba(28, 60, 96, 0.95), rgba(17, 33, 53, 0.97));
+        padding: 14px 16px;
+        margin-bottom: 12px;
+    }
+    .hero h2 { margin: 0 0 6px; font-size: 24px; }
+    .hero p { margin: 0; color: #d8e6fb; }
+    .box {
+        background: var(--panel);
+        padding: 16px 14px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
     }
     select, input {
         width: 100%;
-        padding: 10px;
+        padding: 11px;
         margin: 8px 0;
-        border-radius: 6px;
-        border: none;
-        font-size: 16px;
+        border-radius: 10px;
+        border: 1px solid #446486;
+        font-size: 15px;
         box-sizing: border-box;
+        color: var(--text);
+        background: #12253b;
     }
+    h3 { margin: 8px 0 8px; }
+    label { color: #cfe1f7; font-size: 13px; display: block; text-align: left; }
     button {
         width: 100%;
-        padding: 12px;
-        background: #4CAF50;
-        border: none;
+        padding: 11px;
+        background: linear-gradient(145deg, #2f6da7, #255989);
+        border: 1px solid #4f86bc;
         color: white;
-        font-size: 16px;
-        border-radius: 6px;
+        font-size: 14px;
+        border-radius: 10px;
         cursor: pointer;
         margin-top: 10px;
-        transition: background 0.3s ease;
+        transition: border-color 0.2s ease;
         box-sizing: border-box;
     }
-    button:hover {
-        background: #45a049;
-    }
+    button:hover { border-color: #69b4ff; }
+    .layout { display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; }
+    .stack { display: grid; gap: 12px; }
+    .statusGrid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; margin-top:10px; }
+    .statusItem { background:#162a43; border:1px solid #36567a; border-radius:10px; padding:8px 10px; }
+    .statusLabel { color:#9fb8d9; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; }
+    .statusValue { color:#f4f8ff; font-size:15px; font-weight:700; margin-top:3px; }
+    .detailTable { margin-top:10px; display:grid; grid-template-columns:1fr auto; gap:6px 10px; font-size:14px; }
+    .detailKey { color:#a8c0df; text-align:left; }
+    .detailVal { color:#f4f8ff; text-align:right; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
     @media (max-width:480px) {
-        .box { padding: 12px 8px; margin: 12px 8px; }
+        .wrap { padding: 10px 6px 16px; }
+        .hero h2 { font-size: 19px; }
+        .layout { grid-template-columns: 1fr; }
+        .box { padding: 12px 8px; }
         select, input { font-size: 16px; padding: 8px; }
         button { padding: 10px; font-size: 14px; }
         .topnav { padding: 8px 6px; gap: 4px; }
@@ -149,10 +284,15 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
     <a href="/test">Test</a>
 </div>
 
-<h2>WordClock Setup</h2>
+<div class="wrap">
+    <div class="hero">
+        <h2>WordClock Setup Studio</h2>
+        <p>Alle Konfigurationen plus Live-Systemstatus direkt auf einer Seite.</p>
+    </div>
 
-<div class="box">
-    <form id="setupForm">
+    <div class="layout">
+        <div class="box">
+            <form id="setupForm">
 
         <div id="wifiSection" style="display:none;">
             <h3>WLAN Einstellungen</h3>
@@ -205,11 +345,37 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
             <p>Waehle eine Option unten aus.</p>
         </div>
 
-    </form>
+            </form>
 
-    <button type="button" onclick="confirmReboot()" id="rebootBtn" style="display:none;">Neustart</button>
-    <button type="button" onclick="location.href='/live'" id="liveBtn" style="display:none;">Live-Vorschau & Schnelltest</button>
+            <button type="button" onclick="confirmReboot()" id="rebootBtn" style="display:none;">Neustart</button>
+            <button type="button" onclick="location.href='/live'" id="liveBtn" style="display:none;">Live-Vorschau & Schnelltest</button>
+        </div>
+
+        <div class="stack">
+            <div class="box">
+                <h3>Status</h3>
+                <div id="setupStatusGrid" class="statusGrid">
+                    <div class="statusItem"><div class="statusLabel">Power</div><div id="spPower" class="statusValue">-</div></div>
+                    <div class="statusItem"><div class="statusLabel">Effekt</div><div id="spEffect" class="statusValue">-</div></div>
+                    <div class="statusItem"><div class="statusLabel">RTC</div><div id="spRtc" class="statusValue">-</div></div>
+                    <div class="statusItem"><div class="statusLabel">WiFi</div><div id="spWifi" class="statusValue">-</div></div>
+                    <div class="statusItem"><div class="statusLabel">MQTT</div><div id="spMqtt" class="statusValue">-</div></div>
+                    <div class="statusItem"><div class="statusLabel">RAM</div><div id="spMem" class="statusValue">-</div></div>
+                </div>
+                <div id="setupStatusDetails" class="detailTable"></div>
+                <div class="muted" style="margin-top:8px;">Refresh: 10/s (fest)</div>
+            </div>
+
+            <div class="box">
+                <h3>Quick Access</h3>
+                <p class="muted">Direkter Wechsel in Regie und Tests.</p>
+                <button type="button" onclick="location.href='/live'">Live-Regie oeffnen</button>
+                <button type="button" onclick="location.href='/test'">Tests oeffnen</button>
+            </div>
+        </div>
+    </div>
 </div>
+
 
 <script>
 // ---------------------------------------------------------
@@ -407,6 +573,44 @@ async function checkOtaNow() {
         msg.textContent = 'OTA Pruefung fehlgeschlagen';
     }
 }
+
+async function refreshSetupStatus() {
+    try {
+        const r = await fetch('/api/status');
+        const s = await r.json();
+
+        const rtcBadge = s.rtc_warning ? '<span class="warn">WARNUNG</span>' : '<span class="ok">OK</span>';
+        const mqttBadge = s.mqtt_connected ? '<span class="ok">Verbunden</span>' : '<span class="warn">Getrennt</span>';
+        const memLevel = String(s.mem_level || 'OK').toUpperCase();
+        const memBadge = (memLevel === 'CRITICAL' || memLevel === 'WARNING') ? '<span class="warn">' + memLevel + '</span>' : '<span class="ok">OK</span>';
+        const rtcTempText = (typeof s.rtc_temp_c === 'number' && Number.isFinite(s.rtc_temp_c))
+            ? (s.rtc_temp_c.toFixed(2) + ' C')
+            : 'n/a';
+        const memFree = Number.isFinite(Number(s.mem_free)) ? Number(s.mem_free) : 0;
+        const memTotal = Number.isFinite(Number(s.mem_total)) && Number(s.mem_total) > 0 ? Number(s.mem_total) : 1;
+        const memUsedPct = ((memTotal - memFree) * 100.0 / memTotal).toFixed(1);
+
+        document.getElementById('spPower').innerHTML = s.state || '-';
+        document.getElementById('spEffect').innerHTML = s.effect || '-';
+        document.getElementById('spRtc').innerHTML = rtcBadge;
+        document.getElementById('spWifi').innerHTML = (s.rssi + ' dBm');
+        document.getElementById('spMqtt').innerHTML = mqttBadge;
+        document.getElementById('spMem').innerHTML = memBadge;
+
+        document.getElementById('setupStatusDetails').innerHTML =
+            '<div class="detailKey">IP</div><div class="detailVal ok">' + (s.ip || '-') + '</div>' +
+            '<div class="detailKey">Farbe</div><div class="detailVal">' + (s.color || '-') + '</div>' +
+            '<div class="detailKey">Helligkeit</div><div class="detailVal">' + (s.brightness || '-') + '</div>' +
+            '<div class="detailKey">RTC Temperatur</div><div class="detailVal">' + rtcTempText + '</div>' +
+            '<div class="detailKey">RTC OSF/Batterie</div><div class="detailVal">' + (s.rtc_battery_warning ? 'Auffaellig' : 'OK') + '</div>' +
+            '<div class="detailKey">RAM Frei</div><div class="detailVal">' + memFree + ' B</div>' +
+            '<div class="detailKey">RAM Nutzung</div><div class="detailVal">' + memUsedPct + '%</div>' +
+            '<div class="detailKey">Max Block</div><div class="detailVal">' + (s.mem_max_alloc || 0) + ' B</div>';
+    } catch (_) {}
+}
+
+setInterval(refreshSetupStatus, 100);
+refreshSetupStatus();
 </script>
 
 </body>
