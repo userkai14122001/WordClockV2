@@ -44,6 +44,9 @@ void     drawWord(const Word& w);
 void     showExtraMinutes(int minute);
 void     showTime(int hour, int minute);
 void     resetClockMorphState();
+bool     setClockWordPosition(const String& key, const Word& w);
+bool     getClockWordPosition(const String& key, Word& out);
+void     resetClockWordPositionsToDefault();
 
 // ---------------------------------------------------------
 // Base Effect class

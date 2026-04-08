@@ -70,6 +70,8 @@ private:
     void handleOtaInfo();
     void handleOtaCheck();
     void handleOtaProfile();
+    void handleLayoutGet();
+    void handleLayoutSet();
     void setOtaProfile(const String& profile, bool resetSinceEpoch = true);
 };
 

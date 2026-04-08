@@ -19,6 +19,7 @@
 #include "config.h"
 #include "ControlConfig.h"
 #include "DebugManager.h"
+#include "WordClockLayout.h"
 
 struct ControlUpdate;
 
@@ -489,6 +490,8 @@ void setup() {
     } else {
         DebugManager::println(DebugCategory::Boot, "SPIFFS: Bereit");
     }
+
+    wordClockLayoutInit();
 
     logBootSection(F("RTC"));
     rtcManager.init();

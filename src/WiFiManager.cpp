@@ -11,6 +11,7 @@
 #include "ControlConfig.h"
 #include "matrix.h"
 #include "effects.h"
+#include "WordClockLayout.h"
 #include <SPIFFS.h>
 #include <ArduinoJson.h>
 #include <vector>
@@ -395,6 +396,9 @@ void WiFiManager::setupWebRoutes() {
     server.on("/ota", [this]() {
         server.send(200, "text/html", setup_html_page);
     });
+    server.on("/layout", [this]() {
+        server.send(200, "text/html", setup_html_page);
+    });
     server.on("/live", [this]() {
         server.send(200, "text/html", live_html_page);
     });
@@ -430,6 +434,12 @@ void WiFiManager::setupWebRoutes() {
     });
     server.on("/api/ota/profile", HTTP_POST, [this]() {
         handleOtaProfile();
+    });
+    server.on("/api/layout", HTTP_GET, [this]() {
+        handleLayoutGet();
+    });
+    server.on("/api/layout", HTTP_POST, [this]() {
+        handleLayoutSet();
     });
 
     // Frontplate SVG for exact live overlay
@@ -685,6 +695,9 @@ void WiFiManager::handleStatus() {
     doc["mem_critical_threshold"] = MemoryManager::CRITICAL_THRESHOLD;
     doc["ota_profile"] = ota_profile;
     doc["ota_interval_s"] = getOtaAutoCheckIntervalMs() / 1000UL;
+    doc["layout_id"] = wordClockLayoutActiveId();
+    doc["layout_name"] = wordClockLayoutActiveName();
+    doc["layout_text"] = wordClockLayoutText();
 
     JsonArray matrix = doc.createNestedArray("matrix");
     for (int y = 0; y < HEIGHT; y++) {
@@ -1193,6 +1206,56 @@ void WiFiManager::handleOtaProfile() {
     doc["ota_interval_s"] = getOtaAutoCheckIntervalMs() / 1000UL;
     doc["ota_channel"] = getOtaChannel();
     doc["message"] = "OTA-Profil gespeichert";
+
+    String payload;
+    serializeJson(doc, payload);
+    server.send(200, "application/json", payload);
+}
+
+void WiFiManager::handleLayoutGet() {
+    DynamicJsonDocument doc(4096);
+    doc["status"] = "ok";
+    doc["layout_id"] = wordClockLayoutActiveId();
+    doc["layout_name"] = wordClockLayoutActiveName();
+    doc["layout_text"] = wordClockLayoutText();
+    doc["word_positions"] = wordClockLayoutWordPositionsJson();
+
+    String payload;
+    serializeJson(doc, payload);
+    server.send(200, "application/json", payload);
+}
+
+void WiFiManager::handleLayoutSet() {
+    if (!requireAuthorizedRequest(server)) {
+        return;
+    }
+    if (!requireHttpWriteWindow(server, "/api/layout")) {
+        return;
+    }
+
+    String layoutId = server.arg("layout_id");
+    String layoutName = server.arg("layout_name");
+    String layoutText = server.arg("layout_text");
+    String wordPositions = server.arg("word_positions");
+    layoutId.trim();
+
+    if (layoutId.isEmpty()) {
+        sendApiError(server, 400, "invalid_request", "layout_id fehlt");
+        return;
+    }
+
+    String error;
+    if (!wordClockLayoutApplyAndStore(layoutId, layoutName, layoutText, wordPositions, error)) {
+        sendApiError(server, 422, "invalid_layout", error.c_str());
+        return;
+    }
+
+    DynamicJsonDocument doc(1024);
+    doc["status"] = "ok";
+    doc["layout_id"] = wordClockLayoutActiveId();
+    doc["layout_name"] = wordClockLayoutActiveName();
+    doc["layout_text"] = wordClockLayoutText();
+    doc["message"] = "Layout gespeichert";
 
     String payload;
     serializeJson(doc, payload);
