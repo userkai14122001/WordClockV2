@@ -35,6 +35,7 @@ public:
     int getMQTTPort() const { return mqtt_port; }
     String getOtaProfile() const { return ota_profile; }
     unsigned long getOtaAutoCheckIntervalMs() const;
+    void refreshOtaProfilePolicy();
     bool isSetupMode() const { return setup_mode; }
     
     // Web Server für Setup
@@ -54,6 +55,8 @@ private:
     String mqtt_password;
     int mqtt_port;
     String ota_profile;
+    uint32_t ota_profile_since_epoch;
+    unsigned long ota_last_policy_check_ms;
     
     bool setup_mode;
     unsigned long setup_start_time;
@@ -67,7 +70,7 @@ private:
     void handleOtaInfo();
     void handleOtaCheck();
     void handleOtaProfile();
-    void setOtaProfile(const String& profile);
+    void setOtaProfile(const String& profile, bool resetSinceEpoch = true);
 };
 
 #endif

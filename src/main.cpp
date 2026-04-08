@@ -949,6 +949,7 @@ void loop() {
 
     // OTA auto-check runs only outside setup mode and after boot stabilization.
     const unsigned long nowMs = millis();
+    wifiManager.refreshOtaProfilePolicy();
     const unsigned long otaIntervalMs = wifiManager.getOtaAutoCheckIntervalMs();
     const bool otaContextOk = WiFi.isConnected() && !wifiManager.isSetupMode() && !gBootActive;
     if (otaContextOk) {

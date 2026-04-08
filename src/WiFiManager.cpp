@@ -35,6 +35,15 @@ static String normalizeOtaProfile(String profile) {
     return "long";
 }
 
+static uint32_t validUnixNow() {
+    time_t now = time(nullptr);
+    // Treat values before 2023 as invalid/uninitialized clock.
+    if (now < 1672531200) {
+        return 0;
+    }
+    return (uint32_t)now;
+}
+
 extern bool powerState;
 extern String currentEffect;
 extern uint32_t color;
@@ -61,7 +70,7 @@ extern void applyControlUpdate(
 );
 
 WiFiManager::WiFiManager() 
-    : server(80), config_loaded(false), routes_initialized(false), setup_mode(false), setup_start_time(0), mqtt_port(1883), ota_profile("long") {
+    : server(80), config_loaded(false), routes_initialized(false), setup_mode(false), setup_start_time(0), mqtt_port(1883), ota_profile("long"), ota_profile_since_epoch(0), ota_last_policy_check_ms(0) {
 }
 
 void WiFiManager::loadConfig() {
@@ -77,8 +86,16 @@ void WiFiManager::loadConfig() {
     mqtt_password = prefs.getString("mqtt_pass", "");
     mqtt_port = prefs.getInt("mqtt_port", 1883);
     ota_profile = normalizeOtaProfile(prefs.getString("ota_profile", "long"));
+    ota_profile_since_epoch = (uint32_t)prefs.getULong("ota_since", 0);
     
     prefs.end();
+
+    if (ota_profile_since_epoch == 0) {
+        uint32_t now = validUnixNow();
+        if (now > 0) {
+            setOtaProfile(ota_profile, true);
+        }
+    }
     
     DebugManager::print(DebugCategory::WiFi, "WiFiManager: Config geladen - SSID: ");
     DebugManager::print(DebugCategory::WiFi, ssid.isEmpty() ? "(leer)" : ssid.c_str());
@@ -97,8 +114,14 @@ unsigned long WiFiManager::getOtaAutoCheckIntervalMs() const {
     return 7UL * 24UL * 60UL * 60UL * 1000UL;
 }
 
-void WiFiManager::setOtaProfile(const String& profile) {
+void WiFiManager::setOtaProfile(const String& profile, bool resetSinceEpoch) {
     ota_profile = normalizeOtaProfile(profile);
+    if (resetSinceEpoch) {
+        uint32_t now = validUnixNow();
+        if (now > 0) {
+            ota_profile_since_epoch = now;
+        }
+    }
 
     Preferences otaPrefs;
     if (!otaPrefs.begin("wifi", false)) {
@@ -107,7 +130,43 @@ void WiFiManager::setOtaProfile(const String& profile) {
     }
 
     otaPrefs.putString("ota_profile", ota_profile);
+    otaPrefs.putULong("ota_since", ota_profile_since_epoch);
     otaPrefs.end();
+}
+
+void WiFiManager::refreshOtaProfilePolicy() {
+    const unsigned long nowMs = millis();
+    if (nowMs - ota_last_policy_check_ms < 60000UL) {
+        return;
+    }
+    ota_last_policy_check_ms = nowMs;
+
+    const uint32_t now = validUnixNow();
+    if (now == 0) {
+        return;
+    }
+
+    if (ota_profile_since_epoch == 0) {
+        ota_profile_since_epoch = now;
+        setOtaProfile(ota_profile, false);
+        return;
+    }
+
+    if (now <= ota_profile_since_epoch) {
+        return;
+    }
+
+    const uint32_t ageSec = now - ota_profile_since_epoch;
+    const uint32_t oneWeekSec = 7UL * 24UL * 60UL * 60UL;
+    const uint32_t twoWeeksSec = 2UL * oneWeekSec;
+
+    if (ota_profile == "dev" && ageSec >= oneWeekSec) {
+        DebugManager::println(DebugCategory::OTA, "[OTA] Auto profile switch: dev -> norm");
+        setOtaProfile("norm", true);
+    } else if (ota_profile == "norm" && ageSec >= twoWeeksSec) {
+        DebugManager::println(DebugCategory::OTA, "[OTA] Auto profile switch: norm -> long");
+        setOtaProfile("long", true);
+    }
 }
 
 void WiFiManager::saveConfig(const String& new_ssid, const String& new_password,
@@ -494,6 +553,8 @@ void WiFiManager::handleSave() {
 }
 
 void WiFiManager::handleStatus() {
+    refreshOtaProfilePolicy();
+
     DynamicJsonDocument doc(4096);
     doc["state"] = powerState ? "ON" : "OFF";
     doc["effect"] = currentEffect;
@@ -879,6 +940,8 @@ void WiFiManager::handleQuickTest() {
 }
 
 void WiFiManager::handleOtaInfo() {
+    refreshOtaProfilePolicy();
+
     DynamicJsonDocument doc(512);
     doc["status"] = "ok";
     doc["fw_version"] = getFirmwareVersion();
@@ -917,7 +980,7 @@ void WiFiManager::handleOtaCheck() {
 
 void WiFiManager::handleOtaProfile() {
     String profile = server.arg("profile");
-    setOtaProfile(profile);
+    setOtaProfile(profile, true);
 
     DynamicJsonDocument doc(384);
     doc["status"] = "ok";
