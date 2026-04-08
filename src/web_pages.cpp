@@ -625,42 +625,105 @@ const char live_html_page[] PROGMEM = R"rawliteral(
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WordClock Live</title>
 <style>
-        body { font-family: Arial, sans-serif; background:#1a2330; color:#f4f8ff; margin:0; }
-        .topnav { position:sticky; top:0; z-index:10; background:#1b2738; border-bottom:1px solid #324760; padding:10px 14px; display:flex; gap:10px; flex-wrap:wrap; }
-        .topnav a { color:#e7f0ff; text-decoration:none; padding:8px 12px; border:1px solid #45607f; border-radius:8px; background:#24344a; }
-        .topnav a:hover { background:#305073; }
-        .wrap { max-width: 640px; margin: 0 auto; padding:16px; }
-        .card { background:#253144; border:1px solid #3d4f68; border-radius:12px; padding:16px; margin-bottom:14px; box-shadow:0 8px 22px rgba(0,0,0,0.18); }
-        h2, h3 { margin: 0 0 10px; }
-        label { display:block; margin:10px 0 4px; color:#d6e0f2; }
-        input, select, button { width:100%; padding:10px; border-radius:8px; border:1px solid #587095; background:#1f2a3c; color:#f2f7ff; }
-        input[type='range'] { padding:0; }
+        :root {
+            --bg-a: #071321;
+            --bg-b: #102742;
+            --panel: rgba(18, 35, 57, 0.9);
+            --panel-strong: rgba(23, 44, 70, 0.95);
+            --line: #355879;
+            --line-strong: #4a7fb3;
+            --text: #eef6ff;
+            --muted: #a9bfdc;
+            --ok: #87f2ad;
+            --warn: #ffb0b0;
+            --accent: #42c7ff;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            color: var(--text);
+            font-family: "Sora", "Manrope", "Segoe UI", sans-serif;
+            background: radial-gradient(circle at 0% 0%, #1a3d63 0%, var(--bg-b) 36%, var(--bg-a) 100%);
+            min-height: 100vh;
+        }
+        .topnav {
+            position: sticky;
+            top: 0;
+            z-index: 12;
+            background: rgba(10, 20, 32, 0.84);
+            border-bottom: 1px solid var(--line);
+            padding: 10px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            backdrop-filter: blur(8px);
+        }
+        .topnav a {
+            color: var(--text);
+            text-decoration: none;
+            padding: 8px 11px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: linear-gradient(145deg, #18314c, #10253d);
+            font-size: 13px;
+        }
+        .topnav a:hover { border-color: var(--line-strong); }
+        .wrap { max-width: 980px; margin: 0 auto; padding: 16px 10px 22px; }
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 14px 28px rgba(0,0,0,0.24);
+        }
+        .card:first-of-type {
+            background: linear-gradient(140deg, rgba(36, 70, 109, 0.95), rgba(17, 34, 54, 0.98));
+            border-color: var(--line-strong);
+        }
+        h2, h3 { margin: 0 0 10px; letter-spacing: 0.01em; }
+        label { display:block; margin:10px 0 5px; color:#d5e3f7; font-size: 13px; }
+        input, select, button {
+            width:100%;
+            padding:10px;
+            border-radius:10px;
+            border:1px solid #4a6f95;
+            background:#142940;
+            color:#f2f7ff;
+        }
+        input[type='range'] { padding:0; accent-color: #52d3ff; }
         .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-        .row { display:flex; align-items:center; gap:8px; }
-        .muted { color:#c7d3ea; font-size:14px; }
-        .ok { color:#8ff7a5; }
-        .warn { color:#ff9a9a; font-weight:700; }
-        .statusGrid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; margin-top:10px; }
-        .statusItem { background:#1b2637; border:1px solid #3e5069; border-radius:8px; padding:8px 10px; }
-        .statusLabel { color:#a9bbd8; font-size:12px; text-transform:uppercase; letter-spacing:0.04em; }
+        .muted { color:var(--muted); font-size:13px; }
+        .ok { color:var(--ok); }
+        .warn { color:var(--warn); font-weight:700; }
+        .statusGrid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; margin-top:10px; }
+        .statusItem { background:#152b44; border:1px solid #385a7e; border-radius:10px; padding:8px 10px; }
+        .statusLabel { color:#a9c0de; font-size:11px; text-transform:uppercase; letter-spacing:0.05em; }
         .statusValue { color:#f4f8ff; font-size:15px; font-weight:700; margin-top:3px; }
         .detailTable { margin-top:10px; display:grid; grid-template-columns:1fr auto; gap:6px 12px; font-size:14px; }
         .detailKey { color:#a9bbd8; }
         .detailVal { color:#f4f8ff; text-align:right; }
-        .btn { cursor:pointer; background:#3a69b0; border-color:#5b8ad5; }
-        .btn:hover { background:#4a7ac5; }
-        .btn.warn { background:#8f4545; border-color:#b76464; }
-        .memAlert { display:none; margin-top:10px; padding:10px 12px; border-radius:8px; border:1px solid #b76464; background:#45272a; color:#ffd7d7; font-weight:700; }
+        .btn {
+            cursor:pointer;
+            background: linear-gradient(145deg, #2f6ea9, #245987);
+            border-color:#5e90c2;
+        }
+        .btn:hover { border-color: #74c0ff; }
+        .btn.warn {
+            background: linear-gradient(145deg, #9a4d58, #7f3742);
+            border-color:#c56f79;
+        }
+        .memAlert { display:none; margin-top:10px; padding:10px 12px; border-radius:10px; border:1px solid #b76464; background:#45272a; color:#ffd7d7; font-weight:700; }
         .memAlert.warn { display:block; border-color:#c28a35; background:#48371f; color:#ffe0ab; }
         .memAlert.critical { display:block; border-color:#d15d5d; background:#4b2525; color:#ffd1d1; }
         .matrixWrap {
             position:relative;
-            width:min(95vw, 560px);
+            width:min(95vw, 580px);
             margin-top:10px;
             padding:14px 12px;
-            border-radius:12px;
-            background:#121a27;
-            border:1px solid #41526b;
+            border-radius:14px;
+            background: radial-gradient(circle at 50% 0%, #1a2f49 0%, #101b29 70%);
+            border:1px solid #3f6188;
             aspect-ratio:1 / 1;
         }
         .matrix {
@@ -684,14 +747,14 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             overflow:hidden;
         }
         .glyph {
-            font-family: Bahnschrift, "DIN 1451 Mittelschrift", "Arial Narrow", Arial, sans-serif;
-            font-size:clamp(12px, 2.05vw, 20px);
+            font-family: "Rajdhani", "Bahnschrift", "Arial Narrow", Arial, sans-serif;
+            font-size:clamp(12px, 2.1vw, 21px);
             font-weight:700;
             color:#435672;
             line-height:1;
             letter-spacing:-0.03em;
             text-transform:uppercase;
-            transform:scaleX(0.88);
+            transform:scaleX(0.9);
             transform-origin:center;
             -webkit-font-smoothing:antialiased;
             text-rendering:geometricPrecision;
@@ -717,6 +780,10 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             -webkit-mask-size:contain;
             mask-size:contain;
             transition:background-color 50ms linear, filter 50ms linear;
+        }
+        @media (max-width: 720px) {
+            .statusGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .grid2 { grid-template-columns: 1fr; }
         }
 </style>
 </head>
@@ -815,7 +882,7 @@ const layoutRows = [
     'DREIYOUVIER',
     'SECHSSIEBEN',
     'ZEHNEUNZWEI',
-    'AACHTZW+�LFF',
+    'AACHTZWOELF',
     'EINSUHR....'
 ];
 
@@ -995,18 +1062,68 @@ const char test_html_page[] PROGMEM = R"rawliteral(
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WordClock Test</title>
 <style>
-    body { font-family: Arial, sans-serif; background:#172131; color:#f1f6ff; margin:0; }
-    .topnav { position:sticky; top:0; z-index:10; background:#1b2738; border-bottom:1px solid #324760; padding:10px 14px; display:flex; gap:10px; flex-wrap:wrap; }
-    .topnav a { color:#e7f0ff; text-decoration:none; padding:8px 12px; border:1px solid #45607f; border-radius:8px; background:#24344a; }
-    .topnav a:hover { background:#305073; }
-    .wrap { max-width:760px; margin:0 auto; padding:14px 8px; }
-    .card { background:#233249; border:1px solid #415a78; border-radius:12px; padding:14px; }
-    .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:8px; margin-top:10px; }
-    button { width:100%; padding:10px 6px; border-radius:8px; border:1px solid #5f82b0; background:#3a69b0; color:#fff; cursor:pointer; font-size:14px; }
-    button.warn { background:#8f4545; border-color:#b76464; }
-    button.info { background:#456a8f; }
-    .msg { color:#cfdcf2; margin-top:10px; min-height:20px; }
-    .section-title { margin-top:12px; font-weight:bold; color:#afc8e8; font-size:13px; }
+    :root {
+        --bg-a: #071321;
+        --bg-b: #102742;
+        --panel: rgba(18, 35, 57, 0.9);
+        --line: #355879;
+        --line-strong: #4a7fb3;
+        --text: #f1f6ff;
+        --muted: #aac0dd;
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        font-family: "Sora", "Manrope", "Segoe UI", sans-serif;
+        background: radial-gradient(circle at 0% 0%, #193c61 0%, var(--bg-b) 36%, var(--bg-a) 100%);
+        color: var(--text);
+    }
+    .topnav {
+        position:sticky;
+        top:0;
+        z-index:10;
+        background: rgba(10, 20, 32, 0.84);
+        border-bottom:1px solid var(--line);
+        padding:10px;
+        display:flex;
+        gap:8px;
+        flex-wrap:wrap;
+        backdrop-filter: blur(8px);
+    }
+    .topnav a {
+        color:var(--text);
+        text-decoration:none;
+        padding:8px 11px;
+        border:1px solid var(--line);
+        border-radius:10px;
+        background:linear-gradient(145deg, #18314c, #10253d);
+        font-size:13px;
+    }
+    .topnav a:hover { border-color: var(--line-strong); }
+    .wrap { max-width:860px; margin:0 auto; padding:14px 10px 20px; }
+    .card {
+        background: var(--panel);
+        border:1px solid var(--line);
+        border-radius:16px;
+        padding:16px;
+        box-shadow: 0 14px 28px rgba(0, 0, 0, 0.24);
+    }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:8px; margin-top:10px; }
+    button {
+        width:100%;
+        padding:10px 8px;
+        border-radius:10px;
+        border:1px solid #5f82b0;
+        background:linear-gradient(145deg, #2f6ea9, #245987);
+        color:#fff;
+        cursor:pointer;
+        font-size:13px;
+    }
+    button.warn { background:linear-gradient(145deg, #9a4d58, #7f3742); border-color:#c56f79; }
+    button.info { background:linear-gradient(145deg, #3f729f, #2f5678); }
+    .msg { color:#cfdcf2; margin-top:10px; min-height:20px; font-size:13px; }
+    .section-title { margin-top:12px; font-weight:bold; color:#afc8e8; font-size:12px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .sub { color: var(--muted); margin: 0; }
     @media (max-width:480px) {
         .wrap { padding:8px 4px; }
         .card { padding:10px; }
@@ -1028,8 +1145,8 @@ const char test_html_page[] PROGMEM = R"rawliteral(
 </div>
 <div class="wrap">
     <div class="card">
-        <h2>WordClock Schnelltests</h2>
-        <p>Teste Farben, LEDs, Helligkeit und Muster.</p>
+        <h2>WordClock Test Deck</h2>
+        <p class="sub">Teste Farben, LEDs, Helligkeit und Muster schnell und direkt.</p>
         
         <div class="section-title">Basis-Tests</div>
         <div class="grid">
@@ -1042,14 +1159,14 @@ const char test_html_page[] PROGMEM = R"rawliteral(
         <div class="section-title">Farb-Tests</div>
         <div class="grid">
             <button style="background:#e74c3c" onclick="quick('color_red')">Rot</button>
-            <button style="background:#27ae60" onclick="quick('color_green')">Gr++n</button>
+            <button style="background:#27ae60" onclick="quick('color_green')">Gruen</button>
             <button style="background:#3498db" onclick="quick('color_blue')">Blau</button>
             <button style="background:#f39c12" onclick="quick('color_yellow')">Gelb</button>
             <button style="background:#1abc9c" onclick="quick('color_cyan')">Cyan</button>
             <button style="background:#e91e63" onclick="quick('color_magenta')">Magenta</button>
         </div>
 
-        <div class="section-title">Helligkeit (50% Wei+�)</div>
+        <div class="section-title">Helligkeit (50% Weiss)</div>
         <div class="grid">
             <button class="info" onclick="quick('brightness_0')">0%</button>
             <button class="info" onclick="quick('brightness_25')">25%</button>
