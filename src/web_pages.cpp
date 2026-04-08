@@ -131,6 +131,64 @@ const char home_html_page[] PROGMEM = R"rawliteral(
         transition: border-color 0.2s ease;
     }
     .btn:hover { border-color: var(--line-strong); background: color-mix(in srgb, var(--accent) 18%, transparent); }
+    .statusPanel {
+        margin-top: 14px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 12px;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+    }
+    .statusHead {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+    .statusHead h3 { margin: 0; }
+    .statusPill {
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: color-mix(in srgb, var(--panel-soft) 92%, transparent);
+        color: var(--muted);
+        font-size: 12px;
+    }
+    .statusGrid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+    }
+    .statusItem {
+        background: color-mix(in srgb, var(--panel-soft) 100%, transparent);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 8px 10px;
+    }
+    .statusLabel {
+        color: var(--muted);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    .statusValue {
+        color: var(--text);
+        font-size: 15px;
+        font-weight: 700;
+        margin-top: 3px;
+    }
+    .detailTable {
+        margin-top: 10px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 6px 10px;
+        font-size: 14px;
+    }
+    .detailKey { color: var(--muted); text-align: left; }
+    .detailVal { color: var(--text); text-align: right; }
+    .ok { color: #268b46; }
+    .warn { color: #b05643; }
     @media (max-width:480px) {
         .wrap { padding: 10px 6px 16px; }
         .topnav { padding: 8px 4px; gap: 4px; }
@@ -138,6 +196,7 @@ const char home_html_page[] PROGMEM = R"rawliteral(
         .grid { grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 8px; }
         .card { padding: 10px; }
         .hero { padding: 10px; }
+        .statusGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         h2 { margin: 8px 0; font-size: 18px; }
         h3 { margin: 6px 0; font-size: 14px; }
         p { margin: 4px 0; font-size: 12px; }
@@ -152,6 +211,7 @@ const char home_html_page[] PROGMEM = R"rawliteral(
     <a href="/ota">OTA</a>
     <a href="/live">Live</a>
     <a href="/test">Test</a>
+    <a href="#" id="themeToggle">Theme: Dark</a>
 </div>
 <div class="wrap">
     <div class="hero">
@@ -171,14 +231,91 @@ const char home_html_page[] PROGMEM = R"rawliteral(
         <div class="card"><h3>Live</h3><p>Direkte Effekt- und Farbregie mit Matrix-Vorschau.</p><a class="btn" href="/live">Öffnen</a></div>
         <div class="card"><h3>Test</h3><p>Quicktests für LEDs, Farben, Clock und Muster.</p><a class="btn" href="/test">Öffnen</a></div>
     </div>
+    <section class="statusPanel">
+        <div class="statusHead">
+            <h3>System status</h3>
+            <span class="statusPill">Refresh: 10/s (fest)</span>
+        </div>
+        <div class="statusGrid">
+            <div class="statusItem"><div class="statusLabel">Power</div><div id="hmPower" class="statusValue">-</div></div>
+            <div class="statusItem"><div class="statusLabel">Effekt</div><div id="hmEffect" class="statusValue">-</div></div>
+            <div class="statusItem"><div class="statusLabel">RTC</div><div id="hmRtc" class="statusValue">-</div></div>
+            <div class="statusItem"><div class="statusLabel">WiFi</div><div id="hmWifi" class="statusValue">-</div></div>
+            <div class="statusItem"><div class="statusLabel">MQTT</div><div id="hmMqtt" class="statusValue">-</div></div>
+            <div class="statusItem"><div class="statusLabel">RAM</div><div id="hmMem" class="statusValue">-</div></div>
+        </div>
+        <div id="homeStatusDetails" class="detailTable"></div>
+    </section>
 </div>
+<script>
+function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('wc_theme', theme);
+    const t = document.getElementById('themeToggle');
+    if (t) t.textContent = 'Theme: ' + (theme === 'light' ? 'Light' : 'Dark');
+}
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    setTheme(current === 'dark' ? 'light' : 'dark');
+}
+function initTheme() {
+    const saved = localStorage.getItem('wc_theme');
+    const preferred = (saved === 'light' || saved === 'dark') ? saved : 'dark';
+    setTheme(preferred);
+    const toggle = document.getElementById('themeToggle');
+    if (toggle) {
+        toggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            toggleTheme();
+        });
+    }
+}
+
+async function refreshHomeStatus() {
+    try {
+        const r = await fetch('/api/status');
+        const s = await r.json();
+        const rtcBadge = s.rtc_warning ? '<span class="warn">WARNUNG</span>' : '<span class="ok">OK</span>';
+        const mqttBadge = s.mqtt_connected ? '<span class="ok">Verbunden</span>' : '<span class="warn">Getrennt</span>';
+        const memLevel = String(s.mem_level || 'OK').toUpperCase();
+        const memBadge = (memLevel === 'CRITICAL' || memLevel === 'WARNING') ? '<span class="warn">' + memLevel + '</span>' : '<span class="ok">OK</span>';
+        const rtcTempText = (typeof s.rtc_temp_c === 'number' && Number.isFinite(s.rtc_temp_c)) ? (s.rtc_temp_c.toFixed(2) + ' C') : 'n/a';
+        const memFree = Number.isFinite(Number(s.mem_free)) ? Number(s.mem_free) : 0;
+        const memTotal = Number.isFinite(Number(s.mem_total)) && Number(s.mem_total) > 0 ? Number(s.mem_total) : 1;
+        const memUsedPct = ((memTotal - memFree) * 100.0 / memTotal).toFixed(1);
+
+        document.getElementById('hmPower').innerHTML = s.state || '-';
+        document.getElementById('hmEffect').innerHTML = s.effect || '-';
+        document.getElementById('hmRtc').innerHTML = rtcBadge;
+        document.getElementById('hmWifi').innerHTML = (s.rssi + ' dBm');
+        document.getElementById('hmMqtt').innerHTML = mqttBadge;
+        document.getElementById('hmMem').innerHTML = memBadge;
+
+        document.getElementById('homeStatusDetails').innerHTML =
+            '<div class="detailKey">IP</div><div class="detailVal ok">' + (s.ip || '-') + '</div>' +
+            '<div class="detailKey">Farbe</div><div class="detailVal">' + (s.color || '-') + '</div>' +
+            '<div class="detailKey">Helligkeit</div><div class="detailVal">' + (s.brightness || '-') + '</div>' +
+            '<div class="detailKey">Speed / Intensität</div><div class="detailVal">' + (s.speed || '-') + '% / ' + (s.intensity || '-') + '%</div>' +
+            '<div class="detailKey">Objektdichte</div><div class="detailVal">' + (s.density || '-') + '%</div>' +
+            '<div class="detailKey">Transition</div><div class="detailVal">' + (s.transition_ms || '-') + ' ms</div>' +
+            '<div class="detailKey">RTC Temperatur</div><div class="detailVal">' + rtcTempText + '</div>' +
+            '<div class="detailKey">RTC OSF/Batterie</div><div class="detailVal">' + (s.rtc_battery_warning ? 'Auffällig' : 'OK') + '</div>' +
+            '<div class="detailKey">RAM Frei</div><div class="detailVal">' + memFree + ' B</div>' +
+            '<div class="detailKey">RAM Nutzung</div><div class="detailVal">' + memUsedPct + '%</div>';
+    } catch (_) {}
+}
+
+initTheme();
+setInterval(refreshHomeStatus, 100);
+refreshHomeStatus();
+</script>
 </body>
 </html>
 )rawliteral";
 
 const char setup_html_page[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -327,6 +464,10 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
         background: color-mix(in srgb, var(--panel-soft) 100%, transparent);
         transition: border-color 0.2s ease;
     }
+    select option {
+        background: color-mix(in srgb, var(--panel-soft) 100%, transparent);
+        color: var(--text);
+    }
     select:focus, input:focus {
         outline: none;
         border-color: var(--line-strong);
@@ -402,6 +543,7 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
             <a href="/ota">OTA</a>
             <a href="/live">Studio</a>
             <a href="/test">Test</a>
+            <a href="#" id="themeToggle">Theme: Dark</a>
         </div>
     </div>
 
@@ -507,6 +649,31 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
 
 
 <script>
+function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('wc_theme', theme);
+    const t = document.getElementById('themeToggle');
+    if (t) t.textContent = 'Theme: ' + (theme === 'light' ? 'Light' : 'Dark');
+}
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    setTheme(current === 'dark' ? 'light' : 'dark');
+}
+
+function initTheme() {
+    const saved = localStorage.getItem('wc_theme');
+    const preferred = (saved === 'light' || saved === 'dark') ? saved : 'dark';
+    setTheme(preferred);
+    const toggle = document.getElementById('themeToggle');
+    if (toggle) {
+        toggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            toggleTheme();
+        });
+    }
+}
+
 // ---------------------------------------------------------
 // Route-basiertes Anzeigen
 // ---------------------------------------------------------
@@ -775,6 +942,7 @@ async function refreshSetupStatus() {
 }
 
 setInterval(refreshSetupStatus, 100);
+initTheme();
 refreshSetupStatus();
 </script>
 
@@ -784,7 +952,7 @@ refreshSetupStatus();
 
 const char live_html_page[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1210,10 +1378,14 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             width: 100%;
             padding: 12px 13px;
             border-radius: 14px;
-            border: 1px solid rgba(115, 157, 206, 0.24);
-            background: rgba(14, 28, 43, 0.82);
+            border: 1px solid color-mix(in srgb, var(--line-strong) 34%, transparent);
+            background: color-mix(in srgb, var(--panel-soft) 96%, transparent);
             color: var(--text);
             font: inherit;
+        }
+        select option {
+            background: color-mix(in srgb, var(--panel-soft) 100%, transparent);
+            color: var(--text);
         }
         select,
         input[type='color'] { min-height: 48px; }
@@ -1359,23 +1531,6 @@ const char live_html_page[] PROGMEM = R"rawliteral(
 
     <div class="layout">
         <div class="column">
-            <section class="panel">
-                <div class="panelHead">
-                    <h2>System status</h2>
-                    <span class="pill">Refresh: 10/s (fest)</span>
-                </div>
-                <div id="memAlert" class="memAlert"></div>
-                <div class="statusGrid">
-                    <div class="statusItem"><div class="statusLabel">Power</div><div id="stPower" class="statusValue">-</div></div>
-                    <div class="statusItem"><div class="statusLabel">Effekt</div><div id="stEffect" class="statusValue">-</div></div>
-                    <div class="statusItem"><div class="statusLabel">RTC</div><div id="stRtc" class="statusValue">-</div></div>
-                    <div class="statusItem"><div class="statusLabel">WiFi</div><div id="stWifi" class="statusValue">-</div></div>
-                    <div class="statusItem"><div class="statusLabel">MQTT</div><div id="stMqtt" class="statusValue">-</div></div>
-                    <div class="statusItem"><div class="statusLabel">RAM</div><div id="stMem" class="statusValue">-</div></div>
-                </div>
-                <div id="statusDetails" class="detailGrid"></div>
-            </section>
-
             <section class="panel">
                 <div class="panelHead">
                     <h3>WordClock matrix</h3>
@@ -1526,7 +1681,13 @@ function queueAutoApply(delayMs) {
 }
 
 function setText(id, value) {
-    document.getElementById(id).textContent = value;
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
+function setHtml(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = value;
 }
 
 function updateRangeBadges() {
@@ -1634,6 +1795,8 @@ function renderMatrix(matrix, mqttConnected) {
 }
 
 function renderDetails(s, rtcTempText, memFree, memUsedPct) {
+    const container = document.getElementById('statusDetails');
+    if (!container) return;
     const details = [
         ['IP', s.ip || '-'],
         ['Farbe', s.color || '-'],
@@ -1649,7 +1812,7 @@ function renderDetails(s, rtcTempText, memFree, memUsedPct) {
         ['Max Block', String(s.mem_max_alloc || 0) + ' B']
     ];
 
-    document.getElementById('statusDetails').innerHTML = details.map(function(item) {
+    container.innerHTML = details.map(function(item) {
         return '<div class="detailCard"><div class="detailKey">' + item[0] + '</div><div class="detailVal">' + item[1] + '</div></div>';
     }).join('');
 }
@@ -1675,25 +1838,27 @@ async function refreshStatus() {
             ? '<span class="warn">KRITISCH</span>'
             : (memLevel === 'WARNING' ? '<span class="warn">WARNUNG</span>' : '<span class="ok">OK</span>');
         
-        document.getElementById('stPower').innerHTML = s.state;
-        document.getElementById('stEffect').innerHTML = s.effect;
-        document.getElementById('stRtc').innerHTML = rtcBadge;
-        document.getElementById('stWifi').innerHTML = (s.rssi + ' dBm');
-        document.getElementById('stMqtt').innerHTML = mqttBadge;
-        document.getElementById('stMem').innerHTML = memBadge;
+        setHtml('stPower', s.state);
+        setHtml('stEffect', s.effect);
+        setHtml('stRtc', rtcBadge);
+        setHtml('stWifi', (s.rssi + ' dBm'));
+        setHtml('stMqtt', mqttBadge);
+        setHtml('stMem', memBadge);
         setText('heroEffect', s.effect || '-');
         setText('heroColor', s.color || '-');
         setText('heroTuning', String(s.brightness) + ' / ' + String(s.speed) + '%');
 
         const memAlert = document.getElementById('memAlert');
-        memAlert.className = 'memAlert';
-        memAlert.textContent = '';
-        if (memLevel === 'CRITICAL') {
-            memAlert.className = 'memAlert critical';
-            memAlert.textContent = 'Low Memory: Kritischer RAM-Zustand. Schwere Effekte werden automatisch verlassen.';
-        } else if (memLevel === 'WARNING') {
-            memAlert.className = 'memAlert warn';
-            memAlert.textContent = 'Low Memory: RAM wird knapp. Bitte eher leichte Effekte verwenden.';
+        if (memAlert) {
+            memAlert.className = 'memAlert';
+            memAlert.textContent = '';
+            if (memLevel === 'CRITICAL') {
+                memAlert.className = 'memAlert critical';
+                memAlert.textContent = 'Low Memory: Kritischer RAM-Zustand. Schwere Effekte werden automatisch verlassen.';
+            } else if (memLevel === 'WARNING') {
+                memAlert.className = 'memAlert warn';
+                memAlert.textContent = 'Low Memory: RAM wird knapp. Bitte eher leichte Effekte verwenden.';
+            }
         }
 
         renderDetails(s, rtcTempText, memFree, memUsedPct);
@@ -1780,7 +1945,7 @@ startRefreshTimer();
 
 const char test_html_page[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1979,6 +2144,7 @@ const char test_html_page[] PROGMEM = R"rawliteral(
             <a href="/ota">OTA</a>
             <a href="/live">Studio</a>
             <a href="/test" class="active">Test</a>
+            <a href="#" id="themeToggle">Theme: Dark</a>
         </div>
     </div>
 <div class="wrap">
@@ -2039,6 +2205,31 @@ const char test_html_page[] PROGMEM = R"rawliteral(
 </div>
 </div>
 <script>
+function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('wc_theme', theme);
+    const t = document.getElementById('themeToggle');
+    if (t) t.textContent = 'Theme: ' + (theme === 'light' ? 'Light' : 'Dark');
+}
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    setTheme(current === 'dark' ? 'light' : 'dark');
+}
+
+function initTheme() {
+    const saved = localStorage.getItem('wc_theme');
+    const preferred = (saved === 'light' || saved === 'dark') ? saved : 'dark';
+    setTheme(preferred);
+    const toggle = document.getElementById('themeToggle');
+    if (toggle) {
+        toggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            toggleTheme();
+        });
+    }
+}
+
 let testBusy = false;
 
 function waitMs(ms) {
@@ -2089,6 +2280,8 @@ async function quick(action) {
         }
     });
 })();
+
+initTheme();
 </script>
 </body>
 </html>
