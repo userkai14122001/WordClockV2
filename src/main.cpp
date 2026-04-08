@@ -167,12 +167,13 @@ BouncingBallsEffect fxBalls;
 AuroraEffect        fxAurora;
 EnchantmentEffect   fxEnchantment;
 SnakeEffect         fxSnake;
+GreenRingWaveEffect fxGreenRingWave;
 
 
 Effect* const allEffects[] = {
     &fxWifi, &fxWaterDrop, &fxLoveYou,
     &fxColorloop, &fxColorwipe, &fxFire2D, &fxMatrix, &fxPlasma, &fxInward, &fxTwinkle,
-    &fxBalls, &fxAurora, &fxEnchantment, &fxSnake
+    &fxBalls, &fxAurora, &fxEnchantment, &fxSnake, &fxGreenRingWave
 };
 
 enum class BootPhase {

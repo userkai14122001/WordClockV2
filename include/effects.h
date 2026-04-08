@@ -203,6 +203,16 @@ public:
     void reset() override {}
 };
 
+class GreenRingWaveEffect : public Effect {
+    unsigned long _lastFrame;
+    int _wavePos;
+public:
+    GreenRingWaveEffect() : _lastFrame(0), _wavePos(0) {}
+    const char* name() const override { return "greenringwave"; }
+    void update() override;
+    void reset() override { _wavePos = 0; }
+};
+
     // Bälle prallen mit Physik über die Matrix
     struct Ball {
         float x, y;       // Position (float für sub-pixel)
