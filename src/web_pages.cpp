@@ -623,108 +623,316 @@ const char live_html_page[] PROGMEM = R"rawliteral(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WordClock Live</title>
+<title>WordClock Studio</title>
 <style>
         :root {
-            --bg-a: #071321;
-            --bg-b: #102742;
-            --panel: rgba(18, 35, 57, 0.9);
-            --panel-strong: rgba(23, 44, 70, 0.95);
-            --line: #355879;
-            --line-strong: #4a7fb3;
+            --bg: #071018;
+            --bg-soft: #0d1c2b;
+            --panel: rgba(13, 24, 39, 0.88);
+            --panel-soft: rgba(17, 31, 49, 0.88);
+            --line: rgba(115, 157, 206, 0.18);
+            --line-strong: rgba(122, 181, 240, 0.42);
             --text: #eef6ff;
-            --muted: #a9bfdc;
-            --ok: #87f2ad;
-            --warn: #ffb0b0;
-            --accent: #42c7ff;
+            --muted: #9db3cf;
+            --accent: #6ad6ff;
+            --accent-strong: #3da2ff;
+            --accent-warm: #ff9f50;
+            --ok: #87f0a7;
+            --warn: #ffb1a8;
+            --shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+            --radius-xl: 24px;
+            --radius-lg: 18px;
+            --radius-md: 14px;
         }
         * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
         body {
             margin: 0;
             color: var(--text);
-            font-family: "Sora", "Manrope", "Segoe UI", sans-serif;
-            background: radial-gradient(circle at 0% 0%, #1a3d63 0%, var(--bg-b) 36%, var(--bg-a) 100%);
+            font-family: "Manrope", "Segoe UI", sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(70, 159, 255, 0.24), transparent 28%),
+                radial-gradient(circle at 85% 12%, rgba(255, 155, 80, 0.18), transparent 24%),
+                linear-gradient(180deg, #0a1521 0%, #071018 100%);
             min-height: 100vh;
+        }
+        .shell {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 14px 14px 28px;
         }
         .topnav {
             position: sticky;
             top: 0;
-            z-index: 12;
-            background: rgba(10, 20, 32, 0.84);
-            border-bottom: 1px solid var(--line);
-            padding: 10px;
+            z-index: 20;
             display: flex;
-            gap: 8px;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
             flex-wrap: wrap;
-            backdrop-filter: blur(8px);
+            margin-bottom: 16px;
+            padding: 12px 14px;
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            background: rgba(7, 16, 24, 0.72);
+            backdrop-filter: blur(14px);
+            box-shadow: var(--shadow);
         }
-        .topnav a {
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .brandMark {
+            width: 42px;
+            height: 42px;
+            border-radius: 14px;
+            background: linear-gradient(145deg, rgba(76, 177, 255, 0.95), rgba(75, 255, 208, 0.9));
+            box-shadow: 0 10px 30px rgba(73, 189, 255, 0.32);
+        }
+        .brandText strong {
+            display: block;
+            font-size: 15px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .brandText span {
+            color: var(--muted);
+            font-size: 12px;
+        }
+        .navLinks {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .navLinks a {
             color: var(--text);
             text-decoration: none;
-            padding: 8px 11px;
+            padding: 9px 12px;
+            border-radius: 999px;
             border: 1px solid var(--line);
-            border-radius: 10px;
-            background: linear-gradient(145deg, #18314c, #10253d);
+            background: rgba(17, 31, 49, 0.72);
             font-size: 13px;
         }
-        .topnav a:hover { border-color: var(--line-strong); }
-        .wrap { max-width: 980px; margin: 0 auto; padding: 16px 10px 22px; }
-        .card {
-            background: var(--panel);
-            border: 1px solid var(--line);
-            border-radius: 16px;
-            padding: 16px;
-            margin-bottom: 12px;
-            box-shadow: 0 14px 28px rgba(0,0,0,0.24);
-        }
-        .card:first-of-type {
-            background: linear-gradient(140deg, rgba(36, 70, 109, 0.95), rgba(17, 34, 54, 0.98));
+        .navLinks a.active,
+        .navLinks a:hover {
             border-color: var(--line-strong);
+            background: rgba(61, 162, 255, 0.16);
         }
-        h2, h3 { margin: 0 0 10px; letter-spacing: 0.01em; }
-        label { display:block; margin:10px 0 5px; color:#d5e3f7; font-size: 13px; }
-        input, select, button {
-            width:100%;
-            padding:10px;
-            border-radius:10px;
-            border:1px solid #4a6f95;
-            background:#142940;
-            color:#f2f7ff;
+        .hero {
+            display: grid;
+            grid-template-columns: 1.3fr 0.9fr;
+            gap: 16px;
+            margin-bottom: 16px;
         }
-        input[type='range'] { padding:0; accent-color: #52d3ff; }
-        .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-        .muted { color:var(--muted); font-size:13px; }
-        .ok { color:var(--ok); }
-        .warn { color:var(--warn); font-weight:700; }
-        .statusGrid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; margin-top:10px; }
-        .statusItem { background:#152b44; border:1px solid #385a7e; border-radius:10px; padding:8px 10px; }
-        .statusLabel { color:#a9c0de; font-size:11px; text-transform:uppercase; letter-spacing:0.05em; }
-        .statusValue { color:#f4f8ff; font-size:15px; font-weight:700; margin-top:3px; }
-        .detailTable { margin-top:10px; display:grid; grid-template-columns:1fr auto; gap:6px 12px; font-size:14px; }
-        .detailKey { color:#a9bbd8; }
-        .detailVal { color:#f4f8ff; text-align:right; }
-        .btn {
-            cursor:pointer;
-            background: linear-gradient(145deg, #2f6ea9, #245987);
-            border-color:#5e90c2;
+        .heroCard,
+        .heroAside,
+        .panel {
+            position: relative;
+            overflow: hidden;
+            border-radius: var(--radius-xl);
+            border: 1px solid var(--line);
+            background: linear-gradient(180deg, rgba(13, 24, 39, 0.95), rgba(10, 19, 30, 0.9));
+            box-shadow: var(--shadow);
         }
-        .btn:hover { border-color: #74c0ff; }
-        .btn.warn {
-            background: linear-gradient(145deg, #9a4d58, #7f3742);
-            border-color:#c56f79;
+        .heroCard {
+            padding: 28px;
+            min-height: 230px;
+            border-color: var(--line-strong);
+            background:
+                radial-gradient(circle at top right, rgba(81, 185, 255, 0.24), transparent 36%),
+                linear-gradient(145deg, rgba(16, 40, 67, 0.96), rgba(11, 21, 33, 0.95));
         }
-        .memAlert { display:none; margin-top:10px; padding:10px 12px; border-radius:10px; border:1px solid #b76464; background:#45272a; color:#ffd7d7; font-weight:700; }
-        .memAlert.warn { display:block; border-color:#c28a35; background:#48371f; color:#ffe0ab; }
-        .memAlert.critical { display:block; border-color:#d15d5d; background:#4b2525; color:#ffd1d1; }
+        .heroCard:after {
+            content: "";
+            position: absolute;
+            inset: auto -80px -80px auto;
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 160, 91, 0.24), transparent 70%);
+        }
+        .eyebrow {
+            display: inline-flex;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(109, 173, 241, 0.28);
+            background: rgba(39, 83, 128, 0.28);
+            color: #cbe6ff;
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .heroCard h1 {
+            margin: 14px 0 10px;
+            font-size: clamp(30px, 5vw, 52px);
+            line-height: 0.98;
+            letter-spacing: -0.04em;
+        }
+        .heroCard p {
+            max-width: 620px;
+            margin: 0;
+            color: #c4d8ee;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+        .heroMeta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 18px;
+        }
+        .heroMeta span {
+            padding: 8px 11px;
+            border-radius: 999px;
+            border: 1px solid rgba(113, 167, 227, 0.24);
+            background: rgba(15, 28, 43, 0.58);
+            color: #d9ecff;
+            font-size: 12px;
+        }
+        .heroAside {
+            padding: 18px;
+            display: grid;
+            gap: 12px;
+            align-content: start;
+        }
+        .miniPanel {
+            padding: 14px;
+            border-radius: var(--radius-lg);
+            border: 1px solid rgba(113, 167, 227, 0.16);
+            background: rgba(17, 31, 49, 0.72);
+        }
+        .miniLabel {
+            color: var(--muted);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .miniValue {
+            margin-top: 8px;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.95fr);
+            gap: 16px;
+        }
+        .column {
+            display: grid;
+            gap: 16px;
+            align-content: start;
+        }
+        .panel {
+            padding: 18px;
+        }
+        .panelHead {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .panelHead h2,
+        .panelHead h3 {
+            margin: 0;
+            letter-spacing: -0.02em;
+        }
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(113, 167, 227, 0.2);
+            background: rgba(14, 28, 43, 0.78);
+            color: #d4e9ff;
+            font-size: 12px;
+        }
+        .statusGrid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+        }
+        .statusItem {
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(109, 173, 241, 0.16);
+            background: linear-gradient(180deg, rgba(19, 38, 61, 0.9), rgba(13, 24, 39, 0.78));
+            padding: 12px;
+            min-height: 92px;
+        }
+        .statusLabel {
+            color: var(--muted);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .statusValue {
+            margin-top: 8px;
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        .ok { color: var(--ok); }
+        .warn { color: var(--warn); }
+        .muted { color: var(--muted); }
+        .detailGrid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin-top: 14px;
+        }
+        .detailCard {
+            padding: 12px;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(113, 167, 227, 0.14);
+            background: rgba(14, 28, 43, 0.68);
+        }
+        .detailKey {
+            color: var(--muted);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .detailVal {
+            margin-top: 8px;
+            font-size: 15px;
+            font-weight: 700;
+        }
+        .memAlert {
+            display: none;
+            margin-bottom: 14px;
+            padding: 12px 14px;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(255, 173, 109, 0.38);
+            background: rgba(73, 44, 18, 0.6);
+            color: #ffd7ab;
+        }
+        .memAlert.warn { display: block; }
+        .memAlert.critical {
+            display: block;
+            border-color: rgba(255, 131, 118, 0.44);
+            background: rgba(79, 25, 25, 0.62);
+            color: #ffd0cc;
+        }
+        .matrixStage {
+            position: relative;
+            border-radius: calc(var(--radius-xl) - 4px);
+            padding: 16px;
+            border: 1px solid rgba(113, 167, 227, 0.16);
+            background:
+                radial-gradient(circle at top, rgba(89, 165, 255, 0.16), transparent 34%),
+                linear-gradient(180deg, rgba(14, 28, 43, 0.94), rgba(8, 16, 24, 0.98));
+        }
         .matrixWrap {
-            position:relative;
-            width:min(95vw, 580px);
-            margin-top:10px;
-            padding:14px 12px;
-            border-radius:14px;
-            background: radial-gradient(circle at 50% 0%, #1a2f49 0%, #101b29 70%);
-            border:1px solid #3f6188;
-            aspect-ratio:1 / 1;
+            width: min(100%, 620px);
+            margin: 0 auto;
+            padding: 14px;
+            border-radius: 22px;
+            border: 1px solid rgba(120, 175, 236, 0.16);
+            background: linear-gradient(180deg, rgba(13, 25, 39, 0.95), rgba(10, 17, 26, 0.98));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+            aspect-ratio: 1 / 1;
         }
         .matrix {
             display:grid;
@@ -735,10 +943,8 @@ const char live_html_page[] PROGMEM = R"rawliteral(
         }
         .cell {
             border:none;
-            border-radius:0;
             padding:0;
             text-align:center;
-            font-size:12px;
             background:transparent;
             aspect-ratio:1 / 1;
             display:flex;
@@ -748,17 +954,17 @@ const char live_html_page[] PROGMEM = R"rawliteral(
         }
         .glyph {
             font-family: "Rajdhani", "Bahnschrift", "Arial Narrow", Arial, sans-serif;
-            font-size:clamp(12px, 2.1vw, 21px);
-            font-weight:700;
-            color:#435672;
-            line-height:1;
-            letter-spacing:-0.03em;
-            text-transform:uppercase;
-            transform:scaleX(0.9);
-            transform-origin:center;
-            -webkit-font-smoothing:antialiased;
-            text-rendering:geometricPrecision;
-            transition:color 50ms linear, text-shadow 50ms linear;
+            font-size: clamp(12px, 2.1vw, 21px);
+            font-weight: 700;
+            color: #435672;
+            line-height: 1;
+            letter-spacing: -0.03em;
+            text-transform: uppercase;
+            transform: scaleX(0.9);
+            transform-origin: center;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: geometricPrecision;
+            transition: color 50ms linear, text-shadow 50ms linear;
         }
         .minuteSlot {
             width:100%;
@@ -781,88 +987,315 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             mask-size:contain;
             transition:background-color 50ms linear, filter 50ms linear;
         }
+        .controlGrid {
+            display: grid;
+            gap: 14px;
+        }
+        .field {
+            display: grid;
+            gap: 7px;
+        }
+        .fieldRow {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .fieldRow label {
+            color: #d7e7fb;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .metricBadge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 68px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(113, 167, 227, 0.22);
+            background: rgba(15, 29, 46, 0.74);
+            color: #daf0ff;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        input,
+        select,
+        button {
+            width: 100%;
+            padding: 12px 13px;
+            border-radius: 14px;
+            border: 1px solid rgba(115, 157, 206, 0.24);
+            background: rgba(14, 28, 43, 0.82);
+            color: var(--text);
+            font: inherit;
+        }
+        select,
+        input[type='color'] { min-height: 48px; }
+        input[type='range'] {
+            padding: 0;
+            border: none;
+            background: transparent;
+            accent-color: var(--accent);
+        }
+        button {
+            cursor: pointer;
+            background: linear-gradient(145deg, rgba(70, 159, 255, 0.24), rgba(30, 99, 171, 0.72));
+        }
+        button:hover {
+            border-color: rgba(132, 201, 255, 0.5);
+        }
+        button.secondary {
+            background: rgba(16, 31, 49, 0.92);
+        }
+        button.warn {
+            background: linear-gradient(145deg, rgba(255, 127, 107, 0.25), rgba(124, 41, 33, 0.86));
+        }
+        .colorRow {
+            display: grid;
+            grid-template-columns: 1fr 70px;
+            gap: 10px;
+            align-items: center;
+        }
+        .colorSwatch {
+            height: 48px;
+            border-radius: 14px;
+            border: 1px solid rgba(115, 157, 206, 0.24);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 10px 22px rgba(0,0,0,0.18);
+        }
+        .controlActions,
+        .quickGrid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+        .quickGrid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+        .inlineMsg {
+            color: var(--muted);
+            font-size: 12px;
+        }
+        .sectionText {
+            margin: 0 0 14px;
+            color: #c2d8ef;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        @media (max-width: 1040px) {
+            .hero,
+            .layout {
+                grid-template-columns: 1fr;
+            }
+        }
         @media (max-width: 720px) {
-            .statusGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-            .grid2 { grid-template-columns: 1fr; }
+            .statusGrid,
+            .detailGrid,
+            .quickGrid,
+            .controlActions {
+                grid-template-columns: 1fr 1fr;
+            }
+            .topnav {
+                border-radius: 16px;
+            }
+            .heroCard,
+            .heroAside,
+            .panel {
+                border-radius: 18px;
+            }
+        }
+        @media (max-width: 560px) {
+            .statusGrid,
+            .detailGrid,
+            .quickGrid,
+            .controlActions,
+            .colorRow {
+                grid-template-columns: 1fr;
+            }
+            .heroCard {
+                padding: 20px;
+            }
         }
 </style>
 </head>
 <body>
-<div class="topnav">
-    <a href="/main">Main</a>
-    <a href="/wifi">Wifi</a>
-    <a href="/mqtt">MQTT</a>
-    <a href="/ota">OTA</a>
-    <a href="/live">Live</a>
-    <a href="/test">Test</a>
-</div>
-<div class="wrap">
-    <div class="card">
-        <h2>WordClock Live-Vorschau</h2>
-        <div class="muted">Direktes Anwenden von Farbe, Effekt und Helligkeit.</div>
-    </div>
-
-    <div class="card">
-        <h3>Status</h3>
-        <div id="memAlert" class="memAlert"></div>
-        <div id="statusGrid" class="statusGrid">
-            <div class="statusItem"><div class="statusLabel">Power</div><div id="stPower" class="statusValue">-</div></div>
-            <div class="statusItem"><div class="statusLabel">Effekt</div><div id="stEffect" class="statusValue">-</div></div>
-            <div class="statusItem"><div class="statusLabel">RTC</div><div id="stRtc" class="statusValue">-</div></div>
-            <div class="statusItem"><div class="statusLabel">WiFi</div><div id="stWifi" class="statusValue">-</div></div>
-            <div class="statusItem"><div class="statusLabel">MQTT</div><div id="stMqtt" class="statusValue">-</div></div>
-            <div class="statusItem"><div class="statusLabel">RAM</div><div id="stMem" class="statusValue">-</div></div>
+<div class="shell">
+    <div class="topnav">
+        <div class="brand">
+            <div class="brandMark"></div>
+            <div class="brandText">
+                <strong>WordClock Studio</strong>
+                <span>Onboard control website</span>
+            </div>
         </div>
-        <div id="statusDetails" class="detailTable"></div>
-        <div id="applyMsg" class="muted" style="margin-top:6px;"></div>
-        <div class="muted" style="margin-top:8px;">Refresh: 10/s (fest)</div>
-    </div>
-
-    <div class="card">
-        <h3>WordClock Layout Live</h3>
-        <div class="matrixWrap">
-            <div id="matrix" class="matrix"></div>
+        <div class="navLinks">
+            <a href="/">Home</a>
+            <a href="/main">Setup</a>
+            <a href="/wifi">Wifi</a>
+            <a href="/mqtt">MQTT</a>
+            <a href="/ota">OTA</a>
+            <a class="active" href="/live">Studio</a>
+            <a href="/test">Test</a>
         </div>
     </div>
 
-    <div class="card">
-        <h3>Live-Steuerung</h3>
-        <label>Power</label>
-        <select id="power">
-            <option value="ON">ON</option>
-            <option value="OFF">OFF</option>
-        </select>
-
-        <label>Effekt</label>
-        <select id="effect">
-            <option value="clock">clock (light)</option><option value="wifi">wifi (light)</option><option value="waterdrop">waterdrop (light)</option><option value="love">love (light)</option>
-            <option value="colorloop">colorloop (medium)</option><option value="colorwipe">colorwipe (light)</option><option value="fire2d">fire2d (heavy)</option><option value="matrix">matrix (heavy)</option><option value="plasma">plasma (heavy)</option><option value="inward">inward (medium)</option><option value="twinkle">twinkle (medium)</option><option value="balls">balls (medium)</option><option value="aurora">aurora (medium)</option><option value="enchantment">enchantment (medium)</option><option value="snake">snake (medium)</option>
-        </select>
-
-        <label>Farbe</label>
-        <div style="display:flex; gap:10px; align-items:center;">
-            <input id="color" type="color" value="#ff9900" oninput="document.getElementById('colorPreview').style.backgroundColor=this.value; document.getElementById('colorHex').textContent=this.value.toUpperCase();">
-            <div id="colorPreview" style="width:60px; height:40px; border-radius:8px; background:#ff9900; border:2px solid #587095; box-shadow:0 0 10px rgba(255,153,0,0.6);"></div>
-            <span id="colorHex" style="font-size:12px; color:#afd6ff;font-family:monospace;">#FF9900</span>
-        </div>
-
-        <label>Helligkeit: <span id="brv">120</span></label>
-        <input id="brightness" type="range" min="0" max="255" value="120" oninput="brv.textContent=this.value">
-
-        <div class="grid2" style="margin-top:10px;">
-            <button class="btn" onclick="applyLive()">Anwenden</button>
-            <button class="btn" onclick="location.href='/'">Zur Setup-Seite</button>
-        </div>
+    <div class="hero">
+        <section class="heroCard">
+            <span class="eyebrow">Live control website</span>
+            <h1>One control surface for light, motion and timing.</h1>
+            <p>
+                Direkte Regie fuer Effekt, Farbe, Helligkeit, Geschwindigkeit, Intensitaet,
+                Objektdichte und Uebergang. Dazu Live-Telemetrie, Matrix-Vorschau und Schnelltests
+                in einer durchgehenden Website.
+            </p>
+            <div class="heroMeta">
+                <span>Live preview</span>
+                <span>Status 10/s</span>
+                <span>MQTT + RTC aware</span>
+                <span>OTA release</span>
+            </div>
+        </section>
+        <aside class="heroAside">
+            <div class="miniPanel">
+                <div class="miniLabel">Current effect</div>
+                <div id="heroEffect" class="miniValue">-</div>
+            </div>
+            <div class="miniPanel">
+                <div class="miniLabel">Current color</div>
+                <div id="heroColor" class="miniValue">-</div>
+            </div>
+            <div class="miniPanel">
+                <div class="miniLabel">Brightness / speed</div>
+                <div id="heroTuning" class="miniValue">-</div>
+            </div>
+        </aside>
     </div>
 
-    <div class="card">
-        <h3>Schnelltest</h3>
-        <div class="grid2">
-            <button class="btn" onclick="quick('all_on')">Alle AN</button>
-            <button class="btn warn" onclick="quick('all_off')">Alle AUS</button>
-            <button class="btn" onclick="quick('clock_test')">Clock Test</button>
-            <button class="btn" onclick="quick('gradient')">Gradient Test</button>
+    <div class="layout">
+        <div class="column">
+            <section class="panel">
+                <div class="panelHead">
+                    <h2>System status</h2>
+                    <span class="pill">Refresh: 10/s (fest)</span>
+                </div>
+                <div id="memAlert" class="memAlert"></div>
+                <div class="statusGrid">
+                    <div class="statusItem"><div class="statusLabel">Power</div><div id="stPower" class="statusValue">-</div></div>
+                    <div class="statusItem"><div class="statusLabel">Effekt</div><div id="stEffect" class="statusValue">-</div></div>
+                    <div class="statusItem"><div class="statusLabel">RTC</div><div id="stRtc" class="statusValue">-</div></div>
+                    <div class="statusItem"><div class="statusLabel">WiFi</div><div id="stWifi" class="statusValue">-</div></div>
+                    <div class="statusItem"><div class="statusLabel">MQTT</div><div id="stMqtt" class="statusValue">-</div></div>
+                    <div class="statusItem"><div class="statusLabel">RAM</div><div id="stMem" class="statusValue">-</div></div>
+                </div>
+                <div id="statusDetails" class="detailGrid"></div>
+            </section>
+
+            <section class="panel">
+                <div class="panelHead">
+                    <h3>WordClock matrix</h3>
+                    <span class="pill">Exact device preview</span>
+                </div>
+                <p class="sectionText">Die Matrix zeigt live den aktuell gerenderten Zustand der Uhr, inklusive Minutenpfoten und MQTT-Statusindikator.</p>
+                <div class="matrixStage">
+                    <div class="matrixWrap">
+                        <div id="matrix" class="matrix"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panelHead">
+                    <h3>Quick tests</h3>
+                    <span class="pill">Fast operator actions</span>
+                </div>
+                <div class="quickGrid">
+                    <button onclick="quick('all_on')">Alle AN</button>
+                    <button class="warn" onclick="quick('all_off')">Alle AUS</button>
+                    <button onclick="quick('clock_test')">Clock Test</button>
+                    <button onclick="quick('gradient')">Gradient</button>
+                </div>
+            </section>
         </div>
+
+        <aside class="column">
+            <section class="panel">
+                <div class="panelHead">
+                    <h2>Control studio</h2>
+                    <span id="applyMsg" class="inlineMsg">Bereit</span>
+                </div>
+                <p class="sectionText">Steuere die Uhr wie eine normale Website: links Telemetrie und Vorschau, rechts alle Controls in einem sauberen Operator-Panel.</p>
+                <div class="controlGrid">
+                    <div class="field">
+                        <div class="fieldRow"><label for="power">Power</label><span class="metricBadge" id="powerBadge">ON</span></div>
+                        <select id="power">
+                            <option value="ON">ON</option>
+                            <option value="OFF">OFF</option>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <div class="fieldRow"><label for="effect">Effekt</label><span class="metricBadge" id="effectBadge">clock</span></div>
+                        <select id="effect">
+                            <option value="clock">clock</option>
+                            <option value="wifi">wifi</option>
+                            <option value="waterdrop">waterdrop</option>
+                            <option value="love">love</option>
+                            <option value="colorloop">colorloop</option>
+                            <option value="colorwipe">colorwipe</option>
+                            <option value="fire2d">fire2d</option>
+                            <option value="matrix">matrix</option>
+                            <option value="plasma">plasma</option>
+                            <option value="inward">inward</option>
+                            <option value="twinkle">twinkle</option>
+                            <option value="balls">balls</option>
+                            <option value="aurora">aurora</option>
+                            <option value="enchantment">enchantment</option>
+                            <option value="snake">snake</option>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <div class="fieldRow"><label for="color">Farbe</label><span class="metricBadge" id="colorHex">#FF9900</span></div>
+                        <div class="colorRow">
+                            <input id="color" type="color" value="#ff9900">
+                            <div id="colorPreview" class="colorSwatch" style="background:#ff9900;"></div>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <div class="fieldRow"><label for="brightness">Helligkeit</label><span class="metricBadge" id="brightnessValue">120</span></div>
+                        <input id="brightness" type="range" min="0" max="255" value="120">
+                    </div>
+
+                    <div class="field">
+                        <div class="fieldRow"><label for="speed">Geschwindigkeit</label><span class="metricBadge" id="speedValue">50%</span></div>
+                        <input id="speed" type="range" min="1" max="100" value="50">
+                    </div>
+
+                    <div class="field">
+                        <div class="fieldRow"><label for="intensity">Intensitaet</label><span class="metricBadge" id="intensityValue">50%</span></div>
+                        <input id="intensity" type="range" min="1" max="100" value="50">
+                    </div>
+
+                    <div class="field">
+                        <div class="fieldRow"><label for="density">Objektdichte</label><span class="metricBadge" id="densityValue">50%</span></div>
+                        <input id="density" type="range" min="1" max="100" value="50">
+                    </div>
+
+                    <div class="field">
+                        <div class="fieldRow"><label for="transitionMs">Uebergang</label><span class="metricBadge" id="transitionValue">1000 ms</span></div>
+                        <input id="transitionMs" type="range" min="200" max="10000" step="50" value="1000">
+                    </div>
+
+                    <div class="controlActions">
+                        <button onclick="applyLive()">Anwenden</button>
+                        <button class="secondary" onclick="applyPreset('balanced')">Balanced</button>
+                        <button class="secondary" onclick="applyPreset('dramatic')">Dramatic</button>
+                        <button class="secondary" onclick="applyPreset('calm')">Calm</button>
+                    </div>
+                </div>
+            </section>
+        </aside>
     </div>
 </div>
 
@@ -872,6 +1305,46 @@ let refreshTimer = null;
 let refreshInFlight = false;
 
 function markDirty() { isDirty = true; }
+
+function setText(id, value) {
+    document.getElementById(id).textContent = value;
+}
+
+function updateRangeBadges() {
+    setText('brightnessValue', document.getElementById('brightness').value);
+    setText('speedValue', document.getElementById('speed').value + '%');
+    setText('intensityValue', document.getElementById('intensity').value + '%');
+    setText('densityValue', document.getElementById('density').value + '%');
+    setText('transitionValue', document.getElementById('transitionMs').value + ' ms');
+    setText('powerBadge', document.getElementById('power').value);
+    setText('effectBadge', document.getElementById('effect').value);
+}
+
+function updateColorUi(value) {
+    document.getElementById('colorPreview').style.backgroundColor = value;
+    setText('colorHex', value.toUpperCase());
+}
+
+function applyPreset(name) {
+    if (name === 'balanced') {
+        document.getElementById('speed').value = 50;
+        document.getElementById('intensity').value = 50;
+        document.getElementById('density').value = 50;
+        document.getElementById('transitionMs').value = 1000;
+    } else if (name === 'dramatic') {
+        document.getElementById('speed').value = 78;
+        document.getElementById('intensity').value = 82;
+        document.getElementById('density').value = 68;
+        document.getElementById('transitionMs').value = 2200;
+    } else if (name === 'calm') {
+        document.getElementById('speed').value = 30;
+        document.getElementById('intensity').value = 38;
+        document.getElementById('density').value = 28;
+        document.getElementById('transitionMs').value = 2800;
+    }
+    updateRangeBadges();
+    markDirty();
+}
 
 const layoutRows = [
     'ESSISTTFUENF',
@@ -941,6 +1414,27 @@ function renderMatrix(matrix, mqttConnected) {
     box.innerHTML = html;
 }
 
+function renderDetails(s, rtcTempText, memFree, memUsedPct) {
+    const details = [
+        ['IP', s.ip || '-'],
+        ['Farbe', s.color || '-'],
+        ['Helligkeit', String(s.brightness)],
+        ['Geschwindigkeit', String(s.speed) + '%'],
+        ['Intensitaet', String(s.intensity) + '%'],
+        ['Objektdichte', String(s.density) + '%'],
+        ['Uebergang', String(s.transition_ms) + ' ms'],
+        ['RTC Temperatur', rtcTempText],
+        ['RTC OSF/Batterie', s.rtc_battery_warning ? 'Auffaellig' : 'OK'],
+        ['RAM Frei', String(memFree) + ' B'],
+        ['RAM Nutzung', memUsedPct + '%'],
+        ['Max Block', String(s.mem_max_alloc || 0) + ' B']
+    ];
+
+    document.getElementById('statusDetails').innerHTML = details.map(function(item) {
+        return '<div class="detailCard"><div class="detailKey">' + item[0] + '</div><div class="detailVal">' + item[1] + '</div></div>';
+    }).join('');
+}
+
 async function refreshStatus() {
     if (refreshInFlight) return;
     refreshInFlight = true;
@@ -968,6 +1462,9 @@ async function refreshStatus() {
         document.getElementById('stWifi').innerHTML = (s.rssi + ' dBm');
         document.getElementById('stMqtt').innerHTML = mqttBadge;
         document.getElementById('stMem').innerHTML = memBadge;
+        setText('heroEffect', s.effect || '-');
+        setText('heroColor', s.color || '-');
+        setText('heroTuning', String(s.brightness) + ' / ' + String(s.speed) + '%');
 
         const memAlert = document.getElementById('memAlert');
         memAlert.className = 'memAlert';
@@ -980,24 +1477,21 @@ async function refreshStatus() {
             memAlert.textContent = 'Low Memory: RAM wird knapp. Bitte eher leichte Effekte verwenden.';
         }
 
-        document.getElementById('statusDetails').innerHTML =
-            '<div class="detailKey">IP</div><div class="detailVal ok">' + s.ip + '</div>' +
-            '<div class="detailKey">Farbe</div><div class="detailVal">' + s.color + '</div>' +
-            '<div class="detailKey">Helligkeit</div><div class="detailVal">' + s.brightness + '</div>' +
-            '<div class="detailKey">RTC Temperatur</div><div class="detailVal">' + rtcTempText + '</div>' +
-            '<div class="detailKey">RTC OSF/Batterie</div><div class="detailVal">' + (s.rtc_battery_warning ? 'Auffaellig' : 'OK') + '</div>' +
-            '<div class="detailKey">RAM Frei</div><div class="detailVal">' + memFree + ' B</div>' +
-            '<div class="detailKey">RAM Nutzung</div><div class="detailVal">' + memUsedPct + '%</div>' +
-            '<div class="detailKey">Max Block</div><div class="detailVal">' + (s.mem_max_alloc || 0) + ' B</div>';
+        renderDetails(s, rtcTempText, memFree, memUsedPct);
 
         if (!isDirty) {
             document.getElementById('power').value = s.state;
             document.getElementById('effect').value = s.effect;
             document.getElementById('brightness').value = s.brightness;
-            document.getElementById('brv').textContent = s.brightness;
+            document.getElementById('speed').value = s.speed;
+            document.getElementById('intensity').value = s.intensity;
+            document.getElementById('density').value = s.density;
+            document.getElementById('transitionMs').value = s.transition_ms;
             if (/^#[0-9a-fA-F]{6}$/.test(s.color)) {
                 document.getElementById('color').value = s.color;
+                updateColorUi(s.color);
             }
+            updateRangeBadges();
         }
 
         renderMatrix(s.matrix, mqttConnected);
@@ -1014,6 +1508,10 @@ async function applyLive() {
     p.set('effect', document.getElementById('effect').value);
     p.set('color', document.getElementById('color').value);
     p.set('brightness', document.getElementById('brightness').value);
+    p.set('speed', document.getElementById('speed').value);
+    p.set('intensity', document.getElementById('intensity').value);
+    p.set('density', document.getElementById('density').value);
+    p.set('transition_ms', document.getElementById('transitionMs').value);
     const r = await fetch('/api/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1037,9 +1535,14 @@ async function quick(action) {
 }
 
 document.getElementById('power').addEventListener('change', markDirty);
-document.getElementById('effect').addEventListener('change', markDirty);
-document.getElementById('color').addEventListener('input', markDirty);
-document.getElementById('brightness').addEventListener('input', markDirty);
+document.getElementById('power').addEventListener('change', function() { markDirty(); updateRangeBadges(); });
+document.getElementById('effect').addEventListener('change', function() { markDirty(); updateRangeBadges(); });
+document.getElementById('color').addEventListener('input', function() { markDirty(); updateColorUi(this.value); });
+document.getElementById('brightness').addEventListener('input', function() { markDirty(); updateRangeBadges(); });
+document.getElementById('speed').addEventListener('input', function() { markDirty(); updateRangeBadges(); });
+document.getElementById('intensity').addEventListener('input', function() { markDirty(); updateRangeBadges(); });
+document.getElementById('density').addEventListener('input', function() { markDirty(); updateRangeBadges(); });
+document.getElementById('transitionMs').addEventListener('input', function() { markDirty(); updateRangeBadges(); });
 
 function startRefreshTimer() {
     const periodMs = Math.floor(1000 / 10);
@@ -1047,6 +1550,8 @@ function startRefreshTimer() {
     refreshTimer = setInterval(refreshStatus, periodMs);
 }
 
+updateColorUi(document.getElementById('color').value);
+updateRangeBadges();
 refreshStatus();
 startRefreshTimer();
 </script>

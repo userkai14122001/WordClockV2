@@ -8,6 +8,7 @@
 #include "DebugManager.h"
 #include "SystemControl.h"
 #include "ota_https_update.h"
+#include "ControlConfig.h"
 #include "matrix.h"
 #include "effects.h"
 #include <SPIFFS.h>
@@ -29,6 +30,10 @@ extern bool powerState;
 extern String currentEffect;
 extern uint32_t color;
 extern uint8_t brightness;
+extern uint8_t effectSpeed;
+extern uint8_t effectIntensity;
+extern uint8_t effectDensity;
+extern uint16_t transitionMs;
 extern StateManager& stateManager;
 extern EffectManager& effectManager;
 extern MQTTManager mqttManager;
@@ -457,6 +462,10 @@ void WiFiManager::handleStatus() {
     doc["state"] = powerState ? "ON" : "OFF";
     doc["effect"] = currentEffect;
     doc["brightness"] = brightness;
+    doc["speed"] = effectSpeed;
+    doc["intensity"] = effectIntensity;
+    doc["density"] = effectDensity;
+    doc["transition_ms"] = transitionMs;
 
     char color_hex[8];
     snprintf(color_hex, sizeof(color_hex), "#%06lX", (unsigned long)(color & 0xFFFFFF));
@@ -508,11 +517,19 @@ void WiFiManager::handlePreview() {
     String effectArg = server.arg("effect");
     String colorArg = server.arg("color");
     String brightnessArg = server.arg("brightness");
+    String speedArg = server.arg("speed");
+    String intensityArg = server.arg("intensity");
+    String densityArg = server.arg("density");
+    String transitionArg = server.arg("transition_ms");
 
     stateArg.trim();
     effectArg.trim();
     colorArg.trim();
     brightnessArg.trim();
+    speedArg.trim();
+    intensityArg.trim();
+    densityArg.trim();
+    transitionArg.trim();
 
     DebugManager::print(DebugCategory::WiFi, "Live preview request: state=");
     DebugManager::print(DebugCategory::WiFi, stateArg);
@@ -522,6 +539,8 @@ void WiFiManager::handlePreview() {
     DebugManager::print(DebugCategory::WiFi, colorArg);
     DebugManager::print(DebugCategory::WiFi, " brightness=");
     DebugManager::println(DebugCategory::WiFi, brightnessArg);
+
+    bool tuningChanged = false;
 
     bool hasPower = !stateArg.isEmpty();
     bool newPower = hasPower ? (stateArg == "ON") : powerState;
@@ -550,6 +569,27 @@ void WiFiManager::handlePreview() {
 
     bool hasEffect = !effectArg.isEmpty();
 
+    if (!speedArg.isEmpty()) {
+        effectSpeed = (uint8_t)constrain(speedArg.toInt(), (int)ControlConfig::SPEED_MIN, (int)ControlConfig::SPEED_MAX);
+        stateManager.setSpeed(effectSpeed);
+        tuningChanged = true;
+    }
+    if (!intensityArg.isEmpty()) {
+        effectIntensity = (uint8_t)constrain(intensityArg.toInt(), (int)ControlConfig::INTENSITY_MIN, (int)ControlConfig::INTENSITY_MAX);
+        stateManager.setIntensity(effectIntensity);
+        tuningChanged = true;
+    }
+    if (!densityArg.isEmpty()) {
+        effectDensity = (uint8_t)constrain(densityArg.toInt(), (int)ControlConfig::DENSITY_MIN, (int)ControlConfig::DENSITY_MAX);
+        stateManager.setDensity(effectDensity);
+        tuningChanged = true;
+    }
+    if (!transitionArg.isEmpty()) {
+        transitionMs = (uint16_t)constrain(transitionArg.toInt(), (int)ControlConfig::TRANSITION_MIN_MS, (int)ControlConfig::TRANSITION_MAX_MS);
+        stateManager.setTransitionMs(transitionMs);
+        tuningChanged = true;
+    }
+
     applyControlUpdate(
         hasPower, newPower,
         hasBrightness, newBrightness,
@@ -559,6 +599,11 @@ void WiFiManager::handlePreview() {
         true,   // render updates
         true    // publish resulting state
     );
+
+    if (tuningChanged) {
+        stateManager.scheduleSave();
+        mqttManager.publishTuningState();
+    }
 
     handleStatus();
 }

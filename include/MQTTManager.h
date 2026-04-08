@@ -25,6 +25,7 @@ public:
     // Kommunikation
     void publish(const String& topic, const String& payload);
     void publishState(bool power, const String& effect, uint32_t color, uint8_t brightness);
+    void publishTuningState();
     void publishDiscovery();
     static constexpr uint32_t PUBLISH_WARN_US = 30000;
     static constexpr uint32_t LOOP_WARN_US = 25000;

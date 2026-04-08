@@ -184,6 +184,17 @@ void MQTTManager::publishState(bool power, const String& effect, uint32_t color,
     }
 }
 
+void MQTTManager::publishTuningState() {
+    if (!isConnected()) {
+        return;
+    }
+
+    mqtt.publish(speed_state_topic.c_str(), String(effectSpeed).c_str(), true);
+    mqtt.publish(intensity_state_topic.c_str(), String(effectIntensity).c_str(), true);
+    mqtt.publish(density_state_topic.c_str(), String(effectDensity).c_str(), true);
+    mqtt.publish(transition_state_topic.c_str(), String(transitionMs).c_str(), true);
+}
+
 void MQTTManager::publishDiscovery() {
     if (!isConnected()) {
         return;
