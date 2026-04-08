@@ -148,6 +148,7 @@ static constexpr unsigned long MAIN_LOOP_WARN_MS = 50;
 static constexpr uint32_t EFFECT_UPDATE_WARN_US = 12000;
 static constexpr unsigned long LOOP_HEARTBEAT_MS = 2000;
 static constexpr unsigned long OTA_FIRST_CHECK_DELAY_MS = 30UL * 1000UL;           // 30 s after boot
+static constexpr unsigned long OTA_UPLOAD_WINDOW_MS = 60UL * 60UL * 1000UL;        // 1 h after boot
 
 // ---------------------------------------------------------
 // Effect instances
@@ -881,6 +882,7 @@ void loop() {
     static unsigned long sBootAtMs = millis();
     static unsigned long sLastOtaAutoCheckMs = 0;
     static bool sOtaFirstCheckDone = false;
+    static bool sOtaUploadWindowClosedLogged = false;
     // =====================================================================
     // FRAME TIMING: Limit LED rendering to ~60 Hz for smooth visuals
     // Network I/O runs EVERY loop iteration regardless!
@@ -923,7 +925,13 @@ void loop() {
     mqttManager.loop();
     processPendingMqttControl();
     wifiManager.getServer()->handleClient();
-    ArduinoOTA.handle();
+    if (millis() - sBootAtMs <= OTA_UPLOAD_WINDOW_MS) {
+        ArduinoOTA.handle();
+    } else if (!sOtaUploadWindowClosedLogged) {
+        sOtaUploadWindowClosedLogged = true;
+        DebugManager::println(DebugCategory::OTA,
+                              "[OTA] ArduinoOTA upload window expired after 1 hour since boot");
+    }
     processPendingMqttColor();
     stateManager.processPendingSave();
 
