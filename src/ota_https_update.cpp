@@ -22,6 +22,16 @@ namespace {
         String firmwareUrl;
     };
 
+    static String withCacheBuster(const String& url) {
+        String out = url;
+        out += (url.indexOf('?') >= 0) ? "&" : "?";
+        out += "cb=";
+        out += String((unsigned long)millis());
+        out += "-";
+        out += String((unsigned long)esp_random(), HEX);
+        return out;
+    }
+
     static bool parseVersionNumbers(String input, int out[3]) {
         out[0] = 0;
         out[1] = 0;
@@ -75,14 +85,19 @@ namespace {
         WiFiClientSecure client;
         client.setInsecure();
 
+        const String manifestUrl = withCacheBuster(String(kManifestUrl));
+
         HTTPClient http;
-        if (!http.begin(client, kManifestUrl)) {
+        if (!http.begin(client, manifestUrl)) {
             DebugManager::println(DebugCategory::OTA, "[OTA] Manifest-Verbindung fehlgeschlagen");
             return false;
         }
 
         http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
         http.setTimeout(10000);
+        http.addHeader("Cache-Control", "no-cache, no-store, max-age=0");
+        http.addHeader("Pragma", "no-cache");
+        http.addHeader("Expires", "0");
         int code = http.GET();
         if (code != HTTP_CODE_OK) {
             DebugManager::printf(DebugCategory::OTA, "[OTA] Manifest HTTP Fehler: %d\n", code);
@@ -92,6 +107,14 @@ namespace {
 
         String payload = http.getString();
         http.end();
+
+        // Be tolerant if the upstream still serves UTF-8 BOM.
+        if (payload.length() >= 3 &&
+            (uint8_t)payload[0] == 0xEF &&
+            (uint8_t)payload[1] == 0xBB &&
+            (uint8_t)payload[2] == 0xBF) {
+            payload.remove(0, 3);
+        }
 
         DynamicJsonDocument doc(768);
         DeserializationError err = deserializeJson(doc, payload);
@@ -117,14 +140,19 @@ namespace {
         WiFiClientSecure client;
         client.setInsecure();
 
+        const String cacheBustedFirmwareUrl = withCacheBuster(String(firmwareUrl));
+
         HTTPClient http;
-        if (!http.begin(client, firmwareUrl)) {
+        if (!http.begin(client, cacheBustedFirmwareUrl)) {
             DebugManager::println(DebugCategory::OTA, "[OTA] HTTPClient begin fehlgeschlagen");
             return false;
         }
 
         http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
         http.setTimeout(20000);
+        http.addHeader("Cache-Control", "no-cache, no-store, max-age=0");
+        http.addHeader("Pragma", "no-cache");
+        http.addHeader("Expires", "0");
         const int code = http.GET();
         if (code != HTTP_CODE_OK) {
             DebugManager::printf(DebugCategory::OTA,
@@ -190,10 +218,11 @@ void performHttpsOtaUpdate(const char* firmwareUrl) {
     }
 
     DebugManager::println(DebugCategory::OTA, "[OTA] Starte HTTPS OTA Update...");
-    DebugManager::printf(DebugCategory::OTA, "[OTA] URL: %s\n", firmwareUrl);
+    const String cacheBustedFirmwareUrl = withCacheBuster(String(firmwareUrl));
+    DebugManager::printf(DebugCategory::OTA, "[OTA] URL: %s\n", cacheBustedFirmwareUrl.c_str());
 
     esp_http_client_config_t http_config = {};
-    http_config.url = firmwareUrl;
+    http_config.url = cacheBustedFirmwareUrl.c_str();
     http_config.timeout_ms = 15000;
     http_config.transport_type = HTTP_TRANSPORT_OVER_SSL;
     // GitHub OTA requires TLS server verification. Use ESP-IDF root cert bundle.
