@@ -7,39 +7,141 @@
 #include "DebugManager.h"
 
 // ---------------------------------------------------------
-// WORD DEFINITIONS  (used by this file only)
+// WORD DEFINITIONS
 // ---------------------------------------------------------
-static const Word W_ES      = {0, 0, 2};
-static const Word W_IST     = {3, 0, 3};
-static const Word W_FUENF   = {7, 0, 4};
-static const Word W_ZEHN    = {0, 1, 4};
-static const Word W_ZWANZIG = {4, 1, 7};
-static const Word W_VIERTEL = {4, 2, 7};
-static const Word W_VOR     = {0, 3, 3};
-static const Word W_NACH    = {7, 3, 4};
-static const Word W_HALB    = {0, 4, 4};
+static Word W_ES      = {0, 0, 2};
+static Word W_IST     = {3, 0, 3};
+static Word W_FUENF   = {7, 0, 4};
+static Word W_ZEHN    = {0, 1, 4};
+static Word W_ZWANZIG = {4, 1, 7};
+static Word W_VIERTEL = {4, 2, 7};
+static Word W_VOR     = {0, 3, 3};
+static Word W_NACH    = {7, 3, 4};
+static Word W_HALB    = {0, 4, 4};
 
-static const Word H_ZWOELF  = {5, 8, 5};
-static const Word H_EINS    = {0, 9, 4};
-static const Word H_EIN     = {0, 9, 3};
-static const Word H_ZWEI    = {7, 7, 4};
-static const Word H_DREI    = {0, 5, 4};
-static const Word H_VIER    = {7, 5, 4};
-static const Word H_FUENF_H = {7, 4, 4};
-static const Word H_SECHS   = {0, 6, 5};
-static const Word H_SIEBEN  = {5, 6, 6};
-static const Word H_ACHT    = {1, 8, 4};
-static const Word H_NEUN    = {3, 7, 4};
-static const Word H_ZEHN_H  = {0, 7, 4};
-static const Word H_ELF     = {5, 4, 3};
+static Word H_ZWOELF  = {5, 8, 5};
+static Word H_EINS    = {0, 9, 4};
+static Word H_EIN     = {0, 9, 3};
+static Word H_ZWEI    = {7, 7, 4};
+static Word H_DREI    = {0, 5, 4};
+static Word H_VIER    = {7, 5, 4};
+static Word H_FUENF_H = {7, 4, 4};
+static Word H_SECHS   = {0, 6, 5};
+static Word H_SIEBEN  = {5, 6, 6};
+static Word H_ACHT    = {1, 8, 4};
+static Word H_NEUN    = {3, 7, 4};
+static Word H_ZEHN_H  = {0, 7, 4};
+static Word H_ELF     = {5, 4, 3};
 
-static const Word W_UHR  = {4, 9, 3};
-static const Word M1     = {7, 9, 1};
-static const Word M2     = {8, 9, 1};
-static const Word M3     = {9, 9, 1};
-static const Word M4     = {10, 9, 1};
-static const Word W_LOVE = {3, 3, 4};
-static const Word W_YOU  = {4, 5, 3};
+static Word W_UHR  = {4, 9, 3};
+static Word M1     = {7, 9, 1};
+static Word M2     = {8, 9, 1};
+static Word M3     = {9, 9, 1};
+static Word M4     = {10, 9, 1};
+static Word W_LOVE = {3, 3, 4};
+static Word W_YOU  = {4, 5, 3};
+
+void resetClockWordPositionsToDefault() {
+    W_ES = {0, 0, 2};
+    W_IST = {3, 0, 3};
+    W_FUENF = {7, 0, 4};
+    W_ZEHN = {0, 1, 4};
+    W_ZWANZIG = {4, 1, 7};
+    W_VIERTEL = {4, 2, 7};
+    W_VOR = {0, 3, 3};
+    W_NACH = {7, 3, 4};
+    W_HALB = {0, 4, 4};
+
+    H_ZWOELF = {5, 8, 5};
+    H_EINS = {0, 9, 4};
+    H_EIN = {0, 9, 3};
+    H_ZWEI = {7, 7, 4};
+    H_DREI = {0, 5, 4};
+    H_VIER = {7, 5, 4};
+    H_FUENF_H = {7, 4, 4};
+    H_SECHS = {0, 6, 5};
+    H_SIEBEN = {5, 6, 6};
+    H_ACHT = {1, 8, 4};
+    H_NEUN = {3, 7, 4};
+    H_ZEHN_H = {0, 7, 4};
+    H_ELF = {5, 4, 3};
+
+    W_UHR = {4, 9, 3};
+    M1 = {7, 9, 1};
+    M2 = {8, 9, 1};
+    M3 = {9, 9, 1};
+    M4 = {10, 9, 1};
+    W_LOVE = {3, 3, 4};
+    W_YOU = {4, 5, 3};
+}
+
+bool setClockWordPosition(const String& key, const Word& w) {
+    if (key == "ES") W_ES = w;
+    else if (key == "IST") W_IST = w;
+    else if (key == "FUENF") W_FUENF = w;
+    else if (key == "ZEHN") W_ZEHN = w;
+    else if (key == "ZWANZIG") W_ZWANZIG = w;
+    else if (key == "VIERTEL") W_VIERTEL = w;
+    else if (key == "VOR") W_VOR = w;
+    else if (key == "NACH") W_NACH = w;
+    else if (key == "HALB") W_HALB = w;
+    else if (key == "ZWOELF") H_ZWOELF = w;
+    else if (key == "EINS") H_EINS = w;
+    else if (key == "EIN") H_EIN = w;
+    else if (key == "ZWEI") H_ZWEI = w;
+    else if (key == "DREI") H_DREI = w;
+    else if (key == "VIER") H_VIER = w;
+    else if (key == "FUENF_H") H_FUENF_H = w;
+    else if (key == "SECHS") H_SECHS = w;
+    else if (key == "SIEBEN") H_SIEBEN = w;
+    else if (key == "ACHT") H_ACHT = w;
+    else if (key == "NEUN") H_NEUN = w;
+    else if (key == "ZEHN_H") H_ZEHN_H = w;
+    else if (key == "ELF") H_ELF = w;
+    else if (key == "UHR") W_UHR = w;
+    else if (key == "M1") M1 = w;
+    else if (key == "M2") M2 = w;
+    else if (key == "M3") M3 = w;
+    else if (key == "M4") M4 = w;
+    else if (key == "LOVE") W_LOVE = w;
+    else if (key == "YOU") W_YOU = w;
+    else return false;
+    return true;
+}
+
+bool getClockWordPosition(const String& key, Word& out) {
+    if (key == "ES") out = W_ES;
+    else if (key == "IST") out = W_IST;
+    else if (key == "FUENF") out = W_FUENF;
+    else if (key == "ZEHN") out = W_ZEHN;
+    else if (key == "ZWANZIG") out = W_ZWANZIG;
+    else if (key == "VIERTEL") out = W_VIERTEL;
+    else if (key == "VOR") out = W_VOR;
+    else if (key == "NACH") out = W_NACH;
+    else if (key == "HALB") out = W_HALB;
+    else if (key == "ZWOELF") out = H_ZWOELF;
+    else if (key == "EINS") out = H_EINS;
+    else if (key == "EIN") out = H_EIN;
+    else if (key == "ZWEI") out = H_ZWEI;
+    else if (key == "DREI") out = H_DREI;
+    else if (key == "VIER") out = H_VIER;
+    else if (key == "FUENF_H") out = H_FUENF_H;
+    else if (key == "SECHS") out = H_SECHS;
+    else if (key == "SIEBEN") out = H_SIEBEN;
+    else if (key == "ACHT") out = H_ACHT;
+    else if (key == "NEUN") out = H_NEUN;
+    else if (key == "ZEHN_H") out = H_ZEHN_H;
+    else if (key == "ELF") out = H_ELF;
+    else if (key == "UHR") out = W_UHR;
+    else if (key == "M1") out = M1;
+    else if (key == "M2") out = M2;
+    else if (key == "M3") out = M3;
+    else if (key == "M4") out = M4;
+    else if (key == "LOVE") out = W_LOVE;
+    else if (key == "YOU") out = W_YOU;
+    else return false;
+    return true;
+}
 
 uint32_t makeColorWithBrightness(uint8_t r, uint8_t g, uint8_t b) {
     // Brightness is handled globally via ledMatrix.setBrightness().

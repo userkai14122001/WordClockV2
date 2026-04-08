@@ -209,6 +209,7 @@ const char home_html_page[] PROGMEM = R"rawliteral(
     <a href="/wifi">Wifi</a>
     <a href="/mqtt">MQTT</a>
     <a href="/ota">OTA</a>
+    <a href="/layout">Layout</a>
     <a href="/live">Live</a>
     <a href="/test">Test</a>
     <a href="#" id="themeToggle">Theme: Dark</a>
@@ -228,6 +229,7 @@ const char home_html_page[] PROGMEM = R"rawliteral(
         <div class="card"><h3>Wifi</h3><p>WLAN setzen, Netze scannen und Neustart auslösen.</p><a class="btn" href="/wifi">Öffnen</a></div>
         <div class="card"><h3>MQTT</h3><p>Broker, User, Port und Verbindung sauber einrichten.</p><a class="btn" href="/mqtt">Öffnen</a></div>
         <div class="card"><h3>OTA</h3><p>Firmware-Status ansehen und Updates manuell starten.</p><a class="btn" href="/ota">Öffnen</a></div>
+        <div class="card"><h3>Layout</h3><p>Letter-Grid und Wortpositionen für andere Frontplatten definieren.</p><a class="btn" href="/layout">Öffnen</a></div>
         <div class="card"><h3>Live</h3><p>Direkte Effekt- und Farbregie mit Matrix-Vorschau.</p><a class="btn" href="/live">Öffnen</a></div>
         <div class="card"><h3>Test</h3><p>Quicktests für LEDs, Farben, Clock und Muster.</p><a class="btn" href="/test">Öffnen</a></div>
     </div>
@@ -542,6 +544,7 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
             <a href="/wifi">Wifi</a>
             <a href="/mqtt">MQTT</a>
             <a href="/ota">OTA</a>
+            <a href="/layout">Layout</a>
             <a href="/live">Studio</a>
             <a href="/test">Test</a>
             <a href="#" id="themeToggle">Theme: Dark</a>
@@ -609,6 +612,25 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
             <button type="button" onclick="loadOtaInfo()">Status aktualisieren</button>
             <button type="button" onclick="checkOtaNow()">Jetzt auf Update prüfen</button>
             <p id="otaMsg" style="font-size:14px; min-height:20px;"></p>
+        </div>
+
+        <div id="layoutSection" style="display:none; text-align:left;">
+            <h3>Layout Konfiguration</h3>
+            <label for="layoutId">Layout auswählen:</label><br>
+            <select id="layoutId" onchange="toggleLayoutInputs()">
+                <option value="default">Default</option>
+                <option value="custom">Custom</option>
+            </select>
+            <br><br>
+            <label for="layoutName">Layout-Name:</label><br>
+            <input type="text" id="layoutName" maxlength="32" placeholder="z.B. Meine Uhr" style="width:100%;"><br><br>
+            <label for="layoutText">Layout-Text (10 Zeilen x 11 Zeichen):</label><br>
+            <textarea id="layoutText" rows="10" placeholder="ESXISTXFUEN&#10;ZEHNZWANZIG&#10;XXXXVIERTEL&#10;VORLOVENACH&#10;HALBXELFUEN&#10;DREIYOUVIER&#10;SECHSSIEBEN&#10;ZEHNEUNZWEI&#10;XACHTZWOLFX&#10;EINSUHR****"></textarea>
+            <label for="layoutWords">Wortpositionen (JSON):</label><br>
+            <textarea id="layoutWords" rows="12" placeholder='{"ES":[0,0,2],"IST":[3,0,3],"M1":[7,9,1]}'></textarea>
+            <button type="button" onclick="saveLayout()">Layout speichern</button>
+            <pre id="layoutPreview" style="margin-top:10px; white-space:pre-wrap;"></pre>
+            <p id="layoutMsg" style="font-size:14px; min-height:20px;"></p>
         </div>
 
         <div id="mainSection" style="display:none;">
@@ -683,6 +705,7 @@ function initTheme() {
     const wifiSection = document.getElementById('wifiSection');
     const mqttSection = document.getElementById('mqttSection');
     const otaSection = document.getElementById('otaSection');
+    const layoutSection = document.getElementById('layoutSection');
     const mainSection = document.getElementById('mainSection');
     const rebootBtn = document.getElementById('rebootBtn');
     const liveBtn = document.getElementById('liveBtn');
@@ -709,6 +732,12 @@ function initTheme() {
         liveBtn.style.display = 'block';
         document.querySelector('h2').textContent = 'OTA Firmware Update';
         loadOtaInfo();
+    } else if (path === '/layout') {
+        layoutSection.style.display = 'block';
+        rebootBtn.style.display = 'block';
+        liveBtn.style.display = 'block';
+        document.querySelector('h2').textContent = 'Layout Editor';
+        loadLayoutInfo();
     } else {
         mainSection.style.display = 'block';
         rebootBtn.style.display = 'block';
@@ -906,6 +935,64 @@ async function checkOtaNow() {
     }
 }
 
+function toggleLayoutInputs() {
+    const id = document.getElementById('layoutId').value || 'default';
+    const disabled = (id !== 'custom');
+    document.getElementById('layoutText').disabled = disabled;
+    document.getElementById('layoutWords').disabled = disabled;
+    document.getElementById('layoutName').disabled = disabled;
+}
+
+async function loadLayoutInfo() {
+    const msg = document.getElementById('layoutMsg');
+    if (!msg) return;
+    msg.textContent = 'Lade Layout...';
+    try {
+        const r = await fetch('/api/layout');
+        const j = await r.json();
+        document.getElementById('layoutId').value = j.layout_id || 'default';
+        document.getElementById('layoutName').value = j.layout_name || '';
+        document.getElementById('layoutText').value = j.layout_text || '';
+        document.getElementById('layoutWords').value = j.word_positions || '{}';
+        document.getElementById('layoutPreview').textContent = j.layout_text || '';
+        toggleLayoutInputs();
+        msg.textContent = '';
+    } catch (_) {
+        msg.textContent = 'Layout konnte nicht geladen werden';
+    }
+}
+
+async function saveLayout() {
+    const msg = document.getElementById('layoutMsg');
+    const layoutId = document.getElementById('layoutId').value || 'default';
+    const layoutName = document.getElementById('layoutName').value || '';
+    const layoutText = document.getElementById('layoutText').value || '';
+    const wordPositions = document.getElementById('layoutWords').value || '{}';
+    msg.textContent = 'Speichere Layout...';
+
+    try {
+        const p = new URLSearchParams();
+        p.set('layout_id', layoutId);
+        p.set('layout_name', layoutName);
+        p.set('layout_text', layoutText);
+        p.set('word_positions', wordPositions);
+        const r = await fetch('/api/layout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: p
+        });
+        const j = await r.json();
+        document.getElementById('layoutId').value = j.layout_id || layoutId;
+        if (j.layout_name !== undefined) document.getElementById('layoutName').value = j.layout_name;
+        document.getElementById('layoutText').value = j.layout_text || layoutText;
+        document.getElementById('layoutPreview').textContent = j.layout_text || layoutText;
+        toggleLayoutInputs();
+        msg.textContent = j.message || (r.ok ? 'Layout gespeichert' : 'Fehler');
+    } catch (_) {
+        msg.textContent = 'Layout speichern fehlgeschlagen';
+    }
+}
+
 async function refreshSetupStatus() {
     if (document.hidden) return;
     try {
@@ -935,6 +1022,7 @@ async function refreshSetupStatus() {
             '<div class="detailKey">Farbe</div><div class="detailVal">' + (s.color || '-') + '</div>' +
             '<div class="detailKey">Helligkeit</div><div class="detailVal">' + (s.brightness || '-') + '</div>' +
             '<div class="detailKey">OTA-Profil</div><div class="detailVal">' + formatOtaIntervalLabel(s.ota_profile || 'long') + '</div>' +
+            '<div class="detailKey">Layout</div><div class="detailVal">' + (s.layout_name || s.layout_id || 'Standard') + '</div>' +
             '<div class="detailKey">RTC Temperatur</div><div class="detailVal">' + rtcTempText + '</div>' +
             '<div class="detailKey">RTC OSF/Batterie</div><div class="detailVal">' + (s.rtc_battery_warning ? 'Auffällig' : 'OK') + '</div>' +
             '<div class="detailKey">RAM Frei</div><div class="detailVal">' + memFree + ' B</div>' +

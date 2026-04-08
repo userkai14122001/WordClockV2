@@ -1,9 +1,8 @@
 #include "effect_helpers.h"
 #include <math.h>
 
-// Words used by this effect
-static const Word W_LOVE_FX = {3, 3, 4};
-static const Word W_YOU_FX  = {4, 5, 3};
+#include "effects.h"
+
 static bool sLoveDebugLogged = false;
 
 void LoveYouEffect::update() {
@@ -42,10 +41,13 @@ void LoveYouEffect::update() {
     uint32_t c = makeColorWithBrightness(r, g, b);
 
     clearMatrix();
-    for (int i = 0; i < W_LOVE_FX.len; i++)
-        strip->setPixelColor(XY(W_LOVE_FX.x + i, W_LOVE_FX.y), c);
-    for (int i = 0; i < W_YOU_FX.len; i++)
-        strip->setPixelColor(XY(W_YOU_FX.x + i, W_YOU_FX.y), c);
+    Word wLove, wYou;
+    if (!getClockWordPosition("LOVE", wLove)) wLove = {3, 3, 4};
+    if (!getClockWordPosition("YOU",  wYou))  wYou  = {4, 5, 3};
+    for (int i = 0; i < wLove.len; i++)
+        strip->setPixelColor(XY(wLove.x + i, wLove.y), c);
+    for (int i = 0; i < wYou.len; i++)
+        strip->setPixelColor(XY(wYou.x + i, wYou.y), c);
     strip->show();
 }
 
