@@ -611,6 +611,8 @@ void WiFiManager::handlePreview() {
 void WiFiManager::handleQuickTest() {
     String action = server.arg("action");
     action.trim();
+    int holdMs = server.arg("hold_ms").toInt();
+    holdMs = constrain(holdMs, 0, 10000);
 
     if (action == "all_on") {
         for (int y = 0; y < HEIGHT; y++) {
@@ -776,6 +778,63 @@ void WiFiManager::handleQuickTest() {
             strip->show();
             delay(150);
         }
+    } else if (action == "checker") {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                bool even = ((x + y) % 2) == 0;
+                strip->setPixelColor(XY(x, y), even ? makeColorWithBrightness(255, 140, 0) : makeColorWithBrightness(55, 75, 110));
+            }
+        }
+        strip->show();
+    } else if (action == "rows") {
+        for (int y = 0; y < HEIGHT; y++) {
+            uint8_t r = (y % 2 == 0) ? 255 : 40;
+            uint8_t g = (y % 2 == 0) ? 190 : 70;
+            uint8_t b = (y % 2 == 0) ? 70 : 130;
+            for (int x = 0; x < WIDTH; x++) {
+                strip->setPixelColor(XY(x, y), makeColorWithBrightness(r, g, b));
+            }
+        }
+        strip->show();
+    } else if (action == "columns") {
+        for (int x = 0; x < WIDTH; x++) {
+            uint8_t r = (x % 2 == 0) ? 120 : 35;
+            uint8_t g = (x % 2 == 0) ? 150 : 95;
+            uint8_t b = (x % 2 == 0) ? 255 : 80;
+            for (int y = 0; y < HEIGHT; y++) {
+                strip->setPixelColor(XY(x, y), makeColorWithBrightness(r, g, b));
+            }
+        }
+        strip->show();
+    } else if (action == "warm_white") {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                strip->setPixelColor(XY(x, y), makeColorWithBrightness(255, 170, 95));
+            }
+        }
+        strip->show();
+    } else if (action == "cool_white") {
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                strip->setPixelColor(XY(x, y), makeColorWithBrightness(165, 210, 255));
+            }
+        }
+        strip->show();
+    } else if (action == "sparkle") {
+        clearMatrix();
+        for (int i = 0; i < 45; i++) {
+            int x = random(WIDTH);
+            int y = random(HEIGHT);
+            strip->setPixelColor(XY(x, y), makeColorWithBrightness(255, 255, 255));
+            strip->show();
+            delay(28);
+            strip->setPixelColor(XY(x, y), 0);
+        }
+        strip->show();
+    }
+
+    if (holdMs > 0) {
+        waitMs((uint32_t)holdMs);
     }
 
     server.send(200, "application/json", "{\"status\":\"ok\"}");

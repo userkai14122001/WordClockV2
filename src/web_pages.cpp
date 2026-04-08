@@ -184,32 +184,72 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
             linear-gradient(180deg, var(--bg-b) 0%, var(--bg-a) 100%);
         min-height: 100vh;
     }
-    .topnav {
+    .shell {
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 14px 10px 24px;
+    }
+    .topbar {
         position: sticky;
         top: 0;
-        z-index: 10;
-        background: rgba(19, 26, 38, 0.84);
-        border-bottom: 1px solid var(--line);
-        padding: 10px;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: rgba(23, 30, 43, 0.84);
+        backdrop-filter: blur(14px);
+        box-shadow: 0 20px 54px rgba(0, 0, 0, 0.28);
+    }
+    .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .brandMark {
+        width: 40px;
+        height: 40px;
+        border-radius: 13px;
+        background: linear-gradient(145deg, #94a4bf, #f2a15a);
+    }
+    .brandText strong {
+        display: block;
+        font-size: 14px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+    .brandText span {
+        color: var(--muted);
+        font-size: 12px;
+    }
+    .navLinks {
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
-        backdrop-filter: blur(8px);
     }
-    .topnav a {
+    .navLinks a {
         color: var(--text);
         text-decoration: none;
         border: 1px solid var(--line);
         background: linear-gradient(145deg, rgba(44, 56, 77, 0.96), rgba(28, 36, 50, 0.96));
-        border-radius: 10px;
-        padding: 7px 10px;
+        border-radius: 999px;
+        padding: 8px 12px;
         font-size: 13px;
     }
-    .topnav a:hover { border-color: var(--line-strong); }
+    .navLinks a.active,
+    .navLinks a:hover {
+        border-color: var(--line-strong);
+        background: linear-gradient(145deg, rgba(73, 90, 120, 0.98), rgba(44, 56, 77, 0.98));
+    }
     .wrap {
         max-width: 1040px;
         margin: 0 auto;
-        padding: 16px 10px 24px;
+        padding: 0 0 24px;
     }
     .hero {
         border-radius: 16px;
@@ -267,28 +307,42 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
     .ok { color: var(--ok); }
     .warn { color: var(--warn); }
     @media (max-width:480px) {
-        .wrap { padding: 10px 6px 16px; }
+        .shell { padding: 10px 6px 16px; }
+        .wrap { padding: 0 0 16px; }
         .hero h2 { font-size: 19px; }
         .layout { grid-template-columns: 1fr; }
         .box { padding: 12px 8px; }
         select, input { font-size: 16px; padding: 8px; }
         button { padding: 10px; font-size: 14px; }
-        .topnav { padding: 8px 6px; gap: 4px; }
-        .topnav a { padding: 6px 8px; font-size: 12px; }
+        .topbar { padding: 9px 8px; border-radius: 14px; }
+        .brandMark { width: 34px; height: 34px; }
+        .brandText strong { font-size: 12px; }
+        .brandText span { font-size: 11px; }
+        .navLinks a { padding: 6px 9px; font-size: 12px; }
     }
 </style>
 </head>
 
 <body>
 
-<div class="topnav">
-    <a href="/main">Main</a>
-    <a href="/wifi">Wifi</a>
-    <a href="/mqtt">MQTT</a>
-    <a href="/ota">OTA</a>
-    <a href="/live">Live</a>
-    <a href="/test">Test</a>
-</div>
+<div class="shell">
+    <div class="topbar">
+        <div class="brand">
+            <div class="brandMark"></div>
+            <div class="brandText">
+                <strong>WordClock Studio</strong>
+                <span>Onboard control website</span>
+            </div>
+        </div>
+        <div class="navLinks" id="setupNavLinks">
+            <a href="/main">Setup</a>
+            <a href="/wifi">Wifi</a>
+            <a href="/mqtt">MQTT</a>
+            <a href="/ota">OTA</a>
+            <a href="/live">Studio</a>
+            <a href="/test">Test</a>
+        </div>
+    </div>
 
 <div class="wrap">
     <div class="hero">
@@ -381,6 +435,7 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
         </div>
     </div>
 </div>
+</div>
 
 
 <script>
@@ -395,6 +450,12 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
     const mainSection = document.getElementById('mainSection');
     const rebootBtn = document.getElementById('rebootBtn');
     const liveBtn = document.getElementById('liveBtn');
+    const nav = document.getElementById('setupNavLinks');
+    Array.from(nav.querySelectorAll('a')).forEach(link => {
+        if (link.getAttribute('href') === path) {
+            link.classList.add('active');
+        }
+    });
     
     if (path === '/wifi') {
         wifiSection.style.display = 'block';
@@ -1631,6 +1692,7 @@ const char test_html_page[] PROGMEM = R"rawliteral(
         --bg-a: #0f131c;
         --bg-b: #1a2230;
         --panel: rgba(23, 30, 43, 0.92);
+        --panel-soft: rgba(31, 40, 56, 0.9);
         --line: rgba(154, 168, 190, 0.22);
         --line-strong: rgba(188, 201, 224, 0.46);
         --text: #f3f5fb;
@@ -1645,30 +1707,80 @@ const char test_html_page[] PROGMEM = R"rawliteral(
             radial-gradient(circle at 100% 8%, rgba(242, 161, 90, 0.12), transparent 22%),
             linear-gradient(180deg, var(--bg-b) 0%, var(--bg-a) 100%);
         color: var(--text);
+        min-height: 100vh;
     }
-    .topnav {
-        position:sticky;
-        top:0;
-        z-index:10;
-        background: rgba(19, 26, 38, 0.84);
-        border-bottom:1px solid var(--line);
-        padding:10px;
+    .shell {
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 14px 10px 24px;
+    }
+    .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
         display:flex;
-        gap:8px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
         flex-wrap:wrap;
-        backdrop-filter: blur(8px);
+        margin-bottom: 12px;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: rgba(23, 30, 43, 0.84);
+        backdrop-filter: blur(14px);
+        box-shadow: 0 20px 54px rgba(0, 0, 0, 0.28);
     }
-    .topnav a {
-        color:var(--text);
-        text-decoration:none;
-        padding:8px 11px;
+    .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .brandMark {
+        width: 40px;
+        height: 40px;
+        border-radius: 13px;
+        background: linear-gradient(145deg, #94a4bf, #f2a15a);
+    }
+    .brandText strong {
+        display: block;
+        font-size: 14px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+    .brandText span {
+        color: var(--muted);
+        font-size: 12px;
+    }
+    .navLinks {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .navLinks a {
+        color: var(--text);
+        text-decoration: none;
+        padding: 8px 12px;
         border:1px solid var(--line);
-        border-radius:10px;
+        border-radius:999px;
         background:linear-gradient(145deg, rgba(44, 56, 77, 0.96), rgba(28, 36, 50, 0.96));
         font-size:13px;
     }
-    .topnav a:hover { border-color: var(--line-strong); }
-    .wrap { max-width:860px; margin:0 auto; padding:14px 10px 20px; }
+    .navLinks a.active,
+    .navLinks a:hover {
+        border-color: var(--line-strong);
+        background: linear-gradient(145deg, rgba(73, 90, 120, 0.98), rgba(44, 56, 77, 0.98));
+    }
+    .wrap { max-width:980px; margin:0 auto; padding:0 0 20px; }
+    .hero {
+        border-radius: 16px;
+        border: 1px solid var(--line-strong);
+        background: linear-gradient(145deg, rgba(37, 47, 66, 0.96), rgba(22, 29, 42, 0.98));
+        padding: 14px 16px;
+        margin-bottom: 12px;
+    }
+    .hero h2 { margin: 0 0 6px; font-size: 24px; }
+    .hero p { margin: 0; color: #d7dde9; }
     .card {
         background: var(--panel);
         border:1px solid var(--line);
@@ -1689,32 +1801,51 @@ const char test_html_page[] PROGMEM = R"rawliteral(
     }
     button.warn { background:linear-gradient(145deg, rgba(170, 92, 92, 0.98), rgba(120, 48, 48, 0.98)); border-color:rgba(245, 179, 165, 0.42); }
     button.info { background:linear-gradient(145deg, rgba(92, 103, 122, 0.98), rgba(58, 67, 82, 0.98)); }
+    button.special { background:linear-gradient(145deg, rgba(98, 120, 92, 0.98), rgba(62, 82, 56, 0.98)); border-color:rgba(195, 220, 178, 0.36); }
     .msg { color:#cfdcf2; margin-top:10px; min-height:20px; font-size:13px; }
     .section-title { margin-top:12px; font-weight:bold; color:#bfc6d6; font-size:12px; text-transform: uppercase; letter-spacing: 0.04em; }
     .sub { color: var(--muted); margin: 0; }
     @media (max-width:480px) {
-        .wrap { padding:8px 4px; }
+        .shell { padding:8px 4px; }
+        .wrap { padding:0 0 14px; }
+        .hero h2 { font-size: 19px; }
+        .topbar { padding: 9px 8px; border-radius: 14px; }
+        .brandMark { width: 34px; height: 34px; }
+        .brandText strong { font-size: 12px; }
+        .brandText span { font-size: 11px; }
+        .navLinks a { padding: 6px 9px; font-size: 12px; }
         .card { padding:10px; }
         .grid { grid-template-columns:repeat(auto-fit, minmax(100px, 1fr)); gap:6px; }
         button { padding:9px 4px; font-size:12px; }
-        .topnav { padding:8px 6px; gap:4px; }
-        .topnav a { padding:6px 8px; font-size:12px; }
     }
 </style>
 </head>
 <body>
-<div class="topnav">
-    <a href="/main">Main</a>
-    <a href="/wifi">Wifi</a>
-    <a href="/mqtt">MQTT</a>
-    <a href="/ota">OTA</a>
-    <a href="/live">Live</a>
-    <a href="/test">Test</a>
-</div>
+<div class="shell">
+    <div class="topbar">
+        <div class="brand">
+            <div class="brandMark"></div>
+            <div class="brandText">
+                <strong>WordClock Studio</strong>
+                <span>Onboard control website</span>
+            </div>
+        </div>
+        <div class="navLinks" id="testNavLinks">
+            <a href="/main">Setup</a>
+            <a href="/wifi">Wifi</a>
+            <a href="/mqtt">MQTT</a>
+            <a href="/ota">OTA</a>
+            <a href="/live">Studio</a>
+            <a href="/test" class="active">Test</a>
+        </div>
+    </div>
 <div class="wrap">
-    <div class="card">
+    <div class="hero">
         <h2>WordClock Test Deck</h2>
-        <p class="sub">Teste Farben, LEDs, Helligkeit und Muster schnell und direkt.</p>
+        <p>Diagnose fuer Farben, Helligkeit, Muster und Segment-Checks in Studio-Optik.</p>
+    </div>
+    <div class="card">
+        <p class="sub">Tests werden ca. 3 Sekunden gehalten, damit du das Ergebnis stabil siehst.</p>
         
         <div class="section-title">Basis-Tests</div>
         <div class="grid">
@@ -1751,23 +1882,71 @@ const char test_html_page[] PROGMEM = R"rawliteral(
             <button onclick="quick('spiral')">Spirale</button>
         </div>
 
+        <div class="section-title">Muster-Tests</div>
+        <div class="grid">
+            <button class="special" onclick="quick('checker')">Schachbrett</button>
+            <button class="special" onclick="quick('rows')">Zeilen</button>
+            <button class="special" onclick="quick('columns')">Spalten</button>
+            <button class="special" onclick="quick('sparkle')">Sparkle</button>
+            <button class="info" onclick="quick('warm_white')">Warmweiss</button>
+            <button class="info" onclick="quick('cool_white')">Kaltweiss</button>
+        </div>
+
         <div id="msg" class="msg"></div>
     </div>
 </div>
+</div>
 <script>
+let testBusy = false;
+
+function waitMs(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function setButtonsDisabled(disabled) {
+    Array.from(document.querySelectorAll('button')).forEach(btn => {
+        btn.disabled = disabled;
+        btn.style.opacity = disabled ? '0.6' : '1';
+    });
+}
+
 async function quick(action) {
+    if (testBusy) return;
+    testBusy = true;
+    setButtonsDisabled(true);
+
     const msg = document.getElementById('msg');
-    msg.textContent = 'Sende Testbefehl...';
+    msg.textContent = 'Fuehre Test aus (3s Haltedauer)...';
     const p = new URLSearchParams();
     p.set('action', action);
-    const r = await fetch('/api/quicktest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: p
-    });
-    msg.textContent = r.ok ? 'Test ausgefuehrt' : 'Fehler beim Test';
-    setTimeout(() => { msg.textContent = ''; }, 1500);
+    p.set('hold_ms', '3000');
+
+    try {
+        const r = await fetch('/api/quicktest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: p
+        });
+        msg.textContent = r.ok ? 'Test ausgefuehrt' : 'Fehler beim Test';
+    } catch (_) {
+        msg.textContent = 'Fehler beim Test';
+    }
+
+    await waitMs(400);
+    setButtonsDisabled(false);
+    testBusy = false;
+    setTimeout(() => { msg.textContent = ''; }, 1600);
 }
+
+(function() {
+    const path = location.pathname;
+    const nav = document.getElementById('testNavLinks');
+    Array.from(nav.querySelectorAll('a')).forEach(link => {
+        if (link.getAttribute('href') === path) {
+            link.classList.add('active');
+        }
+    });
+})();
 </script>
 </body>
 </html>
