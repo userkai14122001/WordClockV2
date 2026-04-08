@@ -8,9 +8,14 @@
 #include <esp_https_ota.h>
 #include <esp_crt_bundle.h>
 #include <ArduinoJson.h>
+#include <mbedtls/sha256.h>
 
 #ifndef FIRMWARE_VERSION
 #define FIRMWARE_VERSION "0.0.0-dev"
+#endif
+
+#ifndef OTA_CHANNEL
+#define OTA_CHANNEL "stable"
 #endif
 
 namespace {
@@ -20,7 +25,33 @@ namespace {
     struct RemoteOtaInfo {
         String version;
         String firmwareUrl;
+        String sha256;
+        String channel;
     };
+
+    static String toLowerCopy(const String& value) {
+        String out = value;
+        out.toLowerCase();
+        return out;
+    }
+
+    static String normalizeSha256(String value) {
+        value.trim();
+        value.toLowerCase();
+        value.replace(" ", "");
+        return value;
+    }
+
+    static String bytesToHexLower(const uint8_t* bytes, size_t len) {
+        static const char* kHex = "0123456789abcdef";
+        String out;
+        out.reserve(len * 2);
+        for (size_t i = 0; i < len; i++) {
+            out += kHex[(bytes[i] >> 4) & 0x0F];
+            out += kHex[bytes[i] & 0x0F];
+        }
+        return out;
+    }
 
     static String withCacheBuster(const String& url) {
         String out = url;
@@ -123,8 +154,34 @@ namespace {
             return false;
         }
 
-        const char* version = doc["version"] | "";
-        const char* firmwareUrl = doc["firmware_url"] | "";
+        JsonVariant selected = doc.as<JsonVariant>();
+
+        // Optional release channels in manifest:
+        // {
+        //   "channels": {
+        //     "stable": {"version":"...","firmware_url":"...","sha256":"..."},
+        //     "dev":    {"version":"...","firmware_url":"...","sha256":"..."}
+        //   }
+        // }
+        JsonVariant channels = doc["channels"];
+        if (!channels.isNull() && channels.is<JsonObject>()) {
+            JsonVariant channelNode = channels[OTA_CHANNEL];
+            if (!channelNode.isNull() && channelNode.is<JsonObject>()) {
+                selected = channelNode;
+                info.channel = OTA_CHANNEL;
+            } else {
+                DebugManager::printf(DebugCategory::OTA,
+                                     "[OTA] Manifest channels vorhanden, Kanal '%s' fehlt\n",
+                                     OTA_CHANNEL);
+                return false;
+            }
+        } else {
+            info.channel = OTA_CHANNEL;
+        }
+
+        const char* version = selected["version"] | "";
+        const char* firmwareUrl = selected["firmware_url"] | "";
+        const char* sha256 = selected["sha256"] | "";
 
         if (strlen(version) == 0 || strlen(firmwareUrl) == 0) {
             DebugManager::println(DebugCategory::OTA, "[OTA] Manifest unvollstaendig (version/firmware_url)");
@@ -133,10 +190,15 @@ namespace {
 
         info.version = version;
         info.firmwareUrl = firmwareUrl;
+        info.sha256 = normalizeSha256(String(sha256));
+        if (!info.sha256.isEmpty() && info.sha256.length() != 64) {
+            DebugManager::println(DebugCategory::OTA, "[OTA] Manifest SHA256 ungueltig (nicht 64 hex chars)");
+            return false;
+        }
         return true;
     }
 
-    static bool performHttpsOtaViaHttpClient(const char* firmwareUrl) {
+    static bool performHttpsOtaViaHttpClient(const char* firmwareUrl, const char* expectedSha256) {
         WiFiClientSecure client;
         client.setInsecure();
 
@@ -179,9 +241,66 @@ namespace {
         }
 
         WiFiClient* stream = http.getStreamPtr();
-        const size_t written = Update.writeStream(*stream);
+        size_t written = 0;
+        bool streamError = false;
+
+        mbedtls_sha256_context shaCtx;
+        const bool verifyHash = (expectedSha256 != nullptr && strlen(expectedSha256) > 0);
+        if (verifyHash) {
+            mbedtls_sha256_init(&shaCtx);
+            mbedtls_sha256_starts_ret(&shaCtx, 0);
+        }
+
+        uint8_t buffer[1024];
+        while (http.connected() && (written < (size_t)contentLength)) {
+            size_t avail = stream->available();
+            if (avail == 0) {
+                delay(1);
+                continue;
+            }
+
+            size_t toRead = avail;
+            if (toRead > sizeof(buffer)) toRead = sizeof(buffer);
+            if ((size_t)contentLength - written < toRead) {
+                toRead = (size_t)contentLength - written;
+            }
+
+            const int readBytes = stream->readBytes(buffer, toRead);
+            if (readBytes <= 0) {
+                streamError = true;
+                break;
+            }
+
+            const size_t chunkWritten = Update.write(buffer, (size_t)readBytes);
+            if (chunkWritten != (size_t)readBytes) {
+                streamError = true;
+                break;
+            }
+
+            if (verifyHash) {
+                mbedtls_sha256_update_ret(&shaCtx, buffer, (size_t)readBytes);
+            }
+            written += (size_t)readBytes;
+        }
+
+        String actualSha;
+        if (verifyHash && !streamError) {
+            uint8_t digest[32];
+            mbedtls_sha256_finish_ret(&shaCtx, digest);
+            actualSha = bytesToHexLower(digest, sizeof(digest));
+            mbedtls_sha256_free(&shaCtx);
+        } else if (verifyHash) {
+            mbedtls_sha256_free(&shaCtx);
+        }
+
         const bool complete = Update.end();
         http.end();
+
+        if (streamError) {
+            DebugManager::println(DebugCategory::OTA,
+                                  "[OTA] Stream-Fehler beim Download/Write");
+            return false;
+        }
 
         if (!complete) {
             DebugManager::printf(DebugCategory::OTA,
@@ -203,6 +322,17 @@ namespace {
             return false;
         }
 
+        if (verifyHash) {
+            const String expected = normalizeSha256(String(expectedSha256));
+            if (expected != actualSha) {
+                DebugManager::printf(DebugCategory::OTA,
+                                     "[OTA] SHA256 mismatch expected=%s actual=%s\n",
+                                     expected.c_str(), actualSha.c_str());
+                return false;
+            }
+            DebugManager::println(DebugCategory::OTA, "[OTA] SHA256 verifiziert");
+        }
+
         return true;
     }
 }
@@ -211,7 +341,11 @@ const char* getFirmwareVersion() {
     return FIRMWARE_VERSION;
 }
 
-void performHttpsOtaUpdate(const char* firmwareUrl) {
+const char* getOtaChannel() {
+    return OTA_CHANNEL;
+}
+
+void performHttpsOtaUpdate(const char* firmwareUrl, const char* expectedSha256) {
     if (firmwareUrl == nullptr || strlen(firmwareUrl) == 0) {
         DebugManager::println(DebugCategory::OTA, "[OTA] Keine Firmware-URL angegeben");
         return;
@@ -220,6 +354,18 @@ void performHttpsOtaUpdate(const char* firmwareUrl) {
     DebugManager::println(DebugCategory::OTA, "[OTA] Starte HTTPS OTA Update...");
     const String cacheBustedFirmwareUrl = withCacheBuster(String(firmwareUrl));
     DebugManager::printf(DebugCategory::OTA, "[OTA] URL: %s\n", cacheBustedFirmwareUrl.c_str());
+
+    if (expectedSha256 != nullptr && strlen(expectedSha256) > 0) {
+        DebugManager::println(DebugCategory::OTA,
+                              "[OTA] Manifest SHA256 vorhanden - verifizierenden Download-Pfad nutzen");
+        if (performHttpsOtaViaHttpClient(firmwareUrl, expectedSha256)) {
+            DebugManager::println(DebugCategory::OTA, "[OTA] OTA erfolgreich! Neustart...");
+            rebootDevice("OTA success", 1000);
+        } else {
+            DebugManager::println(DebugCategory::OTA, "[OTA] OTA fehlgeschlagen (SHA256 Verifikation)");
+        }
+        return;
+    }
 
     esp_http_client_config_t http_config = {};
     http_config.url = cacheBustedFirmwareUrl.c_str();
@@ -241,7 +387,7 @@ void performHttpsOtaUpdate(const char* firmwareUrl) {
     if (ret != ESP_OK) {
         DebugManager::println(DebugCategory::OTA,
                               "[OTA] esp_https_ota fehlgeschlagen, fallback via HTTPClient/Update...");
-        if (performHttpsOtaViaHttpClient(firmwareUrl)) {
+        if (performHttpsOtaViaHttpClient(firmwareUrl, expectedSha256)) {
             DebugManager::println(DebugCategory::OTA,
                                   "[OTA] Fallback OTA via HTTPClient erfolgreich");
             ret = ESP_OK;
@@ -276,13 +422,14 @@ bool checkForUpdateAndInstall(bool forceLog) {
     const int cmp = compareSemver(current, remote.version);
 
     DebugManager::printf(DebugCategory::OTA,
-                         "[OTA] Version lokal=%s remote=%s\n",
+                         "[OTA] Kanal=%s Version lokal=%s remote=%s\n",
+                         remote.channel.c_str(),
                          current.c_str(),
                          remote.version.c_str());
 
     if (cmp < 0) {
         DebugManager::println(DebugCategory::OTA, "[OTA] Neuere Version gefunden - update wird gestartet");
-        performHttpsOtaUpdate(remote.firmwareUrl.c_str());
+        performHttpsOtaUpdate(remote.firmwareUrl.c_str(), remote.sha256.c_str());
         return true;
     }
 

@@ -17,6 +17,10 @@
 #include <algorithm>
 #include <time.h>
 
+#ifndef WC_API_KEY
+#define WC_API_KEY ""
+#endif
+
 static const byte DNS_PORT = 53;
 
 static inline void waitMs(uint32_t ms) {
@@ -33,6 +37,70 @@ static String normalizeOtaProfile(String profile) {
         return profile;
     }
     return "long";
+}
+
+static bool isHexColor6(const String& value) {
+    if (value.length() != 6) return false;
+    for (size_t i = 0; i < value.length(); i++) {
+        const char c = value[i];
+        const bool isHex = (c >= '0' && c <= '9') ||
+                           (c >= 'a' && c <= 'f') ||
+                           (c >= 'A' && c <= 'F');
+        if (!isHex) return false;
+    }
+    return true;
+}
+
+static bool parseBoundedUInt(const String& raw, uint32_t minVal, uint32_t maxVal, uint32_t& out) {
+    String v = raw;
+    v.trim();
+    if (v.isEmpty()) return false;
+    for (size_t i = 0; i < v.length(); i++) {
+        if (v[i] < '0' || v[i] > '9') {
+            return false;
+        }
+    }
+    uint32_t parsed = (uint32_t)strtoul(v.c_str(), nullptr, 10);
+    if (parsed < minVal || parsed > maxVal) {
+        return false;
+    }
+    out = parsed;
+    return true;
+}
+
+static void sendApiError(WebServer& server, int httpCode, const char* code, const char* message) {
+    DynamicJsonDocument doc(256);
+    doc["status"] = "error";
+    doc["code"] = code;
+    doc["message"] = message;
+    String payload;
+    serializeJson(doc, payload);
+    server.send(httpCode, "application/json", payload);
+}
+
+static bool isApiKeyConfigured() {
+    return strlen(WC_API_KEY) > 0;
+}
+
+static bool isAuthorizedRequest(WebServer& server) {
+    if (!isApiKeyConfigured()) {
+        return true;
+    }
+
+    String provided = server.header("X-Api-Key");
+    if (provided.isEmpty()) {
+        provided = server.arg("api_key");
+    }
+    provided.trim();
+    return provided == String(WC_API_KEY);
+}
+
+static bool requireAuthorizedRequest(WebServer& server) {
+    if (isAuthorizedRequest(server)) {
+        return true;
+    }
+    sendApiError(server, 401, "unauthorized", "API key fehlt oder ist ungueltig");
+    return false;
 }
 
 static uint32_t validUnixNow() {
@@ -370,6 +438,9 @@ void WiFiManager::setupWebRoutes() {
 
     // Reboot Endpoint
     server.on("/reboot", [this]() {
+        if (!requireAuthorizedRequest(server)) {
+            return;
+        }
         server.send(200, "text/plain", "Rebooting...");
         waitMs(500);
         rebootDevice("HTTP /reboot", 50);
@@ -424,6 +495,10 @@ void WiFiManager::handleScan() {
 }
 
 void WiFiManager::handleSave() {
+    if (!requireAuthorizedRequest(server)) {
+        return;
+    }
+
     DebugManager::println(DebugCategory::WiFi, "WiFiManager: SAVE REQUEST RECEIVED");
     
     String new_ssid = server.arg("ssid");
@@ -611,6 +686,10 @@ void WiFiManager::handleStatus() {
 }
 
 void WiFiManager::handlePreview() {
+    if (!requireAuthorizedRequest(server)) {
+        return;
+    }
+
     String stateArg = server.arg("state");
     String effectArg = server.arg("effect");
     String colorArg = server.arg("color");
@@ -639,16 +718,32 @@ void WiFiManager::handlePreview() {
     DebugManager::println(DebugCategory::WiFi, brightnessArg);
 
     bool tuningChanged = false;
+    const bool hasAnyArg = !stateArg.isEmpty() || !effectArg.isEmpty() || !colorArg.isEmpty() ||
+                           !brightnessArg.isEmpty() || !speedArg.isEmpty() || !intensityArg.isEmpty() ||
+                           !densityArg.isEmpty() || !transitionArg.isEmpty();
+    if (!hasAnyArg) {
+        sendApiError(server, 400, "invalid_request", "Keine Parameter uebergeben");
+        return;
+    }
 
     bool hasPower = !stateArg.isEmpty();
-    bool newPower = hasPower ? (stateArg == "ON") : powerState;
+    bool newPower = powerState;
+    if (hasPower) {
+        if (stateArg != "ON" && stateArg != "OFF") {
+            sendApiError(server, 422, "invalid_state", "state muss ON oder OFF sein");
+            return;
+        }
+        newPower = (stateArg == "ON");
+    }
 
     bool hasBrightness = !brightnessArg.isEmpty();
     uint8_t newBrightness = brightness;
     if (hasBrightness) {
-        int b = brightnessArg.toInt();
-        if (b < 0) b = 0;
-        if (b > 255) b = 255;
+        uint32_t b = 0;
+        if (!parseBoundedUInt(brightnessArg, 0, 255, b)) {
+            sendApiError(server, 422, "invalid_brightness", "brightness muss zwischen 0 und 255 liegen");
+            return;
+        }
         newBrightness = (uint8_t)b;
     }
 
@@ -658,32 +753,60 @@ void WiFiManager::handlePreview() {
         if (colorArg.startsWith("#")) {
             colorArg = colorArg.substring(1);
         }
-        if (colorArg.length() == 6) {
-            uint32_t parsed = (uint32_t)strtoul(colorArg.c_str(), nullptr, 16);
-            newColor = parsed & 0xFFFFFF;
-            hasColor = true;
+        if (!isHexColor6(colorArg)) {
+            sendApiError(server, 422, "invalid_color", "color muss #RRGGBB sein");
+            return;
         }
+        uint32_t parsed = (uint32_t)strtoul(colorArg.c_str(), nullptr, 16);
+        newColor = parsed & 0xFFFFFF;
+        hasColor = true;
     }
 
     bool hasEffect = !effectArg.isEmpty();
+    if (hasEffect) {
+        if (effectArg != "clock" && effectManager.getEffect(effectArg) == nullptr) {
+            sendApiError(server, 422, "invalid_effect", "Unbekannter Effekt");
+            return;
+        }
+    }
 
     if (!speedArg.isEmpty()) {
-        effectSpeed = (uint8_t)constrain(speedArg.toInt(), (int)ControlConfig::SPEED_MIN, (int)ControlConfig::SPEED_MAX);
+        uint32_t value = 0;
+        if (!parseBoundedUInt(speedArg, ControlConfig::SPEED_MIN, ControlConfig::SPEED_MAX, value)) {
+            sendApiError(server, 422, "invalid_speed", "speed ausserhalb gueltigem Bereich");
+            return;
+        }
+        effectSpeed = (uint8_t)value;
         stateManager.setSpeed(effectSpeed);
         tuningChanged = true;
     }
     if (!intensityArg.isEmpty()) {
-        effectIntensity = (uint8_t)constrain(intensityArg.toInt(), (int)ControlConfig::INTENSITY_MIN, (int)ControlConfig::INTENSITY_MAX);
+        uint32_t value = 0;
+        if (!parseBoundedUInt(intensityArg, ControlConfig::INTENSITY_MIN, ControlConfig::INTENSITY_MAX, value)) {
+            sendApiError(server, 422, "invalid_intensity", "intensity ausserhalb gueltigem Bereich");
+            return;
+        }
+        effectIntensity = (uint8_t)value;
         stateManager.setIntensity(effectIntensity);
         tuningChanged = true;
     }
     if (!densityArg.isEmpty()) {
-        effectDensity = (uint8_t)constrain(densityArg.toInt(), (int)ControlConfig::DENSITY_MIN, (int)ControlConfig::DENSITY_MAX);
+        uint32_t value = 0;
+        if (!parseBoundedUInt(densityArg, ControlConfig::DENSITY_MIN, ControlConfig::DENSITY_MAX, value)) {
+            sendApiError(server, 422, "invalid_density", "density ausserhalb gueltigem Bereich");
+            return;
+        }
+        effectDensity = (uint8_t)value;
         stateManager.setDensity(effectDensity);
         tuningChanged = true;
     }
     if (!transitionArg.isEmpty()) {
-        transitionMs = (uint16_t)constrain(transitionArg.toInt(), (int)ControlConfig::TRANSITION_MIN_MS, (int)ControlConfig::TRANSITION_MAX_MS);
+        uint32_t value = 0;
+        if (!parseBoundedUInt(transitionArg, ControlConfig::TRANSITION_MIN_MS, ControlConfig::TRANSITION_MAX_MS, value)) {
+            sendApiError(server, 422, "invalid_transition", "transition_ms ausserhalb gueltigem Bereich");
+            return;
+        }
+        transitionMs = (uint16_t)value;
         stateManager.setTransitionMs(transitionMs);
         tuningChanged = true;
     }
@@ -707,10 +830,44 @@ void WiFiManager::handlePreview() {
 }
 
 void WiFiManager::handleQuickTest() {
+    if (!requireAuthorizedRequest(server)) {
+        return;
+    }
+
     String action = server.arg("action");
     action.trim();
-    int holdMs = server.arg("hold_ms").toInt();
-    holdMs = constrain(holdMs, 0, 10000);
+    if (action.isEmpty()) {
+        sendApiError(server, 400, "invalid_request", "action fehlt");
+        return;
+    }
+
+    static const char* kAllowedActions[] = {
+        "all_on", "all_off", "clock_test", "gradient",
+        "color_red", "color_green", "color_blue", "color_yellow", "color_cyan", "color_magenta",
+        "brightness_0", "brightness_25", "brightness_50", "brightness_75", "brightness_100",
+        "rainbow", "blink", "pulse", "spiral",
+        "checker", "rows", "columns", "warm_white", "cool_white", "sparkle"
+    };
+    bool actionAllowed = false;
+    for (size_t i = 0; i < (sizeof(kAllowedActions) / sizeof(kAllowedActions[0])); i++) {
+        if (action == kAllowedActions[i]) {
+            actionAllowed = true;
+            break;
+        }
+    }
+    if (!actionAllowed) {
+        sendApiError(server, 422, "invalid_action", "Unbekannte quicktest action");
+        return;
+    }
+
+    uint32_t holdMs = 0;
+    String holdRaw = server.arg("hold_ms");
+    if (!holdRaw.isEmpty()) {
+        if (!parseBoundedUInt(holdRaw, 0, 10000, holdMs)) {
+            sendApiError(server, 422, "invalid_hold_ms", "hold_ms muss zwischen 0 und 10000 liegen");
+            return;
+        }
+    }
 
     if (action == "all_on") {
         for (int y = 0; y < HEIGHT; y++) {
@@ -932,10 +1089,15 @@ void WiFiManager::handleQuickTest() {
     }
 
     if (holdMs > 0) {
-        waitMs((uint32_t)holdMs);
+        waitMs(holdMs);
     }
 
-    server.send(200, "application/json", "{\"status\":\"ok\"}");
+    DynamicJsonDocument doc(160);
+    doc["status"] = "ok";
+    doc["action"] = action;
+    String payload;
+    serializeJson(doc, payload);
+    server.send(200, "application/json", payload);
 }
 
 void WiFiManager::handleOtaInfo() {
@@ -947,6 +1109,7 @@ void WiFiManager::handleOtaInfo() {
     doc["wifi_connected"] = WiFi.isConnected();
     doc["ip"] = WiFi.isConnected() ? WiFi.localIP().toString() : "offline";
     doc["ota_profile"] = ota_profile;
+    doc["ota_channel"] = getOtaChannel();
     doc["ota_interval_s"] = getOtaAutoCheckIntervalMs() / 1000UL;
 
     String payload;
@@ -955,16 +1118,16 @@ void WiFiManager::handleOtaInfo() {
 }
 
 void WiFiManager::handleOtaCheck() {
+    if (!requireAuthorizedRequest(server)) {
+        return;
+    }
+
     DynamicJsonDocument doc(384);
     doc["status"] = "ok";
     doc["fw_version"] = getFirmwareVersion();
 
     if (!WiFi.isConnected()) {
-        doc["status"] = "error";
-        doc["message"] = "Kein WLAN verbunden";
-        String payload;
-        serializeJson(doc, payload);
-        server.send(400, "application/json", payload);
+        sendApiError(server, 400, "wifi_offline", "Kein WLAN verbunden");
         return;
     }
 
@@ -978,13 +1141,24 @@ void WiFiManager::handleOtaCheck() {
 }
 
 void WiFiManager::handleOtaProfile() {
+    if (!requireAuthorizedRequest(server)) {
+        return;
+    }
+
     String profile = server.arg("profile");
+    profile.trim();
+    profile.toLowerCase();
+    if (!(profile == "dev" || profile == "norm" || profile == "long")) {
+        sendApiError(server, 422, "invalid_profile", "profile muss dev, norm oder long sein");
+        return;
+    }
     setOtaProfile(profile, true);
 
     DynamicJsonDocument doc(384);
     doc["status"] = "ok";
     doc["ota_profile"] = ota_profile;
     doc["ota_interval_s"] = getOtaAutoCheckIntervalMs() / 1000UL;
+    doc["ota_channel"] = getOtaChannel();
     doc["message"] = "OTA-Profil gespeichert";
 
     String payload;

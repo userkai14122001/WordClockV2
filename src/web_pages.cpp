@@ -272,6 +272,7 @@ function initTheme() {
 }
 
 async function refreshHomeStatus() {
+    if (document.hidden) return;
     try {
         const r = await fetch('/api/status');
         const s = await r.json();
@@ -906,6 +907,7 @@ async function checkOtaNow() {
 }
 
 async function refreshSetupStatus() {
+    if (document.hidden) return;
     try {
         const r = await fetch('/api/status');
         const s = await r.json();
@@ -1818,6 +1820,7 @@ function renderDetails(s, rtcTempText, memFree, memUsedPct) {
 }
 
 async function refreshStatus() {
+    if (document.hidden) return;
     if (refreshInFlight) return;
     refreshInFlight = true;
     try {
