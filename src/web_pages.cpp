@@ -273,6 +273,42 @@ function initTheme() {
     }
 }
 
+function fillSetupFields(status) {
+    const ssidManual = document.getElementById('ssid_manual');
+    const wifiPass = document.getElementById('wifi_pass');
+    const mqttServer = document.getElementById('mqtt_server');
+    const mqttPort = document.getElementById('mqtt_port');
+    const mqttUser = document.getElementById('mqtt_user');
+    const mqttPass = document.getElementById('mqtt_pass');
+
+    if (ssidManual && typeof status.wifi_ssid === 'string') {
+        ssidManual.value = status.wifi_ssid;
+    }
+    if (wifiPass && typeof status.wifi_pass === 'string') {
+        wifiPass.value = status.wifi_pass;
+    }
+    if (mqttServer && typeof status.mqtt_server === 'string') {
+        mqttServer.value = status.mqtt_server;
+    }
+    if (mqttPort && status.mqtt_port !== undefined && status.mqtt_port !== null) {
+        mqttPort.value = String(status.mqtt_port);
+    }
+    if (mqttUser && typeof status.mqtt_user === 'string') {
+        mqttUser.value = status.mqtt_user;
+    }
+    if (mqttPass && typeof status.mqtt_pass === 'string') {
+        mqttPass.value = status.mqtt_pass;
+    }
+}
+
+async function loadSetupFields() {
+    try {
+        const r = await fetch('/api/status');
+        const s = await r.json();
+        fillSetupFields(s);
+    } catch (_) {}
+}
+
 async function refreshHomeStatus() {
     if (document.hidden) return;
     try {
@@ -574,7 +610,7 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
                 <span onclick="toggleWifi()" style="position:absolute; right:10px; top:12px; cursor:pointer;">Show</span>
             </div>
 
-            <button id="saveBtn" type="button" onclick="saveSettings()">Speichern</button>
+            <button id="saveBtnWifi" type="button" onclick="saveSettings()">Speichern</button>
         </div>
 
         <div id="mqttSection" style="display:none;">
@@ -595,7 +631,7 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
                 <span onclick="toggleMQTT()" style="position:absolute; right:10px; top:12px; cursor:pointer;">Show</span>
             </div>
 
-            <button id="saveBtn" type="button" onclick="saveSettings()">Speichern</button>
+            <button id="saveBtnMqtt" type="button" onclick="saveSettings()">Speichern</button>
         </div>
 
         <div id="otaSection" style="display:none; text-align:left;">
@@ -803,6 +839,10 @@ if (location.pathname === '/wifi') {
     scheduleScan();
 }
 
+if (location.pathname === '/wifi' || location.pathname === '/mqtt') {
+    loadSetupFields();
+}
+
 // ---------------------------------------------------------
 // Passwort-Toggles
 // ---------------------------------------------------------
@@ -819,11 +859,20 @@ function toggleMQTT() {
 // Speichern nur relevante Parameter je nach Route
 // ---------------------------------------------------------
 function saveSettings() {
-    let btn = document.getElementById("saveBtn");
+    const path = location.pathname;
+    let btn = null;
+    if (path === '/wifi') {
+        btn = document.getElementById("saveBtnWifi");
+    } else if (path === '/mqtt') {
+        btn = document.getElementById("saveBtnMqtt");
+    }
+    if (!btn) {
+        return;
+    }
+
     btn.style.background = "#777";
     btn.innerText = "Speichere...";
 
-    const path = location.pathname;
     let params = new URLSearchParams();
     
     if (path === '/wifi') {
@@ -868,7 +917,7 @@ function saveSettings() {
 }
 
 // ---------------------------------------------------------
-// Neustart mit Best+ï¿½tigung
+// Neustart mit Bestaetigung
 // ---------------------------------------------------------
 function confirmReboot() {
     if (!confirm("WordClock wirklich neu starten?")) return;
