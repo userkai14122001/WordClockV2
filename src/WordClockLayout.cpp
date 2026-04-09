@@ -6,24 +6,14 @@
 
 #include "effects.h"
 #include "DebugManager.h"
+#include "WordClockLayoutPresets.h"
 
 namespace {
 static const char* kPrefsNs     = "layout";
 static const char* kPrefsActive = "active";
 static const char* kPrefsName   = "name";
 static const char* kCustomPath  = "/layout_custom.json";
-static const char* kDefaultName = "Standard";
-static const char* kDefaultText =
-    "ESXISTXFUEN\n"
-    "ZEHNZWANZIG\n"
-    "XXXXVIERTEL\n"
-    "VORLOVENACH\n"
-    "HALBXELFUEN\n"
-    "DREIYOUVIER\n"
-    "SECHSSIEBEN\n"
-    "ZEHNEUNZWEI\n"
-    "XACHTZWOLFX\n"
-    "EINSUHR****";
+static const char* kCustomName  = "Custom";
 
 static const char* kKeys[] = {
     "ES", "IST", "FUENF", "ZEHN", "ZWANZIG", "VIERTEL", "VOR", "NACH", "HALB",
@@ -32,9 +22,23 @@ static const char* kKeys[] = {
 };
 static const size_t kKeyCount = sizeof(kKeys) / sizeof(kKeys[0]);
 
-static String gActiveLayoutId   = "default";
-static String gActiveLayoutName = kDefaultName;
-static String gLayoutText       = kDefaultText;
+static String gActiveLayoutId   = "kai";
+static String gActiveLayoutName = "Default Kai";
+static String gLayoutText       = "";
+
+static bool applyPreset(const String& id) {
+    const WordClockLayoutPreset* preset = wordClockLayoutFindPreset(id);
+    if (!preset) {
+        return false;
+    }
+
+    resetClockWordPositionsToDefault();
+    preset->applyWordPositions();
+    gActiveLayoutId = preset->id;
+    gActiveLayoutName = preset->name;
+    gLayoutText = preset->text;
+    return true;
+}
 
 static bool parseWord(JsonVariant value, Word& out) {
     if (!value.is<JsonArray>()) return false;
@@ -105,23 +109,34 @@ static void saveActiveId(const String& id, const String& name) {
 }
 
 static String loadActiveId() {
+    const WordClockLayoutPreset* fallback = wordClockLayoutDefaultPreset();
+    String fallbackId = fallback ? String(fallback->id) : String("kai");
+
     Preferences prefs;
-    if (!prefs.begin(kPrefsNs, true)) return "default";
-    String id = prefs.getString(kPrefsActive, "default");
+    if (!prefs.begin(kPrefsNs, true)) return fallbackId;
+    String id = prefs.getString(kPrefsActive, fallbackId);
     prefs.end();
     id.trim();
     id.toLowerCase();
-    return (id == "custom") ? "custom" : "default";
+    if (id == "default") {
+        id = "kai";
+    }
+    return (id == "custom" || wordClockLayoutIsPresetId(id)) ? id : fallbackId;
 }
 
 static String loadActiveName(const String& id) {
-    Preferences prefs;
-    if (!prefs.begin(kPrefsNs, true)) return (id == "custom") ? "Custom" : kDefaultName;
-    String name = prefs.getString(kPrefsName, (id == "custom") ? "Custom" : kDefaultName);
-    prefs.end();
-    name.trim();
-    if (name.isEmpty()) name = (id == "custom") ? "Custom" : kDefaultName;
-    return name;
+    if (id == "custom") {
+        Preferences prefs;
+        if (!prefs.begin(kPrefsNs, true)) return kCustomName;
+        String name = prefs.getString(kPrefsName, kCustomName);
+        prefs.end();
+        name.trim();
+        if (name.isEmpty()) name = kCustomName;
+        return name;
+    }
+
+    const WordClockLayoutPreset* preset = wordClockLayoutFindPreset(id);
+    return preset ? String(preset->name) : String(kCustomName);
 }
 
 static bool loadCustomFromFile(String& textOut, String& nameOut, String& err) {
@@ -182,7 +197,6 @@ static String buildPositionsJson() {
 
 void wordClockLayoutInit() {
     gActiveLayoutId = loadActiveId();
-    resetClockWordPositionsToDefault();
 
     if (gActiveLayoutId == "custom") {
         String text;
@@ -194,14 +208,25 @@ void wordClockLayoutInit() {
         } else {
             DebugManager::print(DebugCategory::Effects, "[LAYOUT] Custom laden fehlgeschlagen: ");
             DebugManager::println(DebugCategory::Effects, err);
-            gActiveLayoutId   = "default";
-            gActiveLayoutName = kDefaultName;
-            gLayoutText       = kDefaultText;
+            const WordClockLayoutPreset* fallback = wordClockLayoutDefaultPreset();
+            if (!fallback || !applyPreset(fallback->id)) {
+                resetClockWordPositionsToDefault();
+                gActiveLayoutId = "kai";
+                gActiveLayoutName = "Default Kai";
+                gLayoutText = "";
+            }
             saveActiveId(gActiveLayoutId, gActiveLayoutName);
         }
     } else {
-        gActiveLayoutName = kDefaultName;
-        gLayoutText       = kDefaultText;
+        if (!applyPreset(gActiveLayoutId)) {
+            const WordClockLayoutPreset* fallback = wordClockLayoutDefaultPreset();
+            if (!fallback || !applyPreset(fallback->id)) {
+                resetClockWordPositionsToDefault();
+                gActiveLayoutId = "kai";
+                gActiveLayoutName = "Default Kai";
+                gLayoutText = "";
+            }
+        }
     }
 }
 
@@ -229,21 +254,24 @@ bool wordClockLayoutApplyAndStore(const String& layoutId,
     String id = layoutId;
     id.trim();
     id.toLowerCase();
-    if (id != "default" && id != "custom") {
-        error = "layout_id muss default oder custom sein";
+    if (id == "default") {
+        id = "kai";
+    }
+    if (!wordClockLayoutIsPresetId(id) && id != "custom") {
+        error = "layout_id muss hero, kai oder custom sein";
         return false;
     }
 
     String name = layoutName;
     name.trim();
-    if (name.isEmpty()) name = (id == "custom") ? "Custom" : kDefaultName;
+    if (name.isEmpty()) name = (id == "custom") ? kCustomName : loadActiveName(id);
 
-    if (id == "default") {
-        resetClockWordPositionsToDefault();
+    if (wordClockLayoutIsPresetId(id)) {
+        if (!applyPreset(id)) {
+            error = "Preset konnte nicht angewendet werden";
+            return false;
+        }
         resetClockMorphState();
-        gActiveLayoutId   = "default";
-        gActiveLayoutName = kDefaultName;
-        gLayoutText       = kDefaultText;
         saveActiveId(gActiveLayoutId, gActiveLayoutName);
         return true;
     }

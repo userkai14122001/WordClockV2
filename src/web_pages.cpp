@@ -205,10 +205,7 @@ const char home_html_page[] PROGMEM = R"rawliteral(
 </head>
 <body>
 <div class="topnav">
-    <a href="/main">Main</a>
-    <a href="/wifi">Wifi</a>
-    <a href="/mqtt">MQTT</a>
-    <a href="/ota">OTA</a>
+    <a href="/main">Netzwerk</a>
     <a href="/layout">Layout</a>
     <a href="/live">Live</a>
     <a href="/test">Test</a>
@@ -225,10 +222,7 @@ const char home_html_page[] PROGMEM = R"rawliteral(
         </div>
     </div>
     <div class="grid">
-        <div class="card"><h3>Main</h3><p>Systemüberblick und Zugriff auf alle Einstellungen.</p><a class="btn" href="/main">Öffnen</a></div>
-        <div class="card"><h3>Wifi</h3><p>WLAN setzen, Netze scannen und Neustart auslösen.</p><a class="btn" href="/wifi">Öffnen</a></div>
-        <div class="card"><h3>MQTT</h3><p>Broker, User, Port und Verbindung sauber einrichten.</p><a class="btn" href="/mqtt">Öffnen</a></div>
-        <div class="card"><h3>OTA</h3><p>Firmware-Status ansehen und Updates manuell starten.</p><a class="btn" href="/ota">Öffnen</a></div>
+        <div class="card"><h3>Netzwerk</h3><p>WiFi, MQTT und OTA zentral auf einer gemeinsamen Seite verwalten.</p><a class="btn" href="/main">Öffnen</a></div>
         <div class="card"><h3>Layout</h3><p>Letter-Grid und Wortpositionen für andere Frontplatten definieren.</p><a class="btn" href="/layout">Öffnen</a></div>
         <div class="card"><h3>Live</h3><p>Direkte Effekt- und Farbregie mit Matrix-Vorschau.</p><a class="btn" href="/live">Öffnen</a></div>
         <div class="card"><h3>Test</h3><p>Quicktests für LEDs, Farben, Clock und Muster.</p><a class="btn" href="/test">Öffnen</a></div>
@@ -581,10 +575,7 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
             </div>
         </div>
         <div class="navLinks" id="setupNavLinks">
-            <a href="/main">Setup</a>
-            <a href="/wifi">Wifi</a>
-            <a href="/mqtt">MQTT</a>
-            <a href="/ota">OTA</a>
+            <a href="/main">Netzwerk</a>
             <a href="/layout">Layout</a>
             <a href="/live">Studio</a>
             <a href="/test">Test</a>
@@ -668,7 +659,8 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
                 <h3>Layout Konfiguration</h3>
                 <label for="layoutId">Layout auswählen:</label>
                 <select id="layoutId" onchange="toggleLayoutInputs()">
-                    <option value="default">Default</option>
+                    <option value="hero">Aumovio Hero</option>
+                    <option value="kai">Default Kai</option>
                     <option value="custom">Custom</option>
                 </select>
                 <br><br>
@@ -852,6 +844,10 @@ async function loadSetupFields() {
     } catch (_) {}
 }
 
+loadSSIDs();
+scheduleScan();
+loadSetupFields();
+
 // ---------------------------------------------------------
 // Password Toggles
 // ---------------------------------------------------------
@@ -973,7 +969,7 @@ async function checkOtaNow() {
 // Layout Functions
 // ---------------------------------------------------------
 function toggleLayoutInputs() {
-    const id = document.getElementById('layoutId').value || 'default';
+    const id = document.getElementById('layoutId').value || 'kai';
     const disabled = (id !== 'custom');
     document.getElementById('layoutText').disabled = disabled;
     document.getElementById('layoutWords').disabled = disabled;
@@ -987,7 +983,7 @@ async function loadLayoutInfo() {
     try {
         const r = await fetch('/api/layout');
         const j = await r.json();
-        document.getElementById('layoutId').value = j.layout_id || 'default';
+        document.getElementById('layoutId').value = j.layout_id || 'kai';
         document.getElementById('layoutName').value = j.layout_name || '';
         document.getElementById('layoutText').value = j.layout_text || '';
         document.getElementById('layoutWords').value = j.word_positions || '{}';
@@ -1001,7 +997,7 @@ async function loadLayoutInfo() {
 
 async function saveLayout() {
     const msg = document.getElementById('layoutMsg');
-    const layoutId = document.getElementById('layoutId').value || 'default';
+    const layoutId = document.getElementById('layoutId').value || 'kai';
     const layoutName = document.getElementById('layoutName').value || '';
     const layoutText = document.getElementById('layoutText').value || '';
     const wordPositions = document.getElementById('layoutWords').value || '{}';
@@ -1619,10 +1615,7 @@ const char live_html_page[] PROGMEM = R"rawliteral(
         </div>
         <div class="navLinks">
             <a href="/">Home</a>
-            <a href="/main">Setup</a>
-            <a href="/wifi">Wifi</a>
-            <a href="/mqtt">MQTT</a>
-            <a href="/ota">OTA</a>
+            <a href="/main">Netzwerk</a>
             <a class="active" href="/live">Studio</a>
             <a href="/test">Test</a>
             <a href="#" id="themeToggle">Theme: Dark</a>
@@ -2271,10 +2264,7 @@ const char test_html_page[] PROGMEM = R"rawliteral(
             </div>
         </div>
         <div class="navLinks" id="testNavLinks">
-            <a href="/main">Setup</a>
-            <a href="/wifi">Wifi</a>
-            <a href="/mqtt">MQTT</a>
-            <a href="/ota">OTA</a>
+            <a href="/main">Netzwerk</a>
             <a href="/live">Studio</a>
             <a href="/test" class="active">Test</a>
             <a href="#" id="themeToggle">Theme: Dark</a>

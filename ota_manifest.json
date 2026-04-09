@@ -1,5 +1,5 @@
 ﻿{
-  "version": "0.2.25",
+  "version": "0.2.26",
   "firmware_url": "https://raw.githubusercontent.com/userkai14122001/WordClockV2/main/firmware/firmware.bin",
-  "notes": "Stabiler Release; Versionen 0.2.23 und 0.2.24 waren fehlerhaft"
+  "notes": "Layout-Presets fuer Aumovio Hero und Default Kai; Web-UI Netzwerkansicht verschlankt"
 }
