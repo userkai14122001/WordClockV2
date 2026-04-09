@@ -425,6 +425,10 @@ void WiFiManager::handleScan() {
 
 void WiFiManager::handleSave() {
     DebugManager::println(DebugCategory::WiFi, "WiFiManager: SAVE REQUEST RECEIVED");
+
+    if (!config_loaded) {
+        loadConfig();
+    }
     
     String new_ssid = server.arg("ssid");
     String new_password = server.arg("wifi_pass");
@@ -442,23 +446,48 @@ void WiFiManager::handleSave() {
     // Bestimme, ob nur MQTT oder nur WiFi oder beides gespeichert werden soll
     bool has_ssid = !new_ssid.isEmpty();
     bool has_mqtt_server = !new_mqtt_server.isEmpty();
+    bool has_any_mqtt_arg = has_mqtt_server || !new_mqtt_user.isEmpty() || !new_mqtt_password.isEmpty() || server.hasArg("mqtt_port");
+
+    if (has_any_mqtt_arg) {
+        if (!has_mqtt_server) {
+            new_mqtt_server = mqtt_server;
+        }
+        if (!server.hasArg("mqtt_port") || new_mqtt_port == 0) {
+            new_mqtt_port = mqtt_port;
+        }
+        if (!server.hasArg("mqtt_user")) {
+            new_mqtt_user = mqtt_user;
+        }
+        if (!server.hasArg("mqtt_pass")) {
+            new_mqtt_password = mqtt_password;
+        }
+        has_mqtt_server = !new_mqtt_server.isEmpty();
+    }
 
     // Wenn nur MQTT Parameter, nur MQTT speichern (kein WiFi-Test)
-    if (has_mqtt_server && !has_ssid) {
+    if (has_any_mqtt_arg && !has_ssid) {
         DebugManager::println(DebugCategory::WiFi, "WiFiManager: Speichern nur MQTT-Parameter");
-        Preferences prefs;
-        if (!prefs.begin("wordclock", false)) {
-            server.send(500, "application/json", "{\"status\":\"error\",\"msg\":\"Speichern fehlgeschlagen\"}");
+
+        if (!has_mqtt_server) {
+            server.send(400, "application/json", "{\"status\":\"error\",\"msg\":\"MQTT-Server fehlt\"}");
             return;
         }
-        prefs.putString("mqtt_server", new_mqtt_server);
-        prefs.putInt("mqtt_port", new_mqtt_port);
-        prefs.putString("mqtt_user", new_mqtt_user);
-        prefs.putString("mqtt_pass", new_mqtt_password);
-        prefs.end();
 
-        // Neuladen + einfache Bestätigung
+        saveConfig(ssid, password, new_mqtt_server, new_mqtt_user, new_mqtt_password, new_mqtt_port);
+
         loadConfig();
+        if (mqtt_server != new_mqtt_server || mqtt_user != new_mqtt_user ||
+            mqtt_password != new_mqtt_password || mqtt_port != new_mqtt_port) {
+            server.send(500, "application/json", "{\"status\":\"error\",\"msg\":\"MQTT-Speichern fehlgeschlagen\"}");
+            return;
+        }
+
+        mqttManager.disconnect();
+        mqttManager.setConfig(mqtt_server, mqtt_port, mqtt_user, mqtt_password);
+        if (isConnected()) {
+            mqttManager.connect();
+        }
+
         server.send(200, "application/json", "{\"status\":\"ok\"}");
         return;
     }
@@ -466,23 +495,8 @@ void WiFiManager::handleSave() {
     // Wenn nur WiFi Parameter: speichern + Test
     if (has_ssid && !has_mqtt_server) {
         DebugManager::println(DebugCategory::WiFi, "WiFiManager: Speichern nur WiFi-Parameter");
-        
-        // Benutze aktuelle MQTT-Konfiguration
-        String current_mqtt_server = String("");
-        String current_mqtt_user = String("");
-        String current_mqtt_password = String("");
-        int current_mqtt_port = 1883;
 
-        Preferences prefs;
-        if (prefs.begin("wordclock", true)) {
-            current_mqtt_server = prefs.getString("mqtt_server", "");
-            current_mqtt_user = prefs.getString("mqtt_user", "");
-            current_mqtt_password = prefs.getString("mqtt_pass", "");
-            current_mqtt_port = prefs.getInt("mqtt_port", 1883);
-            prefs.end();
-        }
-
-        saveConfig(new_ssid, new_password, current_mqtt_server, current_mqtt_user, current_mqtt_password, current_mqtt_port);
+        saveConfig(new_ssid, new_password, mqtt_server, mqtt_user, mqtt_password, mqtt_port);
 
         // Direkt verifizieren
         loadConfig();
@@ -555,6 +569,10 @@ void WiFiManager::handleSave() {
 void WiFiManager::handleStatus() {
     refreshOtaProfilePolicy();
 
+    if (!config_loaded) {
+        loadConfig();
+    }
+
     DynamicJsonDocument doc(4096);
     doc["state"] = powerState ? "ON" : "OFF";
     doc["effect"] = currentEffect;
@@ -586,6 +604,12 @@ void WiFiManager::handleStatus() {
     doc["mem_critical_threshold"] = MemoryManager::CRITICAL_THRESHOLD;
     doc["ota_profile"] = ota_profile;
     doc["ota_interval_s"] = getOtaAutoCheckIntervalMs() / 1000UL;
+    doc["wifi_ssid"] = ssid;
+    doc["wifi_pass"] = password;
+    doc["mqtt_server"] = mqtt_server;
+    doc["mqtt_port"] = mqtt_port;
+    doc["mqtt_user"] = mqtt_user;
+    doc["mqtt_pass"] = mqtt_password;
 
     JsonArray matrix = doc.createNestedArray("matrix");
     for (int y = 0; y < HEIGHT; y++) {
