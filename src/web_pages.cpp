@@ -358,8 +358,7 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WordClock Setup Studio</title>
-
+<title>WordClock Setup</title>
 <style>
     :root {
         --bg-a: #0f131c;
@@ -532,6 +531,12 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
     }
     .layout { display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; }
     .stack { display: grid; gap: 12px; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--line); }
+    .tab-btn { padding: 10px 14px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; font-size: 13px; transition: 0.2s ease; }
+    .tab-btn.active { color: var(--text); border-bottom-color: var(--accent-warm); }
+    .tab-btn:hover { color: var(--text); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
     .statusGrid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; margin-top:10px; }
     .statusItem { 
         background: color-mix(in srgb, var(--panel-soft) 100%, transparent);
@@ -597,87 +602,94 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
         <div class="box">
             <form id="setupForm">
 
-        <div id="wifiSection" style="display:none;">
-            <h3>WLAN Einstellungen</h3>
-
-            <label>Netzwerk auswählen:</label><br>
-            <select id="ssid_list" name="ssid"></select>
-            <input id="ssid_manual" type="text" placeholder="oder SSID manuell eingeben" style="margin-top:4px;">
-
-            <label>WLAN Passwort:</label><br>
-            <div style="position:relative;">
-                <input name="wifi_pass" id="wifi_pass" type="password" placeholder="optional">
-                <span onclick="toggleWifi()" style="position:absolute; right:10px; top:12px; cursor:pointer;">Show</span>
+            <!-- Tab Navigation -->
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('config'); return false;">WiFi/MQTT</button>
+                <button class="tab-btn" onclick="switchTab('ota'); return false;">OTA</button>
+                <button class="tab-btn" onclick="switchTab('layout'); return false;">Layout</button>
             </div>
 
-            <button id="saveBtnWifi" type="button" onclick="saveSettings()">Speichern</button>
-        </div>
+            <!-- Configuration Tab (WiFi + MQTT)  -->
+            <div id="config-tab" class="tab-content active">
+                <h3>WLAN Einstellungen</h3>
+                <label>Netzwerk auswählen:</label>
+                <select id="ssid_list" name="ssid"></select>
+                <input id="ssid_manual" type="text" placeholder="oder SSID manuell eingeben" style="margin-top:4px;">
 
-        <div id="mqttSection" style="display:none;">
-            <h3>MQTT Einstellungen</h3>
+                <label style="margin-top:12px;">WLAN Passwort:</label>
+                <div style="position:relative;">
+                    <input name="wifi_pass" id="wifi_pass" type="password" placeholder="optional">
+                    <span onclick="toggleWifi()" style="position:absolute; right:10px; top:12px; cursor:pointer;">Show</span>
+                </div>
 
-            <label>MQTT Server:</label><br>
-            <input name="mqtt_server" id="mqtt_server" placeholder="192.168.1.10"><br>
+                <button type="button" onclick="saveConfig('wifi')" style="margin-top:10px;">WiFi speichern</button>
 
-            <label>MQTT Port:</label><br>
-            <input name="mqtt_port" id="mqtt_port" type="number" value="1883"><br>
+                <hr style="margin:14px 0; border:none; border-top:1px solid var(--line);">
 
-            <label>MQTT Benutzer:</label><br>
-            <input name="mqtt_user" id="mqtt_user" placeholder="optional"><br>
+                <h3>MQTT Einstellungen</h3>
+                <label>MQTT Server:</label>
+                <input name="mqtt_server" id="mqtt_server" placeholder="192.168.1.10">
 
-            <label>MQTT Passwort:</label><br>
-            <div style="position:relative;">
-                <input name="mqtt_pass" id="mqtt_pass" type="password" placeholder="optional">
-                <span onclick="toggleMQTT()" style="position:absolute; right:10px; top:12px; cursor:pointer;">Show</span>
+                <label>MQTT Port:</label>
+                <input name="mqtt_port" id="mqtt_port" type="number" value="1883">
+
+                <label>MQTT Benutzer:</label>
+                <input name="mqtt_user" id="mqtt_user" placeholder="optional">
+
+                <label>MQTT Passwort:</label>
+                <div style="position:relative;">
+                    <input name="mqtt_pass" id="mqtt_pass" type="password" placeholder="optional">
+                    <span onclick="toggleMQTT()" style="position:absolute; right:10px; top:12px; cursor:pointer;">Show</span>
+                </div>
+
+                <button type="button" onclick="saveConfig('mqtt')" style="margin-top:10px;">MQTT speichern</button>
+                <p id="cfgMsg" style="font-size:14px; min-height:20px; margin-top:8px;"></p>
             </div>
 
-            <button id="saveBtnMqtt" type="button" onclick="saveSettings()">Speichern</button>
-        </div>
+            <!-- OTA Tab -->
+            <div id="ota-tab" class="tab-content">
+                <h3>OTA Update</h3>
+                <p>Aktuelle Firmware: <b id="otaFwVersion">-</b></p>
+                <p>Netzwerkstatus: <b id="otaWifi">-</b></p>
+                <label for="otaProfile">OTA Prüfprofil:</label>
+                <select id="otaProfile" onchange="saveOtaProfile()">
+                    <option value="long">Long · 1x pro Woche</option>
+                    <option value="norm">Norm · alle 12 Stunden</option>
+                    <option value="dev">Dev · alle 2 Minuten</option>
+                </select>
+                <p>Aktueller Intervall: <b id="otaIntervalLabel">-</b></p>
+                <button type="button" onclick="loadOtaInfo()">Status aktualisieren</button>
+                <button type="button" onclick="checkOtaNow()">Jetzt auf Update prüfen</button>
+                <p id="otaMsg" style="font-size:14px; min-height:20px;"></p>
+            </div>
 
-        <div id="otaSection" style="display:none; text-align:left;">
-            <h3>OTA Update</h3>
-            <p>Aktuelle Firmware: <b id="otaFwVersion">-</b></p>
-            <p>Netzwerkstatus: <b id="otaWifi">-</b></p>
-            <label for="otaProfile">OTA Prüfprofil:</label><br>
-            <select id="otaProfile" onchange="saveOtaProfile()">
-                <option value="long">Long · 1x pro Woche</option>
-                <option value="norm">Norm · alle 12 Stunden</option>
-                <option value="dev">Dev · alle 2 Minuten</option>
-            </select>
-            <p>Aktueller Intervall: <b id="otaIntervalLabel">-</b></p>
-            <button type="button" onclick="loadOtaInfo()">Status aktualisieren</button>
-            <button type="button" onclick="checkOtaNow()">Jetzt auf Update prüfen</button>
-            <p id="otaMsg" style="font-size:14px; min-height:20px;"></p>
-        </div>
+            <!-- Layout Tab -->
+            <div id="layout-tab" class="tab-content">
+                <h3>Layout Konfiguration</h3>
+                <label for="layoutId">Layout auswählen:</label>
+                <select id="layoutId" onchange="toggleLayoutInputs()">
+                    <option value="default">Default</option>
+                    <option value="custom">Custom</option>
+                </select>
+                <br><br>
+                <label for="layoutName">Layout-Name:</label>
+                <input type="text" id="layoutName" maxlength="32" placeholder="z.B. Meine Uhr">
 
-        <div id="layoutSection" style="display:none; text-align:left;">
-            <h3>Layout Konfiguration</h3>
-            <label for="layoutId">Layout auswählen:</label><br>
-            <select id="layoutId" onchange="toggleLayoutInputs()">
-                <option value="default">Default</option>
-                <option value="custom">Custom</option>
-            </select>
-            <br><br>
-            <label for="layoutName">Layout-Name:</label><br>
-            <input type="text" id="layoutName" maxlength="32" placeholder="z.B. Meine Uhr" style="width:100%;"><br><br>
-            <label for="layoutText">Layout-Text (10 Zeilen x 11 Zeichen):</label><br>
-            <textarea id="layoutText" rows="10" placeholder="ESXISTXFUEN&#10;ZEHNZWANZIG&#10;XXXXVIERTEL&#10;VORLOVENACH&#10;HALBXELFUEN&#10;DREIYOUVIER&#10;SECHSSIEBEN&#10;ZEHNEUNZWEI&#10;XACHTZWOLFX&#10;EINSUHR****"></textarea>
-            <label for="layoutWords">Wortpositionen (JSON):</label><br>
-            <textarea id="layoutWords" rows="12" placeholder='{"ES":[0,0,2],"IST":[3,0,3],"M1":[7,9,1]}'></textarea>
-            <button type="button" onclick="saveLayout()">Layout speichern</button>
-            <pre id="layoutPreview" style="margin-top:10px; white-space:pre-wrap;"></pre>
-            <p id="layoutMsg" style="font-size:14px; min-height:20px;"></p>
-        </div>
+                <label for="layoutText" style="margin-top:12px;">Layout-Text (10 Zeilen x 11 Zeichen):</label>
+                <textarea id="layoutText" rows="10" placeholder="ESXISTXFUEN&#10;ZEHNZWANZIG&#10;XXXXVIERTEL&#10;VORLOVENACH&#10;HALBXELFUEN&#10;DREIYOUVIER&#10;SECHSSIEBEN&#10;ZEHNEUNZWEI&#10;XACHTZWOLFX&#10;EINSUHR****"></textarea>
 
-        <div id="mainSection" style="display:none;">
-            <h3>Allgemein</h3>
-            <p>Wähle eine Option unten aus.</p>
-        </div>
+                <label for="layoutWords" style="margin-top:12px;">Wortpositionen (JSON):</label>
+                <textarea id="layoutWords" rows="10" placeholder='{"ES":[0,0,2],"IST":[3,0,3],"M1":[7,9,1]}'></textarea>
+
+                <button type="button" onclick="saveLayout()" style="margin-top:10px;">Layout speichern</button>
+                <pre id="layoutPreview" style="margin-top:10px; white-space:pre-wrap; font-size:12px;"></pre>
+                <p id="layoutMsg" style="font-size:14px; min-height:20px;"></p>
+            </div>
 
             </form>
 
-            <button type="button" onclick="confirmReboot()" id="rebootBtn" style="display:none;">Neustart</button>
-            <button type="button" onclick="location.href='/live'" id="liveBtn" style="display:none;">Live-Vorschau & Schnelltest</button>
+            <button type="button" onclick="confirmReboot()" id="rebootBtn" style="margin-top:10px;">Neustart</button>
+            <button type="button" onclick="location.href='/live'" style="margin-top:6px;">Live-Regie</button>
         </div>
 
         <div class="stack">
@@ -708,6 +720,9 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
 
 
 <script>
+// ---------------------------------------------------------
+// Theme Toggle
+// ---------------------------------------------------------
 function setTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('wc_theme', theme);
@@ -734,56 +749,42 @@ function initTheme() {
 }
 
 // ---------------------------------------------------------
-// Route-basiertes Anzeigen
+// Tab Navigation
+// ---------------------------------------------------------
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById(tabName + '-tab').classList.add('active');
+    event.target.classList.add('active');
+    
+    if (tabName === 'ota') {
+        loadOtaInfo();
+    } else if (tabName === 'layout') {
+        loadLayoutInfo();
+    } else if (tabName === 'config') {
+        loadSetupFields();
+        loadSSIDs();
+        scheduleScan();
+    }
+}
+
+// ---------------------------------------------------------
+// Setup Routing (check current route, load all fields initially)
 // ---------------------------------------------------------
 (function() {
     const path = location.pathname;
-    const wifiSection = document.getElementById('wifiSection');
-    const mqttSection = document.getElementById('mqttSection');
-    const otaSection = document.getElementById('otaSection');
-    const layoutSection = document.getElementById('layoutSection');
-    const mainSection = document.getElementById('mainSection');
-    const rebootBtn = document.getElementById('rebootBtn');
-    const liveBtn = document.getElementById('liveBtn');
     const nav = document.getElementById('setupNavLinks');
-    Array.from(nav.querySelectorAll('a')).forEach(link => {
-        if (link.getAttribute('href') === path) {
-            link.classList.add('active');
-        }
-    });
-    
-    if (path === '/wifi') {
-        wifiSection.style.display = 'block';
-        rebootBtn.style.display = 'block';
-        liveBtn.style.display = 'block';
-        document.querySelector('h2').textContent = 'WLAN Konfiguration';
-    } else if (path === '/mqtt') {
-        mqttSection.style.display = 'block';
-        rebootBtn.style.display = 'block';
-        liveBtn.style.display = 'block';
-        document.querySelector('h2').textContent = 'MQTT Konfiguration';
-    } else if (path === '/ota') {
-        otaSection.style.display = 'block';
-        rebootBtn.style.display = 'block';
-        liveBtn.style.display = 'block';
-        document.querySelector('h2').textContent = 'OTA Firmware Update';
-        loadOtaInfo();
-    } else if (path === '/layout') {
-        layoutSection.style.display = 'block';
-        rebootBtn.style.display = 'block';
-        liveBtn.style.display = 'block';
-        document.querySelector('h2').textContent = 'Layout Editor';
-        loadLayoutInfo();
-    } else {
-        mainSection.style.display = 'block';
-        rebootBtn.style.display = 'block';
-        liveBtn.style.display = 'block';
-        document.querySelector('h2').textContent = 'WordClock Setup';
+    if (nav) {
+        Array.from(nav.querySelectorAll('a')).forEach(link => {
+            if (link.getAttribute('href') === path) {
+                link.classList.add('active');
+            }
+        });
     }
 })();
 
 // ---------------------------------------------------------
-// Stabiler SSID-Scan mit Cache
+// WiFi SSID Scan
 // ---------------------------------------------------------
 let lastSSIDs = [];
 let scanInProgress = false;
@@ -796,16 +797,12 @@ function loadSSIDs() {
       .then(r => r.json())
       .then(list => {
           scanInProgress = false;
-
           if (!list || list.length === 0) return;
-
           if (JSON.stringify(list) === JSON.stringify(lastSSIDs)) return;
 
           lastSSIDs = list;
-
           let sel = document.getElementById("ssid_list");
           let current = sel.value;
-
           sel.innerHTML = "";
 
           list.forEach(ssid => {
@@ -824,7 +821,6 @@ function loadSSIDs() {
       });
 }
 
-// Schnelles Polling: alle 2 s wenn noch keine Netze sichtbar, sonst alle 5 s
 function scheduleScan() {
     let delay = (lastSSIDs.length === 0) ? 2000 : 5000;
     setTimeout(function() {
@@ -833,18 +829,31 @@ function scheduleScan() {
     }, delay);
 }
 
-// Nur auf /wifi Seite scannen
-if (location.pathname === '/wifi') {
-    loadSSIDs();
-    scheduleScan();
-}
+// ---------------------------------------------------------
+// Load config fields from device
+// ---------------------------------------------------------
+async function loadSetupFields() {
+    try {
+        const r = await fetch('/api/status');
+        const s = await r.json();
+        const ssidManual = document.getElementById('ssid_manual');
+        const wifiPass = document.getElementById('wifi_pass');
+        const mqttServer = document.getElementById('mqtt_server');
+        const mqttPort = document.getElementById('mqtt_port');
+        const mqttUser = document.getElementById('mqtt_user');
+        const mqttPass = document.getElementById('mqtt_pass');
 
-if (location.pathname === '/wifi' || location.pathname === '/mqtt') {
-    loadSetupFields();
+        if (ssidManual && typeof s.wifi_ssid === 'string') ssidManual.value = s.wifi_ssid;
+        if (wifiPass && typeof s.wifi_pass === 'string') wifiPass.value = s.wifi_pass;
+        if (mqttServer && typeof s.mqtt_server === 'string') mqttServer.value = s.mqtt_server;
+        if (mqttPort && s.mqtt_port !== undefined) mqttPort.value = String(s.mqtt_port);
+        if (mqttUser && typeof s.mqtt_user === 'string') mqttUser.value = s.mqtt_user;
+        if (mqttPass && typeof s.mqtt_pass === 'string') mqttPass.value = s.mqtt_pass;
+    } catch (_) {}
 }
 
 // ---------------------------------------------------------
-// Passwort-Toggles
+// Password Toggles
 // ---------------------------------------------------------
 function toggleWifi() {
     let f = document.getElementById("wifi_pass");
@@ -856,73 +865,55 @@ function toggleMQTT() {
 }
 
 // ---------------------------------------------------------
-// Speichern nur relevante Parameter je nach Route
+// Save Config (WiFi or MQTT)
 // ---------------------------------------------------------
-function saveSettings() {
-    const path = location.pathname;
-    let btn = null;
-    if (path === '/wifi') {
-        btn = document.getElementById("saveBtnWifi");
-    } else if (path === '/mqtt') {
-        btn = document.getElementById("saveBtnMqtt");
-    }
-    if (!btn) {
-        return;
-    }
-
-    btn.style.background = "#777";
-    btn.innerText = "Speichere...";
+async function saveConfig(section) {
+    const msg = document.getElementById('cfgMsg');
+    msg.textContent = 'Speichere...';
 
     let params = new URLSearchParams();
     
-    if (path === '/wifi') {
-        // Nur WLAN Parameter
+    if (section === 'wifi') {
         let ssidManual = document.getElementById("ssid_manual").value.trim();
         let ssidSelect = document.getElementById("ssid_list").value;
         params.set("ssid", ssidManual || ssidSelect);
         params.set("wifi_pass", document.getElementById("wifi_pass").value);
-    } else if (path === '/mqtt') {
-        // Nur MQTT Parameter
+    } else if (section === 'mqtt') {
         params.set("mqtt_server", document.getElementById("mqtt_server").value);
         params.set("mqtt_port", document.getElementById("mqtt_port").value);
         params.set("mqtt_user", document.getElementById("mqtt_user").value);
         params.set("mqtt_pass", document.getElementById("mqtt_pass").value);
     }
 
-    fetch("/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: params
-    })
-        .then(r => r.json())
-        .then(j => {
-            if (j.status === "ok") {
-                btn.style.background = "#4CAF50";
-                btn.innerText = "Gespeichert!";
-                setTimeout(() => {
-                    btn.style.background = "";
-                    btn.innerText = "Speichern";
-                }, 1200);
-            } else {
-                btn.style.background = "#a00";
-                btn.innerText = j.msg || "Fehler";
-                setTimeout(() => { btn.disabled = false; btn.style.background = ""; btn.innerText = "Speichern"; }, 2000);
-            }
-        })
-        .catch(() => {
-            btn.style.background = "#a00";
-            btn.innerText = "Fehler";
-            setTimeout(() => { btn.disabled = false; btn.style.background = ""; btn.innerText = "Speichern"; }, 2000);
+    try {
+        const r = await fetch("/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: params
         });
+        const j = await r.json();
+        msg.textContent = j.status === "ok" ? (section === 'wifi' ? 'WiFi gespeichert' : 'MQTT gespeichert') : (j.msg || 'Fehler');
+    } catch (_) {
+        msg.textContent = 'Speichern fehlgeschlagen';
+    }
 }
 
 // ---------------------------------------------------------
-// Neustart mit Bestaetigung
+// Reboot
 // ---------------------------------------------------------
 function confirmReboot() {
     if (!confirm("WordClock wirklich neu starten?")) return;
     fetch("/reboot");
     alert("WordClock startet neu...");
+}
+
+// ---------------------------------------------------------
+// OTA Functions
+// ---------------------------------------------------------
+function formatOtaIntervalLabel(profile) {
+    if (profile === 'dev') return 'alle 2 Minuten';
+    if (profile === 'norm') return 'alle 12 Stunden';
+    return '1x pro Woche';
 }
 
 async function loadOtaInfo() {
@@ -939,12 +930,6 @@ async function loadOtaInfo() {
     } catch (_) {
         msg.textContent = 'OTA Status konnte nicht geladen werden';
     }
-}
-
-function formatOtaIntervalLabel(profile) {
-    if (profile === 'dev') return 'alle 2 Minuten';
-    if (profile === 'norm') return 'alle 12 Stunden';
-    return '1x pro Woche';
 }
 
 async function saveOtaProfile() {
@@ -984,6 +969,9 @@ async function checkOtaNow() {
     }
 }
 
+// ---------------------------------------------------------
+// Layout Functions
+// ---------------------------------------------------------
 function toggleLayoutInputs() {
     const id = document.getElementById('layoutId').value || 'default';
     const disabled = (id !== 'custom');
@@ -1042,6 +1030,9 @@ async function saveLayout() {
     }
 }
 
+// ---------------------------------------------------------
+// Status Refresh
+// ---------------------------------------------------------
 async function refreshSetupStatus() {
     if (document.hidden) return;
     try {
@@ -1052,9 +1043,7 @@ async function refreshSetupStatus() {
         const mqttBadge = s.mqtt_connected ? '<span class="ok">Verbunden</span>' : '<span class="warn">Getrennt</span>';
         const memLevel = String(s.mem_level || 'OK').toUpperCase();
         const memBadge = (memLevel === 'CRITICAL' || memLevel === 'WARNING') ? '<span class="warn">' + memLevel + '</span>' : '<span class="ok">OK</span>';
-        const rtcTempText = (typeof s.rtc_temp_c === 'number' && Number.isFinite(s.rtc_temp_c))
-            ? (s.rtc_temp_c.toFixed(2) + ' C')
-            : 'n/a';
+        const rtcTempText = (typeof s.rtc_temp_c === 'number' && Number.isFinite(s.rtc_temp_c)) ? (s.rtc_temp_c.toFixed(2) + ' C') : 'n/a';
         const memFree = Number.isFinite(Number(s.mem_free)) ? Number(s.mem_free) : 0;
         const memTotal = Number.isFinite(Number(s.mem_total)) && Number(s.mem_total) > 0 ? Number(s.mem_total) : 1;
         const memUsedPct = ((memTotal - memFree) * 100.0 / memTotal).toFixed(1);
@@ -1073,15 +1062,19 @@ async function refreshSetupStatus() {
             '<div class="detailKey">OTA-Profil</div><div class="detailVal">' + formatOtaIntervalLabel(s.ota_profile || 'long') + '</div>' +
             '<div class="detailKey">Layout</div><div class="detailVal">' + (s.layout_name || s.layout_id || 'Standard') + '</div>' +
             '<div class="detailKey">RTC Temperatur</div><div class="detailVal">' + rtcTempText + '</div>' +
-            '<div class="detailKey">RTC OSF/Batterie</div><div class="detailVal">' + (s.rtc_battery_warning ? 'Auffällig' : 'OK') + '</div>' +
             '<div class="detailKey">RAM Frei</div><div class="detailVal">' + memFree + ' B</div>' +
-            '<div class="detailKey">RAM Nutzung</div><div class="detailVal">' + memUsedPct + '%</div>' +
-            '<div class="detailKey">Max Block</div><div class="detailVal">' + (s.mem_max_alloc || 0) + ' B</div>';
+            '<div class="detailKey">RAM Nutzung</div><div class="detailVal">' + memUsedPct + '%</div>';
     } catch (_) {}
 }
 
-setInterval(refreshSetupStatus, 100);
+// ---------------------------------------------------------
+// Init
+// ---------------------------------------------------------
 initTheme();
+loadSetupFields();
+loadSSIDs();
+scheduleScan();
+setInterval(refreshSetupStatus, 100);
 refreshSetupStatus();
 </script>
 
