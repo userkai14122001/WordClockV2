@@ -2,6 +2,9 @@
 
 ESP32-C3-basierte Wortuhr mit 11×10 NeoPixel-Matrix, DS3231-RTC, WiFi-Setup-Portal, MQTT/Home-Assistant-Integration und mehreren Animationseffekten.
 
+Release process and OTA checklist:
+- [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)
+
 ---
 
 ## Hardware
