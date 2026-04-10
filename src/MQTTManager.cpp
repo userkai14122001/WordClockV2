@@ -21,6 +21,34 @@ static inline void waitMs(uint32_t ms) {
     }
 }
 
+static String buildConnectClientId(const String& baseId) {
+    String mac = WiFi.macAddress();
+    mac.replace(":", "");
+    mac.toLowerCase();
+
+    if (mac.length() >= 6) {
+        String suffix = mac.substring(mac.length() - 6);
+        return baseId + "-" + suffix;
+    }
+    return baseId;
+}
+
+static const char* mqttStateText(int state) {
+    switch (state) {
+        case MQTT_CONNECTION_TIMEOUT: return "MQTT_CONNECTION_TIMEOUT";
+        case MQTT_CONNECTION_LOST: return "MQTT_CONNECTION_LOST";
+        case MQTT_CONNECT_FAILED: return "MQTT_CONNECT_FAILED";
+        case MQTT_DISCONNECTED: return "MQTT_DISCONNECTED";
+        case MQTT_CONNECTED: return "MQTT_CONNECTED";
+        case MQTT_CONNECT_BAD_PROTOCOL: return "MQTT_CONNECT_BAD_PROTOCOL";
+        case MQTT_CONNECT_BAD_CLIENT_ID: return "MQTT_CONNECT_BAD_CLIENT_ID";
+        case MQTT_CONNECT_UNAVAILABLE: return "MQTT_CONNECT_UNAVAILABLE";
+        case MQTT_CONNECT_BAD_CREDENTIALS: return "MQTT_CONNECT_BAD_CREDENTIALS";
+        case MQTT_CONNECT_UNAUTHORIZED: return "MQTT_CONNECT_UNAUTHORIZED";
+        default: return "MQTT_STATE_UNKNOWN";
+    }
+}
+
 MQTTManager::MQTTManager(WiFiClient& wifi_client, const String& device_id)
     : mqtt(wifi_client), wifi_client(wifi_client), device_id(device_id),
       server(""), port(1883), user(""), password(""),
@@ -91,13 +119,36 @@ void MQTTManager::connect() {
     DebugManager::print(DebugCategory::MQTT, server);
     DebugManager::print(DebugCategory::MQTT, ":");
     DebugManager::println(DebugCategory::MQTT, port);
+
+    DebugManager::printf(DebugCategory::MQTT,
+                         "MQTTManager: WiFi=%s ip=%s rssi=%d\n",
+                         WiFi.isConnected() ? "connected" : "offline",
+                         WiFi.isConnected() ? WiFi.localIP().toString().c_str() : "offline",
+                         WiFi.isConnected() ? WiFi.RSSI() : -127);
+
+    const String connectClientId = buildConnectClientId(device_id);
+    DebugManager::print(DebugCategory::MQTT, "MQTTManager: Client-ID ");
+    DebugManager::println(DebugCategory::MQTT, connectClientId);
+    DebugManager::printf(DebugCategory::MQTT,
+                         "MQTTManager: User=%s PassLen=%u WillTopic=%s\n",
+                         user.c_str(),
+                         (unsigned int)password.length(),
+                         availability_topic.c_str());
     
-    bool connected = mqtt.connect(device_id.c_str(), user.c_str(), password.c_str(),
+    bool connected = mqtt.connect(connectClientId.c_str(), user.c_str(), password.c_str(),
                                   availability_topic.c_str(), 0, true, "offline");
+    int state = mqtt.state();
+    DebugManager::printf(DebugCategory::MQTT,
+                         "MQTTManager: Attempt #1 (with LWT) result=%s (%d)\n",
+                         mqttStateText(state), state);
     if (!connected) {
         DebugManager::println(DebugCategory::MQTT,
                               "MQTTManager: Connect mit Last-Will fehlgeschlagen, retry ohne Last-Will");
-        connected = mqtt.connect(device_id.c_str(), user.c_str(), password.c_str());
+        connected = mqtt.connect(connectClientId.c_str(), user.c_str(), password.c_str());
+        state = mqtt.state();
+        DebugManager::printf(DebugCategory::MQTT,
+                             "MQTTManager: Attempt #2 (without LWT) result=%s (%d)\n",
+                             mqttStateText(state), state);
     }
 
     if (connected) {
@@ -134,6 +185,9 @@ void MQTTManager::connect() {
         }
         DebugManager::print(DebugCategory::MQTT, "MQTTManager: Verbindung fehlgeschlagen, Fehler: ");
         DebugManager::println(DebugCategory::MQTT, state);
+        DebugManager::printf(DebugCategory::MQTT,
+                             "MQTTManager: Fehlertext=%s\n",
+                             mqttStateText(state));
         DebugManager::printf(DebugCategory::MQTT,
                              "MQTTManager: Reconnect backoff %lums (fails=%u)\n",
                              reconnect_interval_ms,
