@@ -65,6 +65,7 @@ private:
     void handleScan();
     void handleSave();
     void handleStatus();
+    void handleStatusLite();
     void handlePreview();
     void handleQuickTest();
     void handleOtaInfo();

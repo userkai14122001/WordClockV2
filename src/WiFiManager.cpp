@@ -544,6 +544,9 @@ void WiFiManager::setupWebRoutes() {
     server.on("/api/status", [this]() {
         handleStatus();
     });
+    server.on("/api/status-lite", [this]() {
+        handleStatusLite();
+    });
     server.on("/api/preview", HTTP_POST, [this]() {
         handlePreview();
     });
@@ -673,6 +676,15 @@ void WiFiManager::handleSave() {
     new_mqtt_server.trim();
     new_mqtt_user.trim();
     new_mqtt_password.trim();
+
+    // UI sends password fields optionally. Empty value must not wipe stored secrets.
+    if (!server.hasArg("wifi_pass") || new_password.isEmpty()) {
+        new_password = password;
+    }
+    if (!server.hasArg("mqtt_pass") || new_mqtt_password.isEmpty()) {
+        new_mqtt_password = mqtt_password;
+    }
+
     int new_mqtt_port = server.arg("mqtt_port").toInt();
     if (new_mqtt_port == 0) new_mqtt_port = 1883;
 
@@ -717,11 +729,26 @@ void WiFiManager::handleSave() {
 
         mqttManager.disconnect();
         mqttManager.setConfig(mqtt_server, mqtt_port, mqtt_user, mqtt_password);
+        bool mqttTested = false;
+        bool mqttConnectedNow = false;
         if (isConnected()) {
+            mqttTested = true;
             mqttManager.connect();
+            mqttConnectedNow = mqttManager.isConnected();
         }
 
-        server.send(200, "application/json", "{\"status\":\"ok\"}");
+        DynamicJsonDocument doc(320);
+        doc["status"] = "ok";
+        doc["mqtt_tested"] = mqttTested;
+        doc["mqtt_connected"] = mqttConnectedNow;
+        if (!mqttTested) {
+            doc["msg"] = "MQTT gespeichert (WLAN offline, Test uebersprungen)";
+        } else if (mqttConnectedNow) {
+            doc["msg"] = "MQTT gespeichert und Verbindung erfolgreich";
+        } else {
+            doc["msg"] = "MQTT gespeichert, aber Verbindung fehlgeschlagen";
+        }
+        sendJsonDocument(server, 200, doc);
         return;
     }
 
@@ -852,11 +879,9 @@ void WiFiManager::handleStatus() {
     doc["layout_name"] = wordClockLayoutActiveName();
     doc["layout_text"] = wordClockLayoutText();
     doc["wifi_ssid"] = ssid;
-    doc["wifi_pass"] = password;
     doc["mqtt_server"] = mqtt_server;
     doc["mqtt_port"] = mqtt_port;
     doc["mqtt_user"] = mqtt_user;
-    doc["mqtt_pass"] = mqtt_password;
 
     JsonArray matrix = doc.createNestedArray("matrix");
     for (int y = 0; y < HEIGHT; y++) {
@@ -875,6 +900,64 @@ void WiFiManager::handleStatus() {
             row.add(hex);
         }
     }
+
+    sendJsonDocument(server, 200, doc);
+}
+
+void WiFiManager::handleStatusLite() {
+    refreshOtaProfilePolicy();
+
+    if (!config_loaded) {
+        loadConfig();
+    }
+
+    const bool statePower = stateManager.getPowerState();
+    const String stateEffect = stateManager.getCurrentEffect();
+    const uint8_t stateBrightness = stateManager.getBrightness();
+    const uint32_t stateColor = stateManager.getColor();
+    const uint8_t stateSpeed = stateManager.getSpeed();
+    const uint8_t stateIntensity = stateManager.getIntensity();
+    const uint8_t stateDensity = stateManager.getDensity();
+    const uint16_t stateTransitionMs = stateManager.getTransitionMs();
+
+    DynamicJsonDocument doc(2048);
+    doc["state"] = statePower ? "ON" : "OFF";
+    doc["effect"] = stateEffect;
+    doc["brightness"] = stateBrightness;
+    doc["speed"] = stateSpeed;
+    doc["intensity"] = stateIntensity;
+    doc["density"] = stateDensity;
+    doc["transition_ms"] = stateTransitionMs;
+
+    char color_hex[8];
+    snprintf(color_hex, sizeof(color_hex), "#%06lX", (unsigned long)(stateColor & 0xFFFFFF));
+    doc["color"] = color_hex;
+    doc["ip"] = WiFi.isConnected() ? WiFi.localIP().toString() : "offline";
+    doc["rssi"] = WiFi.isConnected() ? WiFi.RSSI() : -127;
+    doc["uptime_s"] = millis() / 1000;
+    doc["rtc_available"] = rtcManager.isAvailable();
+    doc["rtc_temp_c"] = rtcManager.getTemperatureC();
+    doc["rtc_osf"] = rtcManager.hasOscillatorStopFlag();
+    doc["rtc_battery_warning"] = rtcManager.hasBatteryWarning();
+    doc["rtc_temp_warning"] = rtcManager.hasTemperatureWarning();
+    doc["rtc_warning"] = rtcManager.hasHealthWarning();
+    doc["mqtt_connected"] = mqttManager.isConnected();
+    doc["mem_free"] = MemoryManager::getFreeRam();
+    doc["mem_total"] = ESP.getHeapSize();
+    doc["mem_max_alloc"] = ESP.getMaxAllocHeap();
+    doc["mem_min_free"] = ESP.getMinFreeHeap();
+    doc["mem_level"] = MemoryManager::memoryLevelText(MemoryManager::getMemoryLevel());
+    doc["mem_warning_threshold"] = MemoryManager::WARNING_THRESHOLD;
+    doc["mem_critical_threshold"] = MemoryManager::CRITICAL_THRESHOLD;
+    doc["ota_profile"] = ota_profile;
+    doc["ota_interval_s"] = getOtaAutoCheckIntervalMs() / 1000UL;
+    doc["layout_id"] = wordClockLayoutActiveId();
+    doc["layout_name"] = wordClockLayoutActiveName();
+    doc["layout_text"] = wordClockLayoutText();
+    doc["wifi_ssid"] = ssid;
+    doc["mqtt_server"] = mqtt_server;
+    doc["mqtt_port"] = mqtt_port;
+    doc["mqtt_user"] = mqtt_user;
 
     sendJsonDocument(server, 200, doc);
 }

@@ -12,7 +12,9 @@
 #include "MemoryManager.h"
 #include "SystemControl.h"
 #include "ota_https_update.h"
+#include "MQTTManager.h"
 #include "effects.h"
+#include "WordClockLayout.h"
 
 // External runtime state
 extern bool powerState;
@@ -28,6 +30,7 @@ extern WiFiManager wifiManager;
 extern RTCManager rtcManager;
 extern StateManager& stateManager;
 extern EffectManager& effectManager;
+extern MQTTManager mqttManager;
 
 // External functions implemented in main.cpp
 extern void runFullTimeTest();
@@ -198,28 +201,41 @@ namespace {
 
     static bool cmdStatus(const String&) {
         Serial.println("============ STATUS ============");
-        Serial.printf("Power:      %s\n", powerState ? "ON" : "OFF");
-        Serial.printf("Effekt:     %s\n", currentEffect.c_str());
-        Serial.printf("Helligkeit: %d\n", brightness);
-        Serial.printf("Farbe:      0x%06X\n", color);
-        Serial.printf("WiFi:       %s\n", WiFi.isConnected() ? WiFi.localIP().toString().c_str() : "nicht verbunden");
-        Serial.printf("Setup-Mode: %s\n", wifiManager.isSetupMode() ? "JA" : "nein");
-        Serial.printf("SSID:       %s\n", wifiManager.getSSID().isEmpty() ? "(leer)" : wifiManager.getSSID().c_str());
+        Serial.printf("Power:       %s\n", powerState ? "ON" : "OFF");
+        Serial.printf("Effekt:      %s\n", currentEffect.c_str());
+        Serial.printf("Helligkeit:  %d\n", brightness);
+        Serial.printf("Farbe:       0x%06X\n", color);
+        Serial.printf("WiFi:        %s\n", WiFi.isConnected() ? WiFi.localIP().toString().c_str() : "nicht verbunden");
+        Serial.printf("Setup-Mode:  %s\n", wifiManager.isSetupMode() ? "JA" : "nein");
+        Serial.printf("SSID:        %s\n", wifiManager.getSSID().isEmpty() ? "(leer)" : wifiManager.getSSID().c_str());
+        Serial.printf("MQTT:        %s\n", mqttManager.isConnected() ? "Verbunden" : "Getrennt");
+        if (!wifiManager.getMQTTServer().isEmpty()) {
+            Serial.printf("MQTT-Server: %s:%d\n", wifiManager.getMQTTServer().c_str(), wifiManager.getMQTTPort());
+        }
         if (rtcManager.isAvailable()) {
             DateTime now = rtcManager.getTime();
-            Serial.printf("RTC:        %04d-%02d-%02d %02d:%02d:%02d\n",
+            Serial.printf("RTC:         %04d-%02d-%02d %02d:%02d:%02d\n",
                 now.year(), now.month(), now.day(),
                 now.hour(), now.minute(), now.second());
         } else {
-            Serial.println("RTC:        nicht verfuegbar");
+            Serial.println("RTC:         nicht verfuegbar");
         }
-        Serial.printf("Uptime:     %lus\n", millis() / 1000);
+        Serial.printf("Uptime:      %lus\n", millis() / 1000);
+        Serial.printf("Layout:      %s (%s)\n", wordClockLayoutActiveName().c_str(), wordClockLayoutActiveId().c_str());
 
         uint32_t freeRam = MemoryManager::getFreeRam();
         uint32_t totalRam = ESP.getHeapSize();
-        float usedPercent = 100.0f * (totalRam - freeRam) / totalRam;
-        Serial.printf("Memory:     %.1f%% used (%u / %u bytes)\n", usedPercent, totalRam - freeRam, totalRam);
-        Serial.printf("            %s\n", MemoryManager::memoryLevelText(MemoryManager::getMemoryLevel()));
+        float usedRamPct = 100.0f * (totalRam - freeRam) / totalRam;
+        Serial.printf("Memory:      %.1f%% used (%u / %u bytes)\n", usedRamPct, totalRam - freeRam, totalRam);
+        Serial.printf("             %s\n", MemoryManager::memoryLevelText(MemoryManager::getMemoryLevel()));
+
+        uint32_t flashTotal = ESP.getFlashChipSize();
+        uint32_t sketchSize = ESP.getSketchSize();
+        uint32_t sketchFree = ESP.getFreeSketchSpace();
+        float usedFlashPct = 100.0f * sketchSize / flashTotal;
+        Serial.printf("Flash:       %.1f%% used (%u / %u bytes)\n", usedFlashPct, sketchSize, flashTotal);
+        Serial.printf("             %u bytes frei\n", sketchFree);
+
         Serial.println("================================");
         return true;
     }

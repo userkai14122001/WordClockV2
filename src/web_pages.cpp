@@ -269,17 +269,12 @@ function initTheme() {
 
 function fillSetupFields(status) {
     const ssidManual = document.getElementById('ssid_manual');
-    const wifiPass = document.getElementById('wifi_pass');
     const mqttServer = document.getElementById('mqtt_server');
     const mqttPort = document.getElementById('mqtt_port');
     const mqttUser = document.getElementById('mqtt_user');
-    const mqttPass = document.getElementById('mqtt_pass');
 
     if (ssidManual && typeof status.wifi_ssid === 'string') {
         ssidManual.value = status.wifi_ssid;
-    }
-    if (wifiPass && typeof status.wifi_pass === 'string') {
-        wifiPass.value = status.wifi_pass;
     }
     if (mqttServer && typeof status.mqtt_server === 'string') {
         mqttServer.value = status.mqtt_server;
@@ -290,14 +285,11 @@ function fillSetupFields(status) {
     if (mqttUser && typeof status.mqtt_user === 'string') {
         mqttUser.value = status.mqtt_user;
     }
-    if (mqttPass && typeof status.mqtt_pass === 'string') {
-        mqttPass.value = status.mqtt_pass;
-    }
 }
 
 async function loadSetupFields() {
     try {
-        const r = await fetch('/api/status');
+        const r = await fetch('/api/status-lite');
         const s = await r.json();
         fillSetupFields(s);
     } catch (_) {}
@@ -306,7 +298,7 @@ async function loadSetupFields() {
 async function refreshHomeStatus() {
     if (document.hidden) return;
     try {
-        const r = await fetch('/api/status');
+        const r = await fetch('/api/status-lite');
         const s = await r.json();
         const rtcBadge = s.rtc_warning ? '<span class="warn">WARNUNG</span>' : '<span class="ok">OK</span>';
         const mqttBadge = s.mqtt_connected ? '<span class="ok">Verbunden</span>' : '<span class="warn">Getrennt</span>';
@@ -339,7 +331,7 @@ async function refreshHomeStatus() {
 }
 
 initTheme();
-setInterval(refreshHomeStatus, 100);
+setInterval(refreshHomeStatus, 500);
 refreshHomeStatus();
 </script>
 </body>
@@ -826,21 +818,17 @@ function scheduleScan() {
 // ---------------------------------------------------------
 async function loadSetupFields() {
     try {
-        const r = await fetch('/api/status');
+        const r = await fetch('/api/status-lite');
         const s = await r.json();
         const ssidManual = document.getElementById('ssid_manual');
-        const wifiPass = document.getElementById('wifi_pass');
         const mqttServer = document.getElementById('mqtt_server');
         const mqttPort = document.getElementById('mqtt_port');
         const mqttUser = document.getElementById('mqtt_user');
-        const mqttPass = document.getElementById('mqtt_pass');
 
         if (ssidManual && typeof s.wifi_ssid === 'string') ssidManual.value = s.wifi_ssid;
-        if (wifiPass && typeof s.wifi_pass === 'string') wifiPass.value = s.wifi_pass;
         if (mqttServer && typeof s.mqtt_server === 'string') mqttServer.value = s.mqtt_server;
         if (mqttPort && s.mqtt_port !== undefined) mqttPort.value = String(s.mqtt_port);
         if (mqttUser && typeof s.mqtt_user === 'string') mqttUser.value = s.mqtt_user;
-        if (mqttPass && typeof s.mqtt_pass === 'string') mqttPass.value = s.mqtt_pass;
     } catch (_) {}
 }
 
@@ -873,12 +861,18 @@ async function saveConfig(section) {
         let ssidManual = document.getElementById("ssid_manual").value.trim();
         let ssidSelect = document.getElementById("ssid_list").value;
         params.set("ssid", ssidManual || ssidSelect);
-        params.set("wifi_pass", document.getElementById("wifi_pass").value);
+        const wifiPass = document.getElementById("wifi_pass").value;
+        if (wifiPass && wifiPass.trim().length > 0) {
+            params.set("wifi_pass", wifiPass);
+        }
     } else if (section === 'mqtt') {
         params.set("mqtt_server", document.getElementById("mqtt_server").value);
         params.set("mqtt_port", document.getElementById("mqtt_port").value);
         params.set("mqtt_user", document.getElementById("mqtt_user").value);
-        params.set("mqtt_pass", document.getElementById("mqtt_pass").value);
+        const mqttPass = document.getElementById("mqtt_pass").value;
+        if (mqttPass && mqttPass.trim().length > 0) {
+            params.set("mqtt_pass", mqttPass);
+        }
     }
 
     try {
@@ -888,7 +882,11 @@ async function saveConfig(section) {
             body: params
         });
         const j = await r.json();
-        msg.textContent = j.status === "ok" ? (section === 'wifi' ? 'WiFi gespeichert' : 'MQTT gespeichert') : (j.msg || 'Fehler');
+        if (j.status === "ok") {
+            msg.textContent = j.msg || (section === 'wifi' ? 'WiFi gespeichert' : 'MQTT gespeichert');
+        } else {
+            msg.textContent = j.msg || 'Fehler';
+        }
     } catch (_) {
         msg.textContent = 'Speichern fehlgeschlagen';
     }
@@ -1032,7 +1030,7 @@ async function saveLayout() {
 async function refreshSetupStatus() {
     if (document.hidden) return;
     try {
-        const r = await fetch('/api/status');
+        const r = await fetch('/api/status-lite');
         const s = await r.json();
 
         const rtcBadge = s.rtc_warning ? '<span class="warn">WARNUNG</span>' : '<span class="ok">OK</span>';
@@ -1070,7 +1068,7 @@ initTheme();
 loadSetupFields();
 loadSSIDs();
 scheduleScan();
-setInterval(refreshSetupStatus, 100);
+setInterval(refreshSetupStatus, 500);
 refreshSetupStatus();
 </script>
 

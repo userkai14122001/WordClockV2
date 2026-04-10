@@ -51,7 +51,6 @@ MQTTManager::MQTTManager(WiFiClient& wifi_client, const String& device_id)
             last_connect_ms(0),
             reconnect_failures(0) {
     mqtt.setBufferSize(2048);  // Discovery-Payload kann ~1100 Bytes gross sein, Default wäre nur 256
-    mqtt.setSocketTimeout(2);  // seconds: keeps reconnect/mqtt I/O from stalling animation for long periods
     mqtt.setCallback([this](char* topic, byte* payload, unsigned int length) {
         String msg;
         for (unsigned int i = 0; i < length; i++) {
@@ -93,8 +92,15 @@ void MQTTManager::connect() {
     DebugManager::print(DebugCategory::MQTT, ":");
     DebugManager::println(DebugCategory::MQTT, port);
     
-    if (mqtt.connect(device_id.c_str(), user.c_str(), password.c_str(),
-                     availability_topic.c_str(), 0, true, "offline")) {
+    bool connected = mqtt.connect(device_id.c_str(), user.c_str(), password.c_str(),
+                                  availability_topic.c_str(), 0, true, "offline");
+    if (!connected) {
+        DebugManager::println(DebugCategory::MQTT,
+                              "MQTTManager: Connect mit Last-Will fehlgeschlagen, retry ohne Last-Will");
+        connected = mqtt.connect(device_id.c_str(), user.c_str(), password.c_str());
+    }
+
+    if (connected) {
         DebugManager::println(DebugCategory::MQTT, "MQTTManager: Verbunden!");
         last_connect_ms = millis();
         reconnect_failures = 0;
