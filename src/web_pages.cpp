@@ -1432,18 +1432,19 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             border:none;
             padding:0;
             text-align:center;
-            background:transparent;
+            background-color:#0f1520;
             aspect-ratio:1 / 1;
             display:flex;
             justify-content:center;
             align-items:center;
             overflow:hidden;
+            transition:background-color 50ms linear;
         }
         .glyph {
             font-family: "Rajdhani", "Bahnschrift", "Arial Narrow", Arial, sans-serif;
             font-size: clamp(12px, 2.1vw, 21px);
             font-weight: 700;
-            color: #435672;
+            color: #1e2738;
             line-height: 1;
             letter-spacing: -0.03em;
             text-transform: uppercase;
@@ -1451,7 +1452,8 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             transform-origin: center;
             -webkit-font-smoothing: antialiased;
             text-rendering: geometricPrecision;
-            transition: color 50ms linear, text-shadow 50ms linear;
+            transition: color 50ms linear;
+            pointer-events: none;
         }
         .minuteSlot {
             width:100%;
@@ -1919,33 +1921,46 @@ function renderMatrix(matrix, mqttConnected) {
         box.innerHTML = '';
         return;
     }
-    let html = '';
+    const cells = box.children;
+    const totalCells = matrix.length * (matrix[0] ? matrix[0].length : 0);
+    // Rebuild DOM only on first render or size change; afterwards just update styles
+    if (cells.length !== totalCells) {
+        let html = '';
+        for (let y = 0; y < matrix.length; y++) {
+            for (let x = 0; x < matrix[y].length; x++) {
+                const isMinuteCell = (y === 9 && x >= 7 && x <= 10);
+                const glyph = isMinuteCell ? '-' : layoutGlyphAt(x, y);
+                html += '<div class="cell" title="x=' + x + ' y=' + y + (isMinuteCell ? ' [MINUTE]' : '') + '"><div class="glyph">' + glyph + '</div></div>';
+            }
+        }
+        box.innerHTML = html;
+    }
+    let i = 0;
     for (let y = 0; y < matrix.length; y++) {
         for (let x = 0; x < matrix[y].length; x++) {
+            const cell = cells[i++];
+            if (!cell) continue;
+            const glyphEl = cell.firstElementChild;
+            const isHiddenMaskCell = (y === 0 && (x === 9 || x === 10));
+            if (isHiddenMaskCell) {
+                if (glyphEl) glyphEl.style.color = '#1e2738';
+                continue;
+            }
             const hex = String(matrix[y][x] || '000000').toUpperCase();
             const isOn = hex !== '000000';
-            const uiHex = isOn ? brightenHex(hex, 1.35) : '435672';
+            const uiHex = isOn ? brightenHex(hex, 1.4) : null;
             const isMinuteCell = (y === 9 && x >= 7 && x <= 10);
             if (isMinuteCell) {
-                // Minuten-LED: einfache Strich-Anzeige statt Pfoten-Symbol
-                const minuteColor = mqttConnected ? ('#' + uiHex) : '#ff4444';
-                const minuteGlow = mqttConnected
-                    ? (isOn ? ('0 0 8px #' + uiHex + ', 0 0 16px #' + uiHex) : 'none')
-                    : '0 0 8px #ff4444, 0 0 16px #ff4444';
-                html += '<div class="cell" title="x=' + x + ' y=' + y + ' [MINUTE]">'
-                    + '<div class="glyph" style="color:' + minuteColor + ';text-shadow:' + minuteGlow + ';">-</div>'
-                    + '</div>';
+                if (!mqttConnected) {
+                    if (glyphEl) glyphEl.style.color = '#ff4444';
+                } else {
+                    if (glyphEl) glyphEl.style.color = isOn ? ('#' + uiHex) : '#1e2738';
+                }
             } else {
-                const glyph = layoutGlyphAt(x, y);
-                const glyphColor = '#' + uiHex;
-                const glow = isOn ? ('0 0 8px #' + uiHex + ', 0 0 16px #' + uiHex) : 'none';
-                html += '<div class="cell" title="x=' + x + ' y=' + y + '">'
-                    + '<div class="glyph" style="color:' + glyphColor + ';text-shadow:' + glow + ';">' + glyph + '</div>'
-                    + '</div>';
+                if (glyphEl) glyphEl.style.color = isOn ? ('#' + uiHex) : '#1e2738';
             }
         }
     }
-    box.innerHTML = html;
 }
 
 function renderDetails(s, rtcTempText, memFree, memUsedPct) {
@@ -2064,6 +2079,8 @@ async function refreshStatus() {
         } catch (_) {}
     } catch (_) {}
     refreshInFlight = false;
+    // Chain immediately — ESP response time is the natural rate limit
+    if (!document.hidden) setTimeout(refreshStatus, 0);
 }
 
 async function applyLive() {
@@ -2111,17 +2128,17 @@ document.getElementById('density').addEventListener('input', function() { update
 document.getElementById('transitionMs').addEventListener('input', function() { updateRangeBadges(); queueAutoApply(300); });
 
 function startRefreshTimer() {
-    const periodMs = Math.floor(1000 / 10);
-    if (refreshTimer) clearInterval(refreshTimer);
-    refreshTimer = setInterval(refreshStatus, periodMs);
+    // No-op: chaining is handled inside refreshStatus
 }
 
 updateColorUi(document.getElementById('color').value);
 updateRangeBadges();
 initTheme();
 preloadFromCache();
+document.addEventListener('visibilitychange', function() {
+    if (!document.hidden && !refreshInFlight) refreshStatus();
+});
 refreshStatus();
-startRefreshTimer();
 </script>
 </body>
 </html>
