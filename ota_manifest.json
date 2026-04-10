@@ -1,5 +1,5 @@
 ﻿{
-  "version": "0.2.43",
+  "version": "0.2.44",
   "firmware_url": "https://raw.githubusercontent.com/userkai14122001/WordClockV2/main/firmware/firmware.bin",
-  "notes": "Clock-Morph: Uebergangszeit nicht mehr auf 1200 ms begrenzt, langsamere Uebergaenge fuer ruhigeres Verhalten moeglich"
+  "notes": "Hotfix OTA: Build-Version korrigiert, Update-Schleife beendet; langsame Clock-Morph-Uebergaenge bleiben aktiv"
 }
