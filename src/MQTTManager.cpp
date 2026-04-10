@@ -305,7 +305,7 @@ void MQTTManager::publishDiscovery() {
     effect_list.add("fire2d");
     effect_list.add("matrix");
     effect_list.add("plasma");
-    effect_list.add("inward");
+    effect_list.add("waterdrop_r");
     effect_list.add("twinkle");
     effect_list.add("balls");
     effect_list.add("aurora");

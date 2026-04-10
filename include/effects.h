@@ -176,13 +176,13 @@ public:
     void reset() override { _t = 0; }
 };
 
-// Wellen laufen von außen nach innen (Trichter-Effekt)
+// Wassertropfen rueckwaerts: Ring laeuft von aussen nach innen
 class InwardRippleEffect : public Effect {
     float         _radius;      // aktuelle Wellenposition (maxDist → 0)
     unsigned long _lastFrame;
 public:
     InwardRippleEffect() : _radius(-1.0f), _lastFrame(0) {}
-    const char* name() const override { return "inward"; }
+    const char* name() const override { return "waterdrop_r"; }
     void update() override;
     void reset() override { _radius = -1.0f; }
 };

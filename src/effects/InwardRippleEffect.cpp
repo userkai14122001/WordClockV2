@@ -4,80 +4,53 @@ static bool sInwardDebugLogged = false;
 
 void InwardRippleEffect::update() {
     if (!sInwardDebugLogged) {
-        DebugManager::println(DebugCategory::Effects, "[FX] inward active");
+        DebugManager::println(DebugCategory::Effects, "[FX] waterdrop_r active");
         sInwardDebugLogged = true;
     }
 
-    const uint16_t frameDelay = speedToDelay(18, 95);
+    const uint16_t frameDelay = speedToDelay(10, 150);
+    const float ringWidth     = 1.0f + intensityMap(0, 40) * 0.1f;
+    const float radiusStep    = speedMapF(0.05f, 0.35f);
+    const float edgeSoftness  = densityMapF(0.85f, 1.65f);
+
     if (millis() - _lastFrame < frameDelay) return;
     _lastFrame = millis();
+
+    uint8_t colR_val = hasUserColor() ? colR(color) : 255;
+    uint8_t colG_val = hasUserColor() ? colG(color) : 255;
+    uint8_t colB_val = hasUserColor() ? colB(color) : 255;
 
     const float cx      = (WIDTH  - 1) / 2.0f;
     const float cy      = (HEIGHT - 1) / 2.0f;
     const float maxDist = sqrtf(cx*cx + cy*cy);
 
-    // Weniger gleichzeitig aktive Wellen, dafuer weicher und gleichmaessiger.
-    const int   numWaves    = 1 + (int)densityMap(0, 2);
-    const float waveSpacing = (maxDist + 1.8f) / (float)numWaves;
-    const float baseWidth   = intensityMapF(0.70f, 1.80f);
-    const float radiusStep  = speedMapF(0.05f, 0.18f);
-    const float waveBoost   = intensityMapF(0.70f, 1.25f);
-    const float ambientBase = intensityMapF(0.02f, 0.08f);
-
-    if (_radius < 0.0f) _radius = maxDist + 1.0f;
+    // Radius starts at the outer edge and collapses inward
+    if (_radius < 0.0f) _radius = maxDist + 0.35f;
 
     clearMatrix();
 
-    uint8_t R = colR(color), G = colG(color), B = colB(color);
-    if (color == 0) {
-        R = 40;
-        G = 140;
-        B = 255;
-    }
+    // Ring width grows as it approaches centre (inverse of outward drop)
+    float shrinkT = 1.0f - (_radius / (maxDist + 0.35f));
+    if (shrinkT < 0.0f) shrinkT = 0.0f;
+    if (shrinkT > 1.0f) shrinkT = 1.0f;
+    const float currentRingWidth = 0.35f + (ringWidth - 0.35f) * shrinkT;
 
     for (int y = 0; y < HEIGHT; y++) {
         for (int x = 0; x < WIDTH; x++) {
             float dx   = x - cx, dy = y - cy;
             float dist = sqrtf(dx*dx + dy*dy);
-
-            float waveLight = 0.0f;
-            for (int w = 0; w < numWaves; w++) {
-                float waveRadius = _radius - w * waveSpacing;
-                if (waveRadius < -1.6f) continue;
-
-                float clampedRadius = constrain(waveRadius, 0.0f, maxDist);
-                float proximity     = 1.0f - clampedRadius / maxDist;
-                float wWidth        = baseWidth + proximity * 0.9f;
-
-                float diff  = fabsf(dist - waveRadius);
-                float sigma = max(0.55f, wWidth * 0.65f);
-                float fade  = expf(-(diff * diff) / (2.0f * sigma * sigma));
-                fade *= (0.30f + proximity * 0.55f) * waveBoost;
-                waveLight += fade;
+            float diff = fabsf(dist - _radius);
+            float effectiveWidth = currentRingWidth * edgeSoftness;
+            if (diff < effectiveWidth) {
+                float fade = 1.0f - diff / effectiveWidth;
+                strip->setPixelColor(XY(x, y),
+                    makeColorWithBrightness(colR_val * fade, colG_val * fade, colB_val * fade));
             }
-
-            float centerGlow = 1.0f - dist / (maxDist + 0.01f);
-            centerGlow = max(0.0f, centerGlow);
-            centerGlow = centerGlow * centerGlow * intensityMapF(0.08f, 0.24f);
-
-            float ambient = ambientBase + centerGlow;
-            float total   = min(1.0f, ambient + waveLight * 0.85f);
-
-            strip->setPixelColor(
-                XY(x, y),
-                makeColorWithBrightness(
-                    (uint8_t)(R * total),
-                    (uint8_t)(G * total),
-                    (uint8_t)(B * total)
-                )
-            );
         }
     }
 
     strip->show();
-
     _radius -= radiusStep;
-    if (_radius < -waveSpacing) {
-        _radius = maxDist + waveSpacing;
-    }
+
+    if (_radius < -(currentRingWidth + 0.8f)) _radius = maxDist + 0.35f;
 }
