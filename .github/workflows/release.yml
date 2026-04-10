@@ -79,6 +79,8 @@ jobs:
           VERSION: ${{ steps.vars.outputs.version }}
           SHA256: ${{ steps.sha.outputs.sha256 }}
         run: |
+          set -euo pipefail
+
           git fetch origin main
           git checkout -B main origin/main
 
@@ -103,9 +105,6 @@ jobs:
           firmware_url = f"https://github.com/{repo}/releases/download/{tag}/firmware.bin"
 
           note = f"Automated release {version}"
-          previous_stable = channels.get("stable")
-          if isinstance(previous_stable, dict) and previous_stable.get("notes"):
-              note = previous_stable.get("notes")
 
           channels["stable"] = {
               "version": version,
@@ -137,3 +136,36 @@ jobs:
             git commit -m "chore: update OTA manifest for $TAG"
             git push origin HEAD:main
           fi
+
+          # Hard verification: fail the release workflow if remote manifest is not aligned.
+          git fetch origin main
+          git show origin/main:ota_manifest.json > /tmp/remote_manifest.json
+          python - <<'PY'
+          import json
+          import os
+
+          version = os.environ["VERSION"]
+          tag = os.environ["TAG"]
+          expected_sha = os.environ["SHA256"].lower()
+          expected_url_suffix = f"/releases/download/{tag}/firmware.bin"
+
+          with open("/tmp/remote_manifest.json", "r", encoding="utf-8") as f:
+              data = json.load(f)
+
+          stable = data.get("channels", {}).get("stable", {})
+          problems = []
+          if stable.get("version") != version:
+              problems.append(f"stable.version={stable.get('version')} expected={version}")
+          url = stable.get("firmware_url", "")
+          if expected_url_suffix not in url:
+              problems.append(f"stable.firmware_url={url} expected suffix={expected_url_suffix}")
+          if str(stable.get("sha256", "")).lower() != expected_sha:
+              problems.append("stable.sha256 mismatch")
+          if str(stable.get("status", "")).lower() != "ready":
+              problems.append(f"stable.status={stable.get('status')} expected=ready")
+
+          if problems:
+              raise SystemExit("Manifest verification failed: " + "; ".join(problems))
+
+          print("Remote manifest verification succeeded")
+          PY
