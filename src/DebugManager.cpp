@@ -33,7 +33,7 @@ namespace {
     };
 
     bool gDebugEnabled[static_cast<size_t>(DebugCategory::Count)] = {
-        false, false, false, false, false, false, false, false, false, false, false, false, false, false, false
+        true, false, false, false, false, false, false, false, false, false, false, false, false, false, false
     };
 
     bool equalsIgnoreCase(const String& input, const char* candidate) {

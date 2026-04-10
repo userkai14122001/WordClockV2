@@ -204,6 +204,35 @@ static uint8_t gBootMinuteDotIndex = 0;
 static bool gBootMqttConfigured = false;
 static bool gBootSuppressVisuals = false;
 static WifiRingEffect gBootMqttRingFx(1, 0xFF9900);
+static unsigned long gBootSerialReplayUntilMs = 0;
+static unsigned long gBootSerialReplayLastMs = 0;
+static bool gBootSerialReplayDone = false;
+
+static void emitBootSerialReplayIfNeeded() {
+    if (gBootSerialReplayDone) {
+        return;
+    }
+
+    const unsigned long now = millis();
+    if (now >= gBootSerialReplayUntilMs) {
+        gBootSerialReplayDone = true;
+        return;
+    }
+
+    if (gBootSerialReplayLastMs != 0 && (now - gBootSerialReplayLastMs) < 2000) {
+        return;
+    }
+    gBootSerialReplayLastMs = now;
+
+    const String ipText = WiFi.isConnected() ? WiFi.localIP().toString() : String("offline");
+    Serial.printf("[BOOT-REPLAY] up=%lus wifi=%s ip=%s mqtt=%s setup=%s effect=%s\n",
+                  now / 1000,
+                  WiFi.isConnected() ? "on" : "off",
+                  ipText.c_str(),
+                  mqttManager.isConnected() ? "on" : "off",
+                  wifiManager.isSetupMode() ? "on" : "off",
+                  currentEffect.c_str());
+}
 
 static uint16_t bootWifiAnimOnePassFrames() {
     // One full loop on the outer ring (ring 0).
@@ -473,10 +502,15 @@ void applyControlUpdate(
 void setup() {
     Serial.begin(115200);
     // Native USB-CDC: erst warten bis Host-Monitor verbunden, DANN drucken
-    // 8s Timeout damit nach Reset genug Zeit zum Reconnect bleibt
+    // 15s Timeout damit nach Reset genug Zeit zum Reconnect bleibt
     unsigned long t0 = millis();
-    while (!Serial && (millis() - t0) < 8000) waitMs(10);
+    while (!Serial && (millis() - t0) < 15000) waitMs(10);
     waitMs(200); // USB-Stack des Host stabilisieren lassen
+
+    gBootSerialReplayUntilMs = millis() + 30000;
+    gBootSerialReplayLastMs = 0;
+    gBootSerialReplayDone = false;
+    Serial.println("[BOOT] Serial online, init startet...");
 
     DebugManager::println(DebugCategory::Boot);
     DebugManager::println(DebugCategory::Boot, "============================================");
@@ -900,6 +934,7 @@ void loop() {
     // PRIORITY 1: Handle serial (quick, local)
     // =====================================================================
     handleSerialCommands();
+    emitBootSerialReplayIfNeeded();
 
     if (gBootActive) {
         if (renderFrame) updateBootSequence();

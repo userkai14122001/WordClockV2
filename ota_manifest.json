@@ -1,5 +1,5 @@
 ﻿{
-  "version": "0.2.26",
+  "version": "0.2.27",
   "firmware_url": "https://raw.githubusercontent.com/userkai14122001/WordClockV2/main/firmware/firmware.bin",
-  "notes": "Layout-Presets fuer Aumovio Hero und Default Kai; Web-UI Netzwerkansicht verschlankt"
+  "notes": "Persistente WiFi/MQTT Credentials mit SPIFFS-Fallback und verbesserte serielle Boot-Ausgabe"
 }

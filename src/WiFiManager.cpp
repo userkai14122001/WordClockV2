@@ -25,6 +25,7 @@
 
 static const byte DNS_PORT = 53;
 static constexpr uint64_t HTTP_WRITE_WINDOW_US = 60ULL * 60ULL * 1000000ULL; // 1 hour since boot
+static const char* kWiFiConfigBackupPath = "/wifi_config.json";
 
 static inline void waitMs(uint32_t ms) {
     unsigned long start = millis();
@@ -131,6 +132,73 @@ static uint32_t validUnixNow() {
     return (uint32_t)now;
 }
 
+static bool saveConfigBackupFile(const String& ssid,
+                                 const String& password,
+                                 const String& mqttServer,
+                                 const String& mqttUser,
+                                 const String& mqttPassword,
+                                 int mqttPort,
+                                 const String& otaProfile,
+                                 uint32_t otaSinceEpoch) {
+    DynamicJsonDocument doc(768);
+    doc["ssid"] = ssid;
+    doc["wifi_pass"] = password;
+    doc["mqtt_server"] = mqttServer;
+    doc["mqtt_user"] = mqttUser;
+    doc["mqtt_pass"] = mqttPassword;
+    doc["mqtt_port"] = mqttPort;
+    doc["ota_profile"] = otaProfile;
+    doc["ota_since"] = otaSinceEpoch;
+
+    File file = SPIFFS.open(kWiFiConfigBackupPath, "w");
+    if (!file) {
+        DebugManager::println(DebugCategory::WiFi, "WiFiManager: Backup-Datei konnte nicht geoeffnet werden");
+        return false;
+    }
+
+    const size_t written = serializeJson(doc, file);
+    file.close();
+    if (written == 0) {
+        DebugManager::println(DebugCategory::WiFi, "WiFiManager: Backup-Datei konnte nicht geschrieben werden");
+        return false;
+    }
+    return true;
+}
+
+static bool loadConfigBackupFile(String& ssid,
+                                 String& password,
+                                 String& mqttServer,
+                                 String& mqttUser,
+                                 String& mqttPassword,
+                                 int& mqttPort,
+                                 String& otaProfile,
+                                 uint32_t& otaSinceEpoch) {
+    File file = SPIFFS.open(kWiFiConfigBackupPath, "r");
+    if (!file) {
+        return false;
+    }
+
+    DynamicJsonDocument doc(768);
+    DeserializationError err = deserializeJson(doc, file);
+    file.close();
+    if (err) {
+        DebugManager::print(DebugCategory::WiFi, "WiFiManager: Backup-Datei ungueltig: ");
+        DebugManager::println(DebugCategory::WiFi, err.c_str());
+        return false;
+    }
+
+    ssid = String((const char*)(doc["ssid"] | ""));
+    password = String((const char*)(doc["wifi_pass"] | ""));
+    mqttServer = String((const char*)(doc["mqtt_server"] | ""));
+    mqttUser = String((const char*)(doc["mqtt_user"] | ""));
+    mqttPassword = String((const char*)(doc["mqtt_pass"] | ""));
+    mqttPort = doc["mqtt_port"] | 1883;
+    otaProfile = normalizeOtaProfile(String((const char*)(doc["ota_profile"] | "long")));
+    otaSinceEpoch = doc["ota_since"] | 0;
+
+    return !(ssid.isEmpty() && mqttServer.isEmpty() && mqttUser.isEmpty() && mqttPassword.isEmpty());
+}
+
 extern bool powerState;
 extern String currentEffect;
 extern uint32_t color;
@@ -161,21 +229,65 @@ WiFiManager::WiFiManager()
 }
 
 void WiFiManager::loadConfig() {
-    if (!prefs.begin("wifi", true)) {
-        DebugManager::println(DebugCategory::WiFi, "WiFiManager: Preferences begin failed");
-        return;
+    bool prefsReadable = prefs.begin("wifi", true);
+    if (!prefsReadable) {
+        DebugManager::println(DebugCategory::WiFi, "WiFiManager: Preferences begin failed, pruefe Backup-Datei");
+    } else {
+        ssid = prefs.getString("ssid", "");
+        password = prefs.getString("wifi_pass", "");
+        mqtt_server = prefs.getString("mqtt_server", "");
+        mqtt_user = prefs.getString("mqtt_user", "");
+        mqtt_password = prefs.getString("mqtt_pass", "");
+        mqtt_port = prefs.getInt("mqtt_port", 1883);
+        ota_profile = normalizeOtaProfile(prefs.getString("ota_profile", "long"));
+        ota_profile_since_epoch = (uint32_t)prefs.getULong("ota_since", 0);
+        prefs.end();
     }
-    
-    ssid = prefs.getString("ssid", "");
-    password = prefs.getString("wifi_pass", "");
-    mqtt_server = prefs.getString("mqtt_server", "");
-    mqtt_user = prefs.getString("mqtt_user", "");
-    mqtt_password = prefs.getString("mqtt_pass", "");
-    mqtt_port = prefs.getInt("mqtt_port", 1883);
-    ota_profile = normalizeOtaProfile(prefs.getString("ota_profile", "long"));
-    ota_profile_since_epoch = (uint32_t)prefs.getULong("ota_since", 0);
-    
-    prefs.end();
+
+    const bool missingPrimaryConfig = ssid.isEmpty() && mqtt_server.isEmpty() && mqtt_user.isEmpty() && mqtt_password.isEmpty();
+    if (!prefsReadable || missingPrimaryConfig) {
+        String backupSsid;
+        String backupPassword;
+        String backupMqttServer;
+        String backupMqttUser;
+        String backupMqttPassword;
+        int backupMqttPort = 1883;
+        String backupOtaProfile = "long";
+        uint32_t backupOtaSinceEpoch = 0;
+
+        if (loadConfigBackupFile(backupSsid,
+                                 backupPassword,
+                                 backupMqttServer,
+                                 backupMqttUser,
+                                 backupMqttPassword,
+                                 backupMqttPort,
+                                 backupOtaProfile,
+                                 backupOtaSinceEpoch)) {
+            DebugManager::println(DebugCategory::WiFi, "WiFiManager: Stelle Konfiguration aus Backup-Datei wieder her");
+            ssid = backupSsid;
+            password = backupPassword;
+            mqtt_server = backupMqttServer;
+            mqtt_user = backupMqttUser;
+            mqtt_password = backupMqttPassword;
+            mqtt_port = backupMqttPort;
+            ota_profile = backupOtaProfile;
+            ota_profile_since_epoch = backupOtaSinceEpoch;
+
+            if (prefs.begin("wifi", false)) {
+                prefs.putString("ssid", ssid);
+                prefs.putString("wifi_pass", password);
+                prefs.putString("mqtt_server", mqtt_server);
+                prefs.putString("mqtt_user", mqtt_user);
+                prefs.putString("mqtt_pass", mqtt_password);
+                prefs.putInt("mqtt_port", mqtt_port);
+                prefs.putString("ota_profile", ota_profile);
+                prefs.putULong("ota_since", ota_profile_since_epoch);
+                prefs.end();
+            } else {
+                DebugManager::println(DebugCategory::WiFi, "WiFiManager: Wiederherstellung konnte nicht nach NVS geschrieben werden");
+            }
+        }
+    }
 
     if (ota_profile_since_epoch == 0) {
         uint32_t now = validUnixNow();
@@ -281,6 +393,10 @@ void WiFiManager::saveConfig(const String& new_ssid, const String& new_password,
     mqtt_user = new_mqtt_user;
     mqtt_password = new_mqtt_password;
     mqtt_port = new_mqtt_port;
+
+    if (!saveConfigBackupFile(ssid, password, mqtt_server, mqtt_user, mqtt_password, mqtt_port, ota_profile, ota_profile_since_epoch)) {
+        DebugManager::println(DebugCategory::WiFi, "WiFiManager: Backup-Datei fuer Konfiguration konnte nicht aktualisiert werden");
+    }
     
     DebugManager::print(DebugCategory::WiFi, "WiFiManager: Config gespeichert - SSID: ");
     DebugManager::print(DebugCategory::WiFi, new_ssid.c_str());
