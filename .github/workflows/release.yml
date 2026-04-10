@@ -17,6 +17,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.RELEASE_PUSH_TOKEN != '' && secrets.RELEASE_PUSH_TOKEN || github.token }}
 
       - name: Derive release variables
         id: vars
@@ -81,6 +82,9 @@ jobs:
         run: |
           set -euo pipefail
 
+          AUTH_TOKEN="${{ secrets.RELEASE_PUSH_TOKEN != '' && secrets.RELEASE_PUSH_TOKEN || github.token }}"
+          git remote set-url origin "https://x-access-token:${AUTH_TOKEN}@github.com/${REPO}.git"
+
           git fetch origin main
           git checkout -B main origin/main
 
@@ -134,7 +138,10 @@ jobs:
             echo "ota_manifest.json unchanged"
           else
             git commit -m "chore: update OTA manifest for $TAG"
-            git push origin HEAD:main
+            if ! git push origin HEAD:main; then
+              echo "::error::Push to main failed. Configure repository secret RELEASE_PUSH_TOKEN with a PAT that has contents:write permission."
+              exit 1
+            fi
           fi
 
           # Hard verification: fail the release workflow if remote manifest is not aligned.
