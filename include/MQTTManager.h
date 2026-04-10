@@ -27,6 +27,7 @@ public:
     void publishState(bool power, const String& effect, uint32_t color, uint8_t brightness);
     void publishTuningState();
     void publishDiscovery();
+    bool randomizeDeviceName();
     static constexpr uint32_t PUBLISH_WARN_US = 30000;
     static constexpr uint32_t LOOP_WARN_US = 25000;
     static constexpr uint32_t CALLBACK_WARN_US = 25000;
@@ -47,6 +48,7 @@ public:
     String getDiscoverTopic() const { return discover_topic; }
     String getDeviceId() const { return device_id; }
     String getDeviceName() const { return device_name; }
+    String getDeviceAlias() const { return device_alias; }
     
 private:
     PubSubClient mqtt;
@@ -54,6 +56,7 @@ private:
     
     String device_id;
     String device_name;
+    String device_alias;
     String server;
     int port;
     String user;
@@ -89,11 +92,19 @@ private:
     // OTA update topics
     String ota_check_command_topic;
 
+    String name_request_topic;
+    String name_reply_topic;
+
     unsigned long last_reconnect_attempt;
     unsigned long reconnect_interval_ms;
     unsigned long last_telemetry_publish;
     unsigned long last_connect_ms;
     uint8_t reconnect_failures;
+    bool has_persisted_device_name;
+    bool collecting_name_replies;
+    size_t name_reply_count;
+    static constexpr size_t MAX_NAME_REPLIES = 16;
+    String name_reply_buffer[MAX_NAME_REPLIES];
     static const unsigned long RECONNECT_INTERVAL = 15000;
     static const unsigned long TELEMETRY_INTERVAL = 30000;
     static const unsigned long COMMAND_IGNORE_AFTER_CONNECT_MS = 2000;
@@ -106,6 +117,13 @@ private:
     void publishTuningDiscovery();
     void publishTelemetry();
     bool isCommandTopic(const String& topic) const;
+    bool resolveDeviceName(bool forceRandomize);
+    bool collectPeerDeviceNames(unsigned long windowMs);
+    bool isDeviceAliasClaimed(const String& alias) const;
+    String chooseAvailableDeviceAlias(const String& excludedAlias) const;
+    void addPeerDeviceName(const String& alias);
+    void setDeviceAlias(const String& alias);
+    bool persistDeviceAlias(const String& alias);
 };
 
 #endif

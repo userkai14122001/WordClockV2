@@ -68,6 +68,7 @@ private:
     void handleStatusLite();
     void handlePreview();
     void handleQuickTest();
+    void handleDeviceNameRandomize();
     void handleOtaInfo();
     void handleOtaCheck();
     void handleOtaProfile();

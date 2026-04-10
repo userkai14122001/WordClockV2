@@ -201,6 +201,7 @@ namespace {
 
     static bool cmdStatus(const String&) {
         Serial.println("============ STATUS ============");
+        Serial.printf("Name:        %s\n", mqttManager.getDeviceName().c_str());
         Serial.printf("Power:       %s\n", powerState ? "ON" : "OFF");
         Serial.printf("Effekt:      %s\n", currentEffect.c_str());
         Serial.printf("Helligkeit:  %d\n", brightness);

@@ -317,16 +317,17 @@ async function refreshHomeStatus() {
         document.getElementById('hmMem').innerHTML = memBadge;
 
         document.getElementById('homeStatusDetails').innerHTML =
-            '<div class="detailKey">IP</div><div class="detailVal ok">' + (s.ip || '-') + '</div>' +
-            '<div class="detailKey">Farbe</div><div class="detailVal">' + (s.color || '-') + '</div>' +
-            '<div class="detailKey">Helligkeit</div><div class="detailVal">' + (s.brightness || '-') + '</div>' +
-            '<div class="detailKey">Speed / Intensität</div><div class="detailVal">' + (s.speed || '-') + '% / ' + (s.intensity || '-') + '%</div>' +
-            '<div class="detailKey">Objektdichte</div><div class="detailVal">' + (s.density || '-') + '%</div>' +
-            '<div class="detailKey">Transition</div><div class="detailVal">' + (s.transition_ms || '-') + ' ms</div>' +
-            '<div class="detailKey">RTC Temperatur</div><div class="detailVal">' + rtcTempText + '</div>' +
-            '<div class="detailKey">RTC OSF/Batterie</div><div class="detailVal">' + (s.rtc_battery_warning ? 'Auffällig' : 'OK') + '</div>' +
-            '<div class="detailKey">RAM Frei</div><div class="detailVal">' + memFree + ' B</div>' +
-            '<div class="detailKey">RAM Nutzung</div><div class="detailVal">' + memUsedPct + '%</div>';
+                '<div class="detailKey">Name</div><div class="detailVal">' + (s.device_name || '-') + '</div>' +
+                '<div class="detailKey">IP</div><div class="detailVal ok">' + (s.ip || '-') + '</div>' +
+                '<div class="detailKey">Farbe</div><div class="detailVal">' + (s.color || '-') + '</div>' +
+                '<div class="detailKey">Helligkeit</div><div class="detailVal">' + (s.brightness || '-') + '</div>' +
+                '<div class="detailKey">Speed / Intensität</div><div class="detailVal">' + (s.speed || '-') + '% / ' + (s.intensity || '-') + '%</div>' +
+                '<div class="detailKey">Objektdichte</div><div class="detailVal">' + (s.density || '-') + '%</div>' +
+                '<div class="detailKey">Transition</div><div class="detailVal">' + (s.transition_ms || '-') + ' ms</div>' +
+                '<div class="detailKey">RTC Temperatur</div><div class="detailVal">' + rtcTempText + '</div>' +
+                '<div class="detailKey">RTC OSF/Batterie</div><div class="detailVal">' + (s.rtc_battery_warning ? 'Auffällig' : 'OK') + '</div>' +
+                '<div class="detailKey">RAM Frei</div><div class="detailVal">' + memFree + ' B</div>' +
+                '<div class="detailKey">RAM Nutzung</div><div class="detailVal">' + memUsedPct + '%</div>';
     } catch (_) {}
 }
 
@@ -626,6 +627,12 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
                 </div>
 
                 <button type="button" onclick="saveConfig('mqtt')" style="margin-top:10px;">MQTT speichern</button>
+                <hr style="margin:14px 0; border:none; border-top:1px solid var(--line);">
+
+                <h3>Gerätename</h3>
+                <p class="muted">Aktuell: <b id="deviceNameValue">-</b></p>
+                <button type="button" onclick="randomizeDeviceName()" style="margin-top:4px;">Zufälligen Namen wählen</button>
+                <p id="nameMsg" style="font-size:14px; min-height:20px; margin-top:8px;"></p>
                 <p id="cfgMsg" style="font-size:14px; min-height:20px; margin-top:8px;"></p>
             </div>
 
@@ -826,11 +833,13 @@ async function loadSetupFields() {
         const mqttServer = document.getElementById('mqtt_server');
         const mqttPort = document.getElementById('mqtt_port');
         const mqttUser = document.getElementById('mqtt_user');
+        const deviceNameValue = document.getElementById('deviceNameValue');
 
         if (ssidManual && typeof s.wifi_ssid === 'string') ssidManual.value = s.wifi_ssid;
         if (mqttServer && typeof s.mqtt_server === 'string') mqttServer.value = s.mqtt_server;
         if (mqttPort && s.mqtt_port !== undefined) mqttPort.value = String(s.mqtt_port);
         if (mqttUser && typeof s.mqtt_user === 'string') mqttUser.value = s.mqtt_user;
+        if (deviceNameValue) deviceNameValue.textContent = s.device_name || '-';
     } catch (_) {}
 }
 
@@ -891,6 +900,33 @@ async function saveConfig(section) {
         }
     } catch (_) {
         msg.textContent = 'Speichern fehlgeschlagen';
+    }
+}
+
+async function randomizeDeviceName() {
+    const msg = document.getElementById('nameMsg');
+    const deviceNameValue = document.getElementById('deviceNameValue');
+    msg.textContent = 'Suche freien Namen...';
+
+    try {
+        const r = await fetch('/api/device-name/randomize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: ''
+        });
+        const j = await r.json();
+        if (!r.ok || j.status !== 'ok') {
+            msg.textContent = j.message || 'Namenswechsel fehlgeschlagen';
+            return;
+        }
+
+        if (deviceNameValue) {
+            deviceNameValue.textContent = j.device_name || '-';
+        }
+        msg.textContent = j.message || 'Neuer Gerätename gesetzt';
+        refreshSetupStatus();
+    } catch (_) {
+        msg.textContent = 'Namenswechsel fehlgeschlagen';
     }
 }
 
@@ -1056,8 +1092,11 @@ async function refreshSetupStatus() {
         document.getElementById('spWifi').innerHTML = (s.rssi + ' dBm');
         document.getElementById('spMqtt').innerHTML = mqttBadge;
         document.getElementById('spMem').innerHTML = memBadge;
+        const deviceNameValue = document.getElementById('deviceNameValue');
+        if (deviceNameValue) deviceNameValue.textContent = s.device_name || '-';
 
         document.getElementById('setupStatusDetails').innerHTML =
+            '<div class="detailKey">Name</div><div class="detailVal">' + (s.device_name || '-') + '</div>' +
             '<div class="detailKey">IP</div><div class="detailVal ok">' + (s.ip || '-') + '</div>' +
             '<div class="detailKey">Farbe</div><div class="detailVal">' + (s.color || '-') + '</div>' +
             '<div class="detailKey">Helligkeit</div><div class="detailVal">' + (s.brightness || '-') + '</div>' +

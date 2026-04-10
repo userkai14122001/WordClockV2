@@ -43,28 +43,87 @@ static String getMacSuffix6() {
     return mac.substring(mac.length() - 6);
 }
 
-static String loadOrCreateEasterEggName() {
+static const char* kNameRequestTopic = "wordclock/name/request";
+
+static bool equalsIgnoreCaseTrimmed(String left, String right) {
+    left.trim();
+    right.trim();
+    left.toLowerCase();
+    right.toLowerCase();
+    return left == right;
+}
+
+static String buildDeviceDisplayName(const String& alias) {
+    String trimmed = alias;
+    trimmed.trim();
+    if (trimmed.isEmpty()) {
+        return "Wordclock";
+    }
+    return String("Wordclock ") + trimmed;
+}
+
+static String buildNameReplyTopic(const String& deviceId) {
+    return String("wordclock/name/reply/") + deviceId;
+}
+
+static bool loadStoredDeviceAlias(String& alias) {
     static const char* kNames[] = {
-        "Peter", "Paula", "Nemo", "Mila", "Otto", "Luna", "Momo", "Kira",
-        "Nova", "Rico", "Ava", "Theo", "Pico", "Berta", "Susi", "Hugo"
+        "Knut", "Rika", "Bernd", "Maike", "Günter", "Leyla", "Harald", "Maja",
+        "Edmund", "Mira", "Rüdiger", "Ria", "Horst", "Tilda", "Konrad", "Hanne",
+        "Malte", "Frieda", "Jannis", "Irmgard", "Sören", "Jassi", "Armin", "Nele",
+        "Torben", "Thea", "Heiko", "Celina", "Henning", "Zoe", "Lennart", "Mara",
+        "Jasper", "Gina", "Frank", "Hilda", "Werner", "Lea", "Taron", "Lotte",
+        "Fredi", "Tia", "Georg", "Linda", "Kai", "Claudia", "Sebi", "Lena",
+        "Peter", "Viola", "Lukas", "Anna", "Basti", "Sabrina", "Nick", "Maren",
+        "Dieter", "Sabine", "Ulrich", "Beate"
     };
     static const size_t kNameCount = sizeof(kNames) / sizeof(kNames[0]);
 
     Preferences prefs;
-    if (!prefs.begin("device", false)) {
-        return "WordClock";
+    if (!prefs.begin("device", true)) {
+        alias = "";
+        return false;
     }
 
-    String name = prefs.getString("clock_name", "");
-    name.trim();
-    if (name.isEmpty()) {
-        uint32_t rnd = (uint32_t)esp_random();
-        size_t idx = (size_t)(rnd % kNameCount);
-        name = String(kNames[idx]);
-        prefs.putString("clock_name", name);
-    }
+    alias = prefs.getString("clock_name", "");
     prefs.end();
-    return name;
+    alias.trim();
+    (void)kNameCount;
+    return !alias.isEmpty();
+}
+
+static bool saveStoredDeviceAlias(const String& alias) {
+    Preferences prefs;
+    if (!prefs.begin("device", false)) {
+        return false;
+    }
+    prefs.putString("clock_name", alias);
+    prefs.end();
+    return true;
+}
+
+static String pickRandomDeviceAlias(const String& excludedAlias = "") {
+    static const char* kNames[] = {
+        "Knut", "Rika", "Bernd", "Maike", "Günter", "Leyla", "Harald", "Maja",
+        "Edmund", "Mira", "Rüdiger", "Ria", "Horst", "Tilda", "Konrad", "Hanne",
+        "Malte", "Frieda", "Jannis", "Irmgard", "Sören", "Jassi", "Armin", "Nele",
+        "Torben", "Thea", "Heiko", "Celina", "Henning", "Zoe", "Lennart", "Mara",
+        "Jasper", "Gina", "Frank", "Hilda", "Werner", "Lea", "Taron", "Lotte",
+        "Fredi", "Tia", "Georg", "Linda", "Kai", "Claudia", "Sebi", "Lena",
+        "Peter", "Viola", "Lukas", "Anna", "Basti", "Sabrina", "Nick", "Maren",
+        "Dieter", "Sabine", "Ulrich", "Beate"
+    };
+    static const size_t kNameCount = sizeof(kNames) / sizeof(kNames[0]);
+
+    const size_t start = (size_t)(esp_random() % kNameCount);
+    for (size_t offset = 0; offset < kNameCount; offset++) {
+        const String candidate = String(kNames[(start + offset) % kNameCount]);
+        if (!excludedAlias.isEmpty() && equalsIgnoreCaseTrimmed(candidate, excludedAlias)) {
+            continue;
+        }
+        return candidate;
+    }
+    return String(kNames[start]);
 }
 
 static String buildDiscoveryConfigTopic(const char* component, const String& objectId) {
@@ -89,7 +148,7 @@ static const char* mqttStateText(int state) {
 
 MQTTManager::MQTTManager(WiFiClient& wifi_client, const String& device_id)
     : mqtt(wifi_client), wifi_client(wifi_client), device_id(device_id),
-      server(""), port(1883), user(""), password(""),
+    device_name(""), device_alias(""), server(""), port(1883), user(""), password(""),
       command_topic("wordclock/set"), state_topic("wordclock/state"),
       discover_topic("homeassistant/light/wordclock/config"),
             availability_topic("wordclock/availability"),
@@ -111,17 +170,25 @@ MQTTManager::MQTTManager(WiFiClient& wifi_client, const String& device_id)
             rtc_temp_topic("wordclock/rtc/temperature"),
             rtc_battery_warning_topic("wordclock/rtc/battery_warning"),
             ota_check_command_topic("wordclock/ota_check/set"),
+            name_request_topic(kNameRequestTopic),
+            name_reply_topic(""),
             last_reconnect_attempt(0),
             reconnect_interval_ms(RECONNECT_INTERVAL),
             last_telemetry_publish(0),
             last_connect_ms(0),
-            reconnect_failures(0) {
+            reconnect_failures(0),
+            has_persisted_device_name(false),
+            collecting_name_replies(false),
+            name_reply_count(0) {
             const String macSuffix = getMacSuffix6();
             const String stableId = String("wordclock_") + macSuffix;
-            const String easterName = loadOrCreateEasterEggName();
+            String storedAlias;
+            const bool hasStoredAlias = loadStoredDeviceAlias(storedAlias);
 
             this->device_id = stableId;
-            this->device_name = easterName + " " + macSuffix;
+            this->name_reply_topic = buildNameReplyTopic(stableId);
+            this->has_persisted_device_name = hasStoredAlias;
+            setDeviceAlias(hasStoredAlias ? storedAlias : pickRandomDeviceAlias());
 
             const String baseTopic = stableId;
             command_topic = baseTopic + "/set";
@@ -225,6 +292,10 @@ void MQTTManager::connect() {
         last_connect_ms = millis();
         reconnect_failures = 0;
         reconnect_interval_ms = RECONNECT_INTERVAL;
+
+        mqtt.subscribe(name_request_topic.c_str());
+        mqtt.subscribe(name_reply_topic.c_str());
+        resolveDeviceName(false);
 
         // Publish device truth before accepting commands so HA resyncs to the clock's persisted state.
         publishDiscovery();
@@ -730,6 +801,154 @@ void MQTTManager::publishTelemetry() {
                  rtcManager.hasBatteryWarning() ? "1" : "0", true);
 }
 
+bool MQTTManager::randomizeDeviceName() {
+    if (!isConnected()) {
+        return false;
+    }
+
+    const String previousName = device_name;
+    if (!resolveDeviceName(true)) {
+        return false;
+    }
+
+    if (device_name != previousName) {
+        publishDiscovery();
+        publishState(StateManager::getInstance().getPowerState(),
+                     StateManager::getInstance().getCurrentEffect(),
+                     StateManager::getInstance().getColor(),
+                     StateManager::getInstance().getBrightness());
+        publishTelemetry();
+    }
+    return true;
+}
+
+void MQTTManager::setDeviceAlias(const String& alias) {
+    String normalized = alias;
+    normalized.trim();
+    if (normalized.isEmpty()) {
+        normalized = pickRandomDeviceAlias();
+    }
+    device_alias = normalized;
+    device_name = buildDeviceDisplayName(normalized);
+}
+
+bool MQTTManager::persistDeviceAlias(const String& alias) {
+    setDeviceAlias(alias);
+    const bool ok = saveStoredDeviceAlias(device_alias);
+    if (ok) {
+        has_persisted_device_name = true;
+    }
+    return ok;
+}
+
+void MQTTManager::addPeerDeviceName(const String& alias) {
+    String normalized = alias;
+    normalized.trim();
+    if (normalized.isEmpty()) {
+        return;
+    }
+
+    for (size_t i = 0; i < name_reply_count; i++) {
+        if (equalsIgnoreCaseTrimmed(name_reply_buffer[i], normalized)) {
+            return;
+        }
+    }
+
+    if (name_reply_count < MAX_NAME_REPLIES) {
+        name_reply_buffer[name_reply_count++] = normalized;
+    }
+}
+
+bool MQTTManager::collectPeerDeviceNames(unsigned long windowMs) {
+    if (!isConnected()) {
+        return false;
+    }
+
+    name_reply_count = 0;
+    collecting_name_replies = true;
+    mqtt.subscribe(name_request_topic.c_str());
+    mqtt.subscribe(name_reply_topic.c_str());
+    mqtt.publish(name_request_topic.c_str(), device_id.c_str(), false);
+
+    const unsigned long startMs = millis();
+    while ((millis() - startMs) < windowMs) {
+        mqtt.loop();
+        waitMs(10);
+    }
+
+    collecting_name_replies = false;
+    return true;
+}
+
+bool MQTTManager::isDeviceAliasClaimed(const String& alias) const {
+    for (size_t i = 0; i < name_reply_count; i++) {
+        if (equalsIgnoreCaseTrimmed(name_reply_buffer[i], alias)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+String MQTTManager::chooseAvailableDeviceAlias(const String& excludedAlias) const {
+    static const char* kNames[] = {
+        "Knut", "Rika", "Bernd", "Maike", "Günter", "Leyla", "Harald", "Maja",
+        "Edmund", "Mira", "Rüdiger", "Ria", "Horst", "Tilda", "Konrad", "Hanne",
+        "Malte", "Frieda", "Jannis", "Irmgard", "Sören", "Jassi", "Armin", "Nele",
+        "Torben", "Thea", "Heiko", "Celina", "Henning", "Zoe", "Lennart", "Mara",
+        "Jasper", "Gina", "Frank", "Hilda", "Werner", "Lea", "Taron", "Lotte",
+        "Fredi", "Tia", "Georg", "Linda", "Kai", "Claudia", "Sebi", "Lena",
+        "Peter", "Viola", "Lukas", "Anna", "Basti", "Sabrina", "Nick", "Maren",
+        "Dieter", "Sabine", "Ulrich", "Beate"
+    };
+    static const size_t kNameCount = sizeof(kNames) / sizeof(kNames[0]);
+
+    const size_t start = (size_t)(esp_random() % kNameCount);
+    for (size_t offset = 0; offset < kNameCount; offset++) {
+        const String candidate = String(kNames[(start + offset) % kNameCount]);
+        if (!excludedAlias.isEmpty() && equalsIgnoreCaseTrimmed(candidate, excludedAlias)) {
+            continue;
+        }
+        if (!isDeviceAliasClaimed(candidate)) {
+            return candidate;
+        }
+    }
+
+    if (!excludedAlias.isEmpty() && !isDeviceAliasClaimed(excludedAlias)) {
+        return excludedAlias;
+    }
+    return pickRandomDeviceAlias(excludedAlias);
+}
+
+bool MQTTManager::resolveDeviceName(bool forceRandomize) {
+    const String previousAlias = device_alias;
+    collectPeerDeviceNames(350);
+
+    String targetAlias = previousAlias;
+    if (forceRandomize || targetAlias.isEmpty() || !has_persisted_device_name || isDeviceAliasClaimed(targetAlias)) {
+        targetAlias = chooseAvailableDeviceAlias(forceRandomize ? previousAlias : "");
+    }
+
+    if (targetAlias.isEmpty()) {
+        targetAlias = pickRandomDeviceAlias(forceRandomize ? previousAlias : "");
+    }
+
+    const bool changed = !equalsIgnoreCaseTrimmed(previousAlias, targetAlias);
+    const bool needsPersist = forceRandomize || changed || !has_persisted_device_name;
+    const bool persistOk = needsPersist ? persistDeviceAlias(targetAlias) : true;
+    if (!needsPersist) {
+        setDeviceAlias(targetAlias);
+    }
+
+    if (changed || needsPersist) {
+        DebugManager::printf(DebugCategory::MQTT,
+                             "MQTTManager: Device name = %s (alias=%s)\n",
+                             device_name.c_str(),
+                             device_alias.c_str());
+        Serial.printf("[NAME] %s\n", device_name.c_str());
+    }
+    return persistOk;
+}
+
 void MQTTManager::loop() {
     if (!mqtt.connected()) {
         unsigned long now = millis();
@@ -790,6 +1009,25 @@ void MQTTManager::internalCallback(const String& topic, const String& payload) {
     DebugManager::print(DebugCategory::MQTT, topic);
     DebugManager::print(DebugCategory::MQTT, ": ");
     DebugManager::println(DebugCategory::MQTT, payload);
+
+    if (topic == name_request_topic) {
+        String requesterId = payload;
+        requesterId.trim();
+        if (!requesterId.isEmpty() && requesterId != device_id && !device_alias.isEmpty()) {
+            const String replyTopic = buildNameReplyTopic(requesterId);
+            mqtt.publish(replyTopic.c_str(), device_alias.c_str(), false);
+        }
+        logCallbackDuration("name_request");
+        return;
+    }
+
+    if (topic == name_reply_topic) {
+        if (collecting_name_replies) {
+            addPeerDeviceName(payload);
+        }
+        logCallbackDuration("name_reply");
+        return;
+    }
 
     if (isCommandTopic(topic) && last_connect_ms != 0 && (millis() - last_connect_ms) < COMMAND_IGNORE_AFTER_CONNECT_MS) {
         DebugManager::print(DebugCategory::MQTT, "MQTTManager: Ignoring command during post-connect grace window on topic ");

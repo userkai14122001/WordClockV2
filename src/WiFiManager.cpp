@@ -547,6 +547,9 @@ void WiFiManager::setupWebRoutes() {
     server.on("/api/status-lite", [this]() {
         handleStatusLite();
     });
+    server.on("/api/device-name/randomize", HTTP_POST, [this]() {
+        handleDeviceNameRandomize();
+    });
     server.on("/api/preview", HTTP_POST, [this]() {
         handlePreview();
     });
@@ -882,6 +885,8 @@ void WiFiManager::handleStatus() {
     doc["mqtt_server"] = mqtt_server;
     doc["mqtt_port"] = mqtt_port;
     doc["mqtt_user"] = mqtt_user;
+    doc["device_name"] = mqttManager.getDeviceName();
+    doc["device_alias"] = mqttManager.getDeviceAlias();
 
     JsonArray minutePositions = doc.createNestedArray("minute_positions");
     const char* minuteKeys[] = {"M1", "M2", "M3", "M4"};
@@ -969,7 +974,34 @@ void WiFiManager::handleStatusLite() {
     doc["mqtt_server"] = mqtt_server;
     doc["mqtt_port"] = mqtt_port;
     doc["mqtt_user"] = mqtt_user;
+    doc["device_name"] = mqttManager.getDeviceName();
+    doc["device_alias"] = mqttManager.getDeviceAlias();
 
+    sendJsonDocument(server, 200, doc);
+}
+
+void WiFiManager::handleDeviceNameRandomize() {
+    if (!mqttManager.isConnected()) {
+        sendApiError(server, 409, "mqtt_not_connected",
+                     "Namensaenderung braucht eine aktive MQTT-Verbindung");
+        return;
+    }
+
+    const String previousName = mqttManager.getDeviceName();
+    if (!mqttManager.randomizeDeviceName()) {
+        sendApiError(server, 500, "device_name_failed",
+                     "Freier Geraetename konnte nicht gespeichert werden");
+        return;
+    }
+
+    DynamicJsonDocument doc(256);
+    doc["status"] = "ok";
+    doc["device_name"] = mqttManager.getDeviceName();
+    doc["device_alias"] = mqttManager.getDeviceAlias();
+    doc["changed"] = (previousName != mqttManager.getDeviceName());
+    doc["message"] = (previousName != mqttManager.getDeviceName())
+        ? "Neuer Geraetename gesetzt"
+        : "Geraetename bestaetigt";
     sendJsonDocument(server, 200, doc);
 }
 

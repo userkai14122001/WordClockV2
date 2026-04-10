@@ -244,8 +244,9 @@ static void emitBootSerialReplayIfNeeded() {
     gBootSerialReplayLastMs = now;
 
     const String ipText = WiFi.isConnected() ? WiFi.localIP().toString() : String("offline");
-    Serial.printf("[BOOT-REPLAY] up=%lus wifi=%s ip=%s mqtt=%s setup=%s effect=%s\n",
+    Serial.printf("[BOOT-REPLAY] up=%lus name=%s wifi=%s ip=%s mqtt=%s setup=%s effect=%s\n",
                   now / 1000,
+                  mqttManager.getDeviceName().c_str(),
                   WiFi.isConnected() ? "on" : "off",
                   ipText.c_str(),
                   mqttManager.isConnected() ? "on" : "off",
@@ -530,6 +531,7 @@ void setup() {
     gBootSerialReplayLastMs = 0;
     gBootSerialReplayDone = false;
     Serial.println("[BOOT] Serial online, init startet...");
+    Serial.printf("[BOOT] Name: %s\n", mqttManager.getDeviceName().c_str());
 
     DebugManager::println(DebugCategory::Boot);
     DebugManager::println(DebugCategory::Boot, "============================================");
