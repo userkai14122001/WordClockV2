@@ -843,8 +843,8 @@ void WiFiManager::handleStatus() {
     const uint16_t stateTransitionMs = stateManager.getTransitionMs();
 
     // Matrix: 10 rows x 11 cols = 110 hex strings (~16 bytes/node in ArduinoJson 6) plus
-    // ~40 scalar fields and string storage. 6144 bytes gives safe headroom.
-    DynamicJsonDocument doc(6144);
+    // ~40 scalar fields/string storage and small minute position metadata.
+    DynamicJsonDocument doc(6400);
     doc["state"] = statePower ? "ON" : "OFF";
     doc["effect"] = stateEffect;
     doc["brightness"] = stateBrightness;
@@ -882,6 +882,17 @@ void WiFiManager::handleStatus() {
     doc["mqtt_server"] = mqtt_server;
     doc["mqtt_port"] = mqtt_port;
     doc["mqtt_user"] = mqtt_user;
+
+    JsonArray minutePositions = doc.createNestedArray("minute_positions");
+    const char* minuteKeys[] = {"M1", "M2", "M3", "M4"};
+    for (size_t i = 0; i < 4; i++) {
+        Word w;
+        if (getClockWordPosition(String(minuteKeys[i]), w)) {
+            JsonObject p = minutePositions.createNestedObject();
+            p["x"] = w.x;
+            p["y"] = w.y;
+        }
+    }
 
     JsonArray matrix = doc.createNestedArray("matrix");
     for (int y = 0; y < HEIGHT; y++) {

@@ -1873,6 +1873,37 @@ const defaultLayoutRows = [
 ];
 
 let currentLayoutRows = defaultLayoutRows.slice();
+const defaultMinuteCells = ['7,9', '8,9', '9,9', '10,9'];
+let minuteCellSet = new Set(defaultMinuteCells);
+let minuteCellSignature = defaultMinuteCells.join('|');
+
+function setMinuteCellsFromStatus(s) {
+    const arr = s && Array.isArray(s.minute_positions) ? s.minute_positions : null;
+    if (!arr || arr.length === 0) {
+        minuteCellSet = new Set(defaultMinuteCells);
+        minuteCellSignature = defaultMinuteCells.join('|');
+        return;
+    }
+
+    const keys = [];
+    for (let i = 0; i < arr.length; i++) {
+        const p = arr[i] || {};
+        const x = Number(p.x);
+        const y = Number(p.y);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+        keys.push(String(Math.floor(x)) + ',' + String(Math.floor(y)));
+    }
+
+    if (keys.length === 0) {
+        minuteCellSet = new Set(defaultMinuteCells);
+        minuteCellSignature = defaultMinuteCells.join('|');
+        return;
+    }
+
+    keys.sort();
+    minuteCellSet = new Set(keys);
+    minuteCellSignature = keys.join('|');
+}
 
 function setLayoutRowsFromText(layoutText) {
     if (typeof layoutText !== 'string' || !layoutText.trim()) {
@@ -1923,17 +1954,19 @@ function renderMatrix(matrix, mqttConnected) {
     }
     const cells = box.children;
     const totalCells = matrix.length * (matrix[0] ? matrix[0].length : 0);
+    const activeMinuteSignature = minuteCellSignature;
     // Rebuild DOM only on first render or size change; afterwards just update styles
-    if (cells.length !== totalCells) {
+    if (cells.length !== totalCells || box.dataset.minuteSig !== activeMinuteSignature) {
         let html = '';
         for (let y = 0; y < matrix.length; y++) {
             for (let x = 0; x < matrix[y].length; x++) {
-                const isMinuteCell = (y === 9 && x >= 7 && x <= 10);
+                const isMinuteCell = minuteCellSet.has(String(x) + ',' + String(y));
                 const glyph = isMinuteCell ? '-' : layoutGlyphAt(x, y);
                 html += '<div class="cell" title="x=' + x + ' y=' + y + (isMinuteCell ? ' [MINUTE]' : '') + '"><div class="glyph">' + glyph + '</div></div>';
             }
         }
         box.innerHTML = html;
+        box.dataset.minuteSig = activeMinuteSignature;
     }
     let i = 0;
     for (let y = 0; y < matrix.length; y++) {
@@ -1949,7 +1982,7 @@ function renderMatrix(matrix, mqttConnected) {
             const hex = String(matrix[y][x] || '000000').toUpperCase();
             const isOn = hex !== '000000';
             const uiHex = isOn ? brightenHex(hex, 1.4) : null;
-            const isMinuteCell = (y === 9 && x >= 7 && x <= 10);
+            const isMinuteCell = minuteCellSet.has(String(x) + ',' + String(y));
             if (isMinuteCell) {
                 if (!mqttConnected) {
                     if (glyphEl) glyphEl.style.color = '#ff4444';
@@ -2015,6 +2048,7 @@ function applyStatus(s, fromCache) {
     setText('heroTuning', String(s.brightness) + ' / ' + String(s.speed) + '%');
 
     setLayoutRowsFromText(s.layout_text);
+    setMinuteCellsFromStatus(s);
 
     const memAlert = document.getElementById('memAlert');
     if (memAlert) {
