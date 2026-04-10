@@ -237,11 +237,21 @@ namespace {
         return true;
     }
 
+    static bool cmdOtaInfo(const String&) {
+        Serial.println("=== OTA Info ===");
+        Serial.printf("Version lokal : %s\n", getFirmwareVersion());
+        Serial.printf("Kanal         : %s\n", getOtaChannel());
+        Serial.printf("OTA-Profil    : %s\n", wifiManager.getOtaProfile().c_str());
+        Serial.printf("Uptime        : %lu s\n", millis() / 1000UL);
+        Serial.println("Tipp: 'OTA Check' um nach Updates zu suchen");
+        return true;
+    }
+
     static bool cmdUpdateCheck(const String&) {
-        Serial.println("Pruefe auf neue Firmware-Version...");
+        Serial.printf("Pruefe auf neue Firmware-Version (lokal: %s)...\n", getFirmwareVersion());
         bool started = checkForUpdateAndInstall(true);
         if (!started) {
-            Serial.println("Kein Update gestartet.");
+            Serial.println("Kein Update verfuegbar oder Pruefung fehlgeschlagen.");
         }
         return true;
     }
@@ -545,7 +555,9 @@ namespace {
         {"Creds Clear", MatchMode::Exact, "Creds Clear", "Clears WiFi/MQTT credentials and reboots", cmdCredsFlush, true},
         {"Wifi Set ", MatchMode::Prefix, "Wifi Set SSID PASS MQTT_SERVER MQTT_USER MQTT_PASS MQTT_PORT", "Sets WiFi and MQTT config", cmdSetwifi, true},
         {"Setup Start", MatchMode::Exact, "Setup Start", "Starts setup mode", cmdSetup, true},
-        {"Update Check", MatchMode::Exact, "Update Check", "Checks GitHub for a newer firmware and installs it", cmdUpdateCheck, true},
+        {"OTA Info", MatchMode::Exact, "OTA Info", "Shows current firmware version and OTA profile", cmdOtaInfo, true},
+        {"OTA Check", MatchMode::Exact, "OTA Check", "Checks GitHub for a newer firmware and installs it", cmdUpdateCheck, true},
+        {"Update Check", MatchMode::Exact, "Update Check", "Checks GitHub for a newer firmware and installs it", cmdUpdateCheck, false},
         {"Time Set ", MatchMode::Prefix, "Time Set HH:MM", "Shows a specific time immediately", cmdSettime, true},
         {"Test Morph ", MatchMode::Prefix, "Test Morph HH:MM", "Tests clock morph transition", cmdTestMorph, true},
         {"Effect Set ", MatchMode::Prefix, "Effect Set <name>", "Sets active effect", cmdEffect, true},
@@ -568,7 +580,9 @@ namespace {
         {"creds flush", MatchMode::Exact, "", "", cmdCredsFlush, false},
         {"setwifi ", MatchMode::Prefix, "", "", cmdSetwifi, false},
         {"setup", MatchMode::Exact, "", "", cmdSetup, false},
-        {"ota", MatchMode::Exact, "", "", cmdUpdateCheck, false},
+        {"ota info", MatchMode::Exact, "", "", cmdOtaInfo, false},
+        {"ota check", MatchMode::Exact, "", "", cmdUpdateCheck, false},
+        {"ota", MatchMode::Exact, "", "", cmdOtaInfo, false},
         {"settime ", MatchMode::Prefix, "", "", cmdSettime, false},
         {"test morph ", MatchMode::Prefix, "", "", cmdTestMorph, false},
         {"effect ", MatchMode::Prefix, "", "", cmdEffect, false},

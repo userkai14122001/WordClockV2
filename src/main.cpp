@@ -515,6 +515,7 @@ void setup() {
     DebugManager::println(DebugCategory::Boot);
     DebugManager::println(DebugCategory::Boot, "============================================");
     DebugManager::println(DebugCategory::Boot, "   WordClock - ESP32-C3  booting...");
+    DebugManager::println(DebugCategory::Boot, "   Version:  " FIRMWARE_VERSION);
     DebugManager::println(DebugCategory::Boot, "   Firmware: " __DATE__ " " __TIME__);
     DebugManager::println(DebugCategory::Boot, "============================================");
 
