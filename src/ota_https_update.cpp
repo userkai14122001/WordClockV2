@@ -27,6 +27,8 @@ namespace {
         String firmwareUrl;
         String sha256;
         String channel;
+        String status;
+        String notes;
     };
 
     static String toLowerCopy(const String& value) {
@@ -182,6 +184,8 @@ namespace {
         const char* version = selected["version"] | "";
         const char* firmwareUrl = selected["firmware_url"] | "";
         const char* sha256 = selected["sha256"] | "";
+        const char* status = selected["status"] | "ready";
+        const char* notes = selected["notes"] | "";
 
         if (strlen(version) == 0 || strlen(firmwareUrl) == 0) {
             DebugManager::println(DebugCategory::OTA, "[OTA] Manifest unvollstaendig (version/firmware_url)");
@@ -191,6 +195,12 @@ namespace {
         info.version = version;
         info.firmwareUrl = firmwareUrl;
         info.sha256 = normalizeSha256(String(sha256));
+        info.status = toLowerCopy(String(status));
+        info.status.trim();
+        if (info.status.isEmpty()) {
+            info.status = "ready";
+        }
+        info.notes = String(notes);
         if (!info.sha256.isEmpty() && info.sha256.length() != 64) {
             DebugManager::println(DebugCategory::OTA, "[OTA] Manifest SHA256 ungueltig (nicht 64 hex chars)");
             return false;
@@ -422,10 +432,21 @@ bool checkForUpdateAndInstall(bool forceLog) {
     const int cmp = compareSemver(current, remote.version);
 
     DebugManager::printf(DebugCategory::OTA,
-                         "[OTA] Kanal=%s Version lokal=%s remote=%s\n",
+                         "[OTA] Kanal=%s Version lokal=%s remote=%s status=%s\n",
                          remote.channel.c_str(),
                          current.c_str(),
-                         remote.version.c_str());
+                         remote.version.c_str(),
+                         remote.status.c_str());
+
+    if (remote.status != "ready") {
+        if (forceLog) {
+            DebugManager::printf(DebugCategory::OTA,
+                                 "[OTA] Kanal '%s' ist nicht freigegeben (status=%s)\n",
+                                 remote.channel.c_str(),
+                                 remote.status.c_str());
+        }
+        return false;
+    }
 
     if (cmp < 0) {
         DebugManager::println(DebugCategory::OTA, "[OTA] Neuere Version gefunden - update wird gestartet");

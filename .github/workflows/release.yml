@@ -15,6 +15,35 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Derive release variables
+        id: vars
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Sync FIRMWARE_VERSION to tag
+        env:
+          RELEASE_VERSION: ${{ steps.vars.outputs.version }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          version = os.environ["RELEASE_VERSION"]
+          path = Path("platformio.ini")
+          text = path.read_text(encoding="utf-8")
+          text, count = re.subn(r'-DFIRMWARE_VERSION=\\"[^\\"]*\\"', f'-DFIRMWARE_VERSION=\\"{version}\\"', text)
+          if count < 1:
+              raise SystemExit("No FIRMWARE_VERSION build flag found in platformio.ini")
+          path.write_text(text, encoding="utf-8")
+          print(f"Updated {count} FIRMWARE_VERSION entries to {version}")
+          PY
 
       - name: Cache PlatformIO
         uses: actions/cache@v4
@@ -28,9 +57,83 @@ jobs:
       - name: Build firmware
         run: platformio run -e seeed_xiao_esp32c3_usb
 
+      - name: Compute firmware SHA256
+        id: sha
+        run: |
+          SHA256="$(sha256sum .pio/build/seeed_xiao_esp32c3_usb/firmware.bin | awk '{print $1}')"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.vars.outputs.tag }}
           files: .pio/build/seeed_xiao_esp32c3_usb/firmware.bin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update OTA manifest on main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ steps.vars.outputs.tag }}
+          VERSION: ${{ steps.vars.outputs.version }}
+          SHA256: ${{ steps.sha.outputs.sha256 }}
+        run: |
+          git fetch origin main
+          git checkout -B main origin/main
+
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          manifest_path = Path("ota_manifest.json")
+          data = {}
+          if manifest_path.exists():
+              data = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+          channels = data.get("channels")
+          if not isinstance(channels, dict):
+              channels = {}
+
+          repo = os.environ["REPO"]
+          tag = os.environ["TAG"]
+          version = os.environ["VERSION"]
+          sha256 = os.environ["SHA256"].lower()
+          firmware_url = f"https://github.com/{repo}/releases/download/{tag}/firmware.bin"
+
+          note = f"Automated release {version}"
+          previous_stable = channels.get("stable")
+          if isinstance(previous_stable, dict) and previous_stable.get("notes"):
+              note = previous_stable.get("notes")
+
+          channels["stable"] = {
+              "version": version,
+              "firmware_url": firmware_url,
+              "sha256": sha256,
+              "status": "ready",
+              "notes": note,
+          }
+
+          if "beta" not in channels or not isinstance(channels["beta"], dict):
+              channels["beta"] = {
+                  "version": version,
+                  "firmware_url": firmware_url,
+                  "sha256": sha256,
+                  "status": "hold",
+                  "notes": "Beta roll-out currently paused",
+              }
+
+          out = {"channels": channels}
+          manifest_path.write_text(json.dumps(out, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ota_manifest.json
+          if git diff --cached --quiet; then
+            echo "ota_manifest.json unchanged"
+          else
+            git commit -m "chore: update OTA manifest for $TAG"
+            git push origin HEAD:main
+          fi
