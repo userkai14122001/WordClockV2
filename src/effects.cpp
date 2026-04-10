@@ -277,7 +277,6 @@ void resetClockMorphState() {
 // ---------------------------------------------------------
 void showTime(int hour, int minute) {
     static int sLastLoggedMinute = -1;
-    static uint16_t sLastLoggedMorphClampMs = 0;
     if (minute != sLastLoggedMinute) {
         sLastLoggedMinute = minute;
         DebugManager::printf(DebugCategory::Effects, "[FX][clock] showTime %02d:%02d\n", hour, minute);
@@ -305,20 +304,7 @@ void showTime(int hour, int minute) {
         return;
     }
 
-    const uint16_t morphDurationMs = min<uint16_t>(transitionMs, ControlConfig::CLOCK_MORPH_MAX_MS);
-    if (transitionMs > ControlConfig::CLOCK_MORPH_MAX_MS) {
-        if (sLastLoggedMorphClampMs != transitionMs) {
-            sLastLoggedMorphClampMs = transitionMs;
-            DebugManager::printf(DebugCategory::Effects,
-                                 "[FX][clock] morph clamped %ums -> %ums\n",
-                                 transitionMs,
-                                 morphDurationMs);
-        }
-    } else {
-        sLastLoggedMorphClampMs = 0;
-    }
-
-    // Use a bounded morph duration so MQTT/network work stays responsive.
+    const uint16_t morphDurationMs = transitionMs;
     const uint8_t steps = 30;
     const uint16_t frameDelayMs = max((uint16_t)10, (uint16_t)(morphDurationMs / steps));
 

@@ -9,7 +9,6 @@ static constexpr uint32_t DEFAULT_COLOR = 0xFF9900;
 static constexpr uint8_t DEFAULT_SPEED = 50;
 static constexpr uint8_t DEFAULT_INTENSITY = 50;
 static constexpr uint16_t DEFAULT_TRANSITION_MS = 1000;
-static constexpr uint16_t CLOCK_MORPH_MAX_MS = 1200;
 
 // Ranges
 static constexpr uint8_t BRIGHTNESS_MIN = 0;
