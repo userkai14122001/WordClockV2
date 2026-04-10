@@ -1,5 +1,5 @@
 ﻿{
-  "version": "0.2.34",
+  "version": "0.2.35",
   "firmware_url": "https://raw.githubusercontent.com/userkai14122001/WordClockV2/main/firmware/firmware.bin",
-  "notes": "MQTT Diagnose erweitert: eindeutige Client-ID mit MAC-Suffix, detaillierte Connect-Fehlerausgabe"
+  "notes": "Layout-Namen auf Aumovio/Kai angepasst, Live-Ansicht mit einfachen Minuten-Strichen"
 }

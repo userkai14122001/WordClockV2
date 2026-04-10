@@ -23,7 +23,7 @@ static const char* kKeys[] = {
 static const size_t kKeyCount = sizeof(kKeys) / sizeof(kKeys[0]);
 
 static String gActiveLayoutId   = "kai";
-static String gActiveLayoutName = "Default Kai";
+static String gActiveLayoutName = "Kai";
 static String gLayoutText       = "";
 
 static bool applyPreset(const String& id) {
@@ -212,7 +212,7 @@ void wordClockLayoutInit() {
             if (!fallback || !applyPreset(fallback->id)) {
                 resetClockWordPositionsToDefault();
                 gActiveLayoutId = "kai";
-                gActiveLayoutName = "Default Kai";
+                gActiveLayoutName = "Kai";
                 gLayoutText = "";
             }
             saveActiveId(gActiveLayoutId, gActiveLayoutName);
@@ -223,7 +223,7 @@ void wordClockLayoutInit() {
             if (!fallback || !applyPreset(fallback->id)) {
                 resetClockWordPositionsToDefault();
                 gActiveLayoutId = "kai";
-                gActiveLayoutName = "Default Kai";
+                gActiveLayoutName = "Kai";
                 gLayoutText = "";
             }
         }

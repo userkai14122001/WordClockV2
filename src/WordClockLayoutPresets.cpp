@@ -70,8 +70,8 @@ static void applyDefaultKaiWordPositions() {
 }
 
 static const WordClockLayoutPreset kPresets[] = {
-    {"hero", "Aumovio Hero", kTextAumovioHero, applyAumovioHeroWordPositions},
-    {"kai", "Default Kai", kTextDefaultKai, applyDefaultKaiWordPositions},
+    {"hero", "Aumovio", kTextAumovioHero, applyAumovioHeroWordPositions},
+    {"kai", "Kai", kTextDefaultKai, applyDefaultKaiWordPositions},
 };
 
 static constexpr size_t kPresetCount = sizeof(kPresets) / sizeof(kPresets[0]);

@@ -650,12 +650,13 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
             <div id="layout-tab" class="tab-content">
                 <h3>Layout Konfiguration</h3>
                 <label for="layoutId">Layout auswählen:</label>
-                <select id="layoutId" onchange="toggleLayoutInputs()">
-                    <option value="hero">Aumovio Hero</option>
-                    <option value="kai">Default Kai</option>
+                <select id="layoutId" onchange="onLayoutDropdownChange()">
+                    <option value="hero">Aumovio</option>
+                    <option value="kai">Kai</option>
                     <option value="custom">Custom</option>
                 </select>
                 <br><br>
+                <div id="customLayoutFields" style="display:none;">
                 <label for="layoutName">Layout-Name:</label>
                 <input type="text" id="layoutName" maxlength="32" placeholder="z.B. Meine Uhr">
 
@@ -665,7 +666,8 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
                 <label for="layoutWords" style="margin-top:12px;">Wortpositionen (JSON):</label>
                 <textarea id="layoutWords" rows="10" placeholder='{"ES":[0,0,2],"IST":[3,0,3],"M1":[7,9,1]}'></textarea>
 
-                <button type="button" onclick="saveLayout()" style="margin-top:10px;">Layout speichern</button>
+                <button type="button" onclick="saveLayout()" style="margin-top:10px;">Custom Layout speichern</button>
+                </div>
                 <pre id="layoutPreview" style="margin-top:10px; white-space:pre-wrap; font-size:12px;"></pre>
                 <p id="layoutMsg" style="font-size:14px; min-height:20px;"></p>
             </div>
@@ -968,10 +970,16 @@ async function checkOtaNow() {
 // ---------------------------------------------------------
 function toggleLayoutInputs() {
     const id = document.getElementById('layoutId').value || 'kai';
-    const disabled = (id !== 'custom');
-    document.getElementById('layoutText').disabled = disabled;
-    document.getElementById('layoutWords').disabled = disabled;
-    document.getElementById('layoutName').disabled = disabled;
+    const isCustom = (id === 'custom');
+    document.getElementById('customLayoutFields').style.display = isCustom ? '' : 'none';
+}
+
+async function onLayoutDropdownChange() {
+    toggleLayoutInputs();
+    const id = document.getElementById('layoutId').value || 'kai';
+    if (id !== 'custom') {
+        await saveLayout();
+    }
 }
 
 async function loadLayoutInfo() {
@@ -1703,7 +1711,7 @@ const char live_html_page[] PROGMEM = R"rawliteral(
                             <option value="clock">clock</option>
                             <option value="wifi">wifi</option>
                             <option value="waterdrop">waterdrop</option>
-                            <option value="love">love</option>
+                            <option value="love">Spezial</option>
                             <option value="colorloop">colorloop</option>
                             <option value="colorwipe">colorwipe</option>
                             <option value="fire2d">fire2d</option>
@@ -1849,7 +1857,7 @@ function applyPreset(name) {
     queueAutoApply(140);
 }
 
-const layoutRows = [
+const defaultLayoutRows = [
     'ESSISTTFUENF',
     'ZEHNZWANZIG',
     'DREIVIERTEL',
@@ -1862,9 +1870,32 @@ const layoutRows = [
     'EINSUHR....'
 ];
 
+let currentLayoutRows = defaultLayoutRows.slice();
+
+function setLayoutRowsFromText(layoutText) {
+    if (typeof layoutText !== 'string' || !layoutText.trim()) {
+        currentLayoutRows = defaultLayoutRows.slice();
+        return;
+    }
+
+    const rows = layoutText
+        .split('\n')
+        .map(function(r) { return r.replace(/\r/g, ''); });
+
+    const normalized = [];
+    for (let y = 0; y < 10; y++) {
+        let row = (rows[y] || '').toUpperCase();
+        if (row.length < 11) row = row + '.'.repeat(11 - row.length);
+        if (row.length > 11) row = row.substring(0, 11);
+        normalized.push(row);
+    }
+
+    currentLayoutRows = normalized;
+}
+
 function layoutGlyphAt(x, y) {
-    if (y < 0 || y >= layoutRows.length) return '';
-    const row = layoutRows[y];
+    if (y < 0 || y >= currentLayoutRows.length) return '';
+    const row = currentLayoutRows[y];
     if (x < 0 || x >= row.length) return '';
     const ch = row.charAt(x);
     return ch === '.' ? '' : ch;
@@ -1896,13 +1927,13 @@ function renderMatrix(matrix, mqttConnected) {
             const uiHex = isOn ? brightenHex(hex, 1.35) : '435672';
             const isMinuteCell = (y === 9 && x >= 7 && x <= 10);
             if (isMinuteCell) {
-                // Minuten-LED: Rot wenn MQTT nicht verbunden, sonst normal
-                let pawColor = mqttConnected ? ('#' + uiHex) : '#ff4444';
-                let pawFilter = mqttConnected 
-                    ? (isOn ? ('drop-shadow(0 0 5px #' + uiHex + ') drop-shadow(0 0 11px #' + uiHex + ')') : 'none')
-                    : 'drop-shadow(0 0 5px #ff4444) drop-shadow(0 0 11px #ff4444)';
+                // Minuten-LED: einfache Strich-Anzeige statt Pfoten-Symbol
+                const minuteColor = mqttConnected ? ('#' + uiHex) : '#ff4444';
+                const minuteGlow = mqttConnected
+                    ? (isOn ? ('0 0 8px #' + uiHex + ', 0 0 16px #' + uiHex) : 'none')
+                    : '0 0 8px #ff4444, 0 0 16px #ff4444';
                 html += '<div class="cell" title="x=' + x + ' y=' + y + ' [MINUTE]">'
-                    + '<div class="minuteSlot"><div class="minutePaw" style="background-color:' + pawColor + ';filter:' + pawFilter + ';"></div></div>'
+                    + '<div class="glyph" style="color:' + minuteColor + ';text-shadow:' + minuteGlow + ';">-</div>'
                     + '</div>';
             } else {
                 const glyph = layoutGlyphAt(x, y);
@@ -1940,6 +1971,83 @@ function renderDetails(s, rtcTempText, memFree, memUsedPct) {
     }).join('');
 }
 
+const WC_STATUS_CACHE_KEY = 'wc_status_cache';
+
+function applyStatus(s, fromCache) {
+    const rtcWarn = !!s.rtc_warning;
+    const rtcBadge = rtcWarn ? '<span class="warn">WARNUNG</span>' : '<span class="ok">OK</span>';
+    const rtcTempText = (typeof s.rtc_temp_c === 'number' && Number.isFinite(s.rtc_temp_c))
+        ? (s.rtc_temp_c.toFixed(2) + ' C')
+        : 'n/a';
+    const mqttConnected = !!s.mqtt_connected;
+    const mqttBadge = mqttConnected ? '<span class="ok">Verbunden</span>' : '<span class="warn">Getrennt</span>';
+    const memLevel = String(s.mem_level || 'OK').toUpperCase();
+    const memFree = Number.isFinite(Number(s.mem_free)) ? Number(s.mem_free) : 0;
+    const memTotal = Number.isFinite(Number(s.mem_total)) && Number(s.mem_total) > 0 ? Number(s.mem_total) : 1;
+    const memUsedPct = ((memTotal - memFree) * 100.0 / memTotal).toFixed(1);
+    const memBadge = (memLevel === 'CRITICAL')
+        ? '<span class="warn">KRITISCH</span>'
+        : (memLevel === 'WARNING' ? '<span class="warn">WARNUNG</span>' : '<span class="ok">OK</span>');
+
+    setHtml('stPower', s.state);
+    setHtml('stEffect', s.effect);
+    setHtml('stRtc', rtcBadge);
+    setHtml('stWifi', (s.rssi + ' dBm'));
+    setHtml('stMqtt', mqttBadge);
+    setHtml('stMem', memBadge);
+    setText('heroEffect', s.effect || '-');
+    setText('heroColor', s.color || '-');
+    setText('heroTuning', String(s.brightness) + ' / ' + String(s.speed) + '%');
+
+    setLayoutRowsFromText(s.layout_text);
+
+    const memAlert = document.getElementById('memAlert');
+    if (memAlert) {
+        memAlert.className = 'memAlert';
+        memAlert.textContent = '';
+        if (memLevel === 'CRITICAL') {
+            memAlert.className = 'memAlert critical';
+            memAlert.textContent = 'Low Memory: Kritischer RAM-Zustand. Schwere Effekte werden automatisch verlassen.';
+        } else if (memLevel === 'WARNING') {
+            memAlert.className = 'memAlert warn';
+            memAlert.textContent = 'Low Memory: RAM wird knapp. Bitte eher leichte Effekte verwenden.';
+        }
+    }
+
+    renderDetails(s, rtcTempText, memFree, memUsedPct);
+
+    if (!isDirty) {
+        document.getElementById('power').value = s.state;
+        document.getElementById('effect').value = s.effect;
+        document.getElementById('brightness').value = s.brightness;
+        document.getElementById('speed').value = s.speed;
+        document.getElementById('intensity').value = s.intensity;
+        document.getElementById('density').value = s.density;
+        document.getElementById('transitionMs').value = s.transition_ms;
+        if (/^#[0-9a-fA-F]{6}$/.test(s.color)) {
+            document.getElementById('color').value = s.color;
+            updateColorUi(s.color);
+        }
+        updateRangeBadges();
+    }
+
+    // Matrix is heavy to cache (110 pixels); only render when we have live data
+    if (!fromCache && Array.isArray(s.matrix)) {
+        renderMatrix(s.matrix, mqttConnected);
+    }
+}
+
+function preloadFromCache() {
+    try {
+        const raw = localStorage.getItem(WC_STATUS_CACHE_KEY);
+        if (!raw) return;
+        const s = JSON.parse(raw);
+        if (s && typeof s === 'object') {
+            applyStatus(s, true);
+        }
+    } catch (_) {}
+}
+
 async function refreshStatus() {
     if (document.hidden) return;
     if (refreshInFlight) return;
@@ -1947,62 +2055,13 @@ async function refreshStatus() {
     try {
         const r = await fetch('/api/status');
         const s = await r.json();
-        const rtcWarn = !!s.rtc_warning;
-        const rtcBadge = rtcWarn ? '<span class="warn">WARNUNG</span>' : '<span class="ok">OK</span>';
-        const rtcTempText = (typeof s.rtc_temp_c === 'number' && Number.isFinite(s.rtc_temp_c))
-            ? (s.rtc_temp_c.toFixed(2) + ' C')
-            : 'n/a';
-        const mqttConnected = !!s.mqtt_connected;
-        const mqttBadge = mqttConnected ? '<span class="ok">Verbunden</span>' : '<span class="warn">Getrennt</span>';
-        const memLevel = String(s.mem_level || 'OK').toUpperCase();
-        const memFree = Number.isFinite(Number(s.mem_free)) ? Number(s.mem_free) : 0;
-        const memTotal = Number.isFinite(Number(s.mem_total)) && Number(s.mem_total) > 0 ? Number(s.mem_total) : 1;
-        const memUsedPct = ((memTotal - memFree) * 100.0 / memTotal).toFixed(1);
-        const memBadge = (memLevel === 'CRITICAL')
-            ? '<span class="warn">KRITISCH</span>'
-            : (memLevel === 'WARNING' ? '<span class="warn">WARNUNG</span>' : '<span class="ok">OK</span>');
-        
-        setHtml('stPower', s.state);
-        setHtml('stEffect', s.effect);
-        setHtml('stRtc', rtcBadge);
-        setHtml('stWifi', (s.rssi + ' dBm'));
-        setHtml('stMqtt', mqttBadge);
-        setHtml('stMem', memBadge);
-        setText('heroEffect', s.effect || '-');
-        setText('heroColor', s.color || '-');
-        setText('heroTuning', String(s.brightness) + ' / ' + String(s.speed) + '%');
-
-        const memAlert = document.getElementById('memAlert');
-        if (memAlert) {
-            memAlert.className = 'memAlert';
-            memAlert.textContent = '';
-            if (memLevel === 'CRITICAL') {
-                memAlert.className = 'memAlert critical';
-                memAlert.textContent = 'Low Memory: Kritischer RAM-Zustand. Schwere Effekte werden automatisch verlassen.';
-            } else if (memLevel === 'WARNING') {
-                memAlert.className = 'memAlert warn';
-                memAlert.textContent = 'Low Memory: RAM wird knapp. Bitte eher leichte Effekte verwenden.';
-            }
-        }
-
-        renderDetails(s, rtcTempText, memFree, memUsedPct);
-
-        if (!isDirty) {
-            document.getElementById('power').value = s.state;
-            document.getElementById('effect').value = s.effect;
-            document.getElementById('brightness').value = s.brightness;
-            document.getElementById('speed').value = s.speed;
-            document.getElementById('intensity').value = s.intensity;
-            document.getElementById('density').value = s.density;
-            document.getElementById('transitionMs').value = s.transition_ms;
-            if (/^#[0-9a-fA-F]{6}$/.test(s.color)) {
-                document.getElementById('color').value = s.color;
-                updateColorUi(s.color);
-            }
-            updateRangeBadges();
-        }
-
-        renderMatrix(s.matrix, mqttConnected);
+        applyStatus(s, false);
+        // Cache status without matrix (saves ~3KB in localStorage)
+        try {
+            const cacheable = Object.assign({}, s);
+            delete cacheable.matrix;
+            localStorage.setItem(WC_STATUS_CACHE_KEY, JSON.stringify(cacheable));
+        } catch (_) {}
     } catch (_) {}
     refreshInFlight = false;
 }
@@ -2060,6 +2119,7 @@ function startRefreshTimer() {
 updateColorUi(document.getElementById('color').value);
 updateRangeBadges();
 initTheme();
+preloadFromCache();
 refreshStatus();
 startRefreshTimer();
 </script>
