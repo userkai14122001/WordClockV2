@@ -86,6 +86,25 @@ static void logBootSection(const __FlashStringHelper* title) {
     DebugManager::println(DebugCategory::Boot, F("--------------------------------------------------"));
 }
 
+static void applyRtcMinuteWarningOverlay(unsigned long nowMs) {
+    // Triangular pulse (about 0.83 Hz): 24..255 red brightness.
+    const unsigned long periodMs = 1200UL;
+    const unsigned long halfMs = periodMs / 2UL;
+    const unsigned long phaseMs = nowMs % periodMs;
+    const unsigned long ramp = (phaseMs <= halfMs) ? phaseMs : (periodMs - phaseMs);
+    const uint8_t red = (uint8_t)(24UL + ((ramp * 231UL) / halfMs));
+    const uint32_t warnColor = makeColorWithBrightness(red, 0, 0);
+
+    const char* minuteKeys[] = {"M1", "M2", "M3", "M4"};
+    for (size_t i = 0; i < 4; i++) {
+        Word w;
+        if (!getClockWordPosition(String(minuteKeys[i]), w)) continue;
+        if (w.x < 0 || w.x >= WIDTH || w.y < 0 || w.y >= HEIGHT) continue;
+        strip->setPixelColor(XY(w.x, w.y), warnColor);
+    }
+    strip->show();
+}
+
 // ---------------------------------------------------------
 // Globale Objekte (Manager-Klassen)
 // ---------------------------------------------------------
@@ -1112,19 +1131,10 @@ void handleCurrentEffect() {
             mqttManager.publishState(powerState, currentEffect, color, brightness);
         }
 
-        // RTC health warning: blink in corner if available
-        if (displayMinute >= 0 && rtcManager.hasHealthWarning()) {
-            static unsigned long lastBlinkMs = 0;
-            static bool blinkOn = false;
-            if (nowMs - lastBlinkMs >= 500) {
-                lastBlinkMs = nowMs;
-                blinkOn = !blinkOn;
-            }
-
-            uint32_t warnColor = blinkOn ? makeColorWithBrightness(255, 30, 0) : 0;
-            strip->setPixelColor(XY(WIDTH - 1, 0), warnColor);
-            strip->setPixelColor(XY(WIDTH - 2, 0), warnColor);
-            strip->show();  // Show warning
+        // RTC battery/module warning: pulse minute indicators in red.
+        const bool rtcMinuteWarning = (!rtcManager.isAvailable()) || rtcManager.hasBatteryWarning();
+        if (displayMinute >= 0 && rtcMinuteWarning) {
+            applyRtcMinuteWarningOverlay(nowMs);
         } else if (displayMinute >= 0) {
             // Normal clock display already showed via showTime()
             // Don't call strip->show() again - it's already been called

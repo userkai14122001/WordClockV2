@@ -1,5 +1,5 @@
 ﻿{
-  "version": "0.2.38",
+  "version": "0.2.39",
   "firmware_url": "https://raw.githubusercontent.com/userkai14122001/WordClockV2/main/firmware/firmware.bin",
-  "notes": "Live-Preview Minutenpunkte jetzt dynamisch aus M1-M4 Mapping (nicht mehr fest auf Zeile 10)"
+  "notes": "RTC-Fehler/Batteriewarnung: Minutenanzeige pulsiert rot auf Uhr und Live-UI"
 }

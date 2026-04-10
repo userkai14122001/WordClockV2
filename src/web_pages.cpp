@@ -1946,7 +1946,7 @@ function brightenHex(hex, factor) {
     return ((br << 16) | (bg << 8) | bb).toString(16).toUpperCase().padStart(6, '0');
 }
 
-function renderMatrix(matrix, mqttConnected) {
+function renderMatrix(matrix, mqttConnected, rtcMinuteWarning) {
     const box = document.getElementById('matrix');
     if (!Array.isArray(matrix)) {
         box.innerHTML = '';
@@ -1969,6 +1969,10 @@ function renderMatrix(matrix, mqttConnected) {
         box.dataset.minuteSig = activeMinuteSignature;
     }
     let i = 0;
+    const pulsePhase = (Date.now() % 1200) / 1200;
+    const tri = pulsePhase < 0.5 ? (pulsePhase * 2.0) : ((1.0 - pulsePhase) * 2.0);
+    const redLevel = Math.round(24 + tri * 231);
+    const rtcPulseColor = 'rgb(' + redLevel + ',0,0)';
     for (let y = 0; y < matrix.length; y++) {
         for (let x = 0; x < matrix[y].length; x++) {
             const cell = cells[i++];
@@ -1984,7 +1988,9 @@ function renderMatrix(matrix, mqttConnected) {
             const uiHex = isOn ? brightenHex(hex, 1.4) : null;
             const isMinuteCell = minuteCellSet.has(String(x) + ',' + String(y));
             if (isMinuteCell) {
-                if (!mqttConnected) {
+                if (rtcMinuteWarning) {
+                    if (glyphEl) glyphEl.style.color = rtcPulseColor;
+                } else if (!mqttConnected) {
                     if (glyphEl) glyphEl.style.color = '#ff4444';
                 } else {
                     if (glyphEl) glyphEl.style.color = isOn ? ('#' + uiHex) : '#1e2738';
@@ -2028,6 +2034,7 @@ function applyStatus(s, fromCache) {
         ? (s.rtc_temp_c.toFixed(2) + ' C')
         : 'n/a';
     const mqttConnected = !!s.mqtt_connected;
+    const rtcMinuteWarning = (!s.rtc_available) || !!s.rtc_battery_warning;
     const mqttBadge = mqttConnected ? '<span class="ok">Verbunden</span>' : '<span class="warn">Getrennt</span>';
     const memLevel = String(s.mem_level || 'OK').toUpperCase();
     const memFree = Number.isFinite(Number(s.mem_free)) ? Number(s.mem_free) : 0;
@@ -2082,7 +2089,7 @@ function applyStatus(s, fromCache) {
 
     // Matrix is heavy to cache (110 pixels); only render when we have live data
     if (!fromCache && Array.isArray(s.matrix)) {
-        renderMatrix(s.matrix, mqttConnected);
+        renderMatrix(s.matrix, mqttConnected, rtcMinuteWarning);
     }
 }
 
