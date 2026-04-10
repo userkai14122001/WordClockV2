@@ -46,9 +46,12 @@ MQTTManager::MQTTManager(WiFiClient& wifi_client, const String& device_id)
             rtc_battery_warning_topic("wordclock/rtc/battery_warning"),
             ota_check_command_topic("wordclock/ota_check/set"),
             last_reconnect_attempt(0),
+            reconnect_interval_ms(RECONNECT_INTERVAL),
             last_telemetry_publish(0),
-            last_connect_ms(0) {
+            last_connect_ms(0),
+            reconnect_failures(0) {
     mqtt.setBufferSize(2048);  // Discovery-Payload kann ~1100 Bytes gross sein, Default wäre nur 256
+    mqtt.setSocketTimeout(2);  // seconds: keeps reconnect/mqtt I/O from stalling animation for long periods
     mqtt.setCallback([this](char* topic, byte* payload, unsigned int length) {
         String msg;
         for (unsigned int i = 0; i < length; i++) {
@@ -94,6 +97,8 @@ void MQTTManager::connect() {
                      availability_topic.c_str(), 0, true, "offline")) {
         DebugManager::println(DebugCategory::MQTT, "MQTTManager: Verbunden!");
         last_connect_ms = millis();
+        reconnect_failures = 0;
+        reconnect_interval_ms = RECONNECT_INTERVAL;
 
         // Publish device truth before accepting commands so HA resyncs to the clock's persisted state.
         publishDiscovery();
@@ -112,8 +117,21 @@ void MQTTManager::connect() {
         mqtt.subscribe(tuning_reset_command_topic.c_str());
         mqtt.subscribe(ota_check_command_topic.c_str());
     } else {
+        reconnect_failures++;
+        const int state = mqtt.state();
+        if (state == MQTT_CONNECT_UNAUTHORIZED || state == MQTT_CONNECT_BAD_CREDENTIALS) {
+            reconnect_interval_ms = 60000UL;
+        } else {
+            uint8_t shift = reconnect_failures > 3 ? 3 : reconnect_failures;
+            unsigned long candidate = RECONNECT_INTERVAL << shift;
+            reconnect_interval_ms = candidate > 60000UL ? 60000UL : candidate;
+        }
         DebugManager::print(DebugCategory::MQTT, "MQTTManager: Verbindung fehlgeschlagen, Fehler: ");
-        DebugManager::println(DebugCategory::MQTT, mqtt.state());
+        DebugManager::println(DebugCategory::MQTT, state);
+        DebugManager::printf(DebugCategory::MQTT,
+                             "MQTTManager: Reconnect backoff %lums (fails=%u)\n",
+                             reconnect_interval_ms,
+                             reconnect_failures);
     }
 }
 
@@ -572,7 +590,7 @@ void MQTTManager::publishTelemetry() {
 void MQTTManager::loop() {
     if (!mqtt.connected()) {
         unsigned long now = millis();
-        if (now - last_reconnect_attempt > RECONNECT_INTERVAL) {
+        if (now - last_reconnect_attempt > reconnect_interval_ms) {
             last_reconnect_attempt = now;
             connect();
         }

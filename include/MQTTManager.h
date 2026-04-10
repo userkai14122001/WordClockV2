@@ -88,9 +88,11 @@ private:
     String ota_check_command_topic;
 
     unsigned long last_reconnect_attempt;
+    unsigned long reconnect_interval_ms;
     unsigned long last_telemetry_publish;
     unsigned long last_connect_ms;
-    static const unsigned long RECONNECT_INTERVAL = 5000;
+    uint8_t reconnect_failures;
+    static const unsigned long RECONNECT_INTERVAL = 15000;
     static const unsigned long TELEMETRY_INTERVAL = 30000;
     static const unsigned long COMMAND_IGNORE_AFTER_CONNECT_MS = 2000;
     

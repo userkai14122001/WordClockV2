@@ -608,6 +608,9 @@ namespace {
 }
 
 namespace SerialManager {
+    static char sSerialLineBuf[256];
+    static size_t sSerialLineLen = 0;
+
     void printHelp() {
         Serial.println("============ SERIAL BEFEHLE ============");
         for (size_t i = 0; i < kCommandCount; i++) {
@@ -620,40 +623,64 @@ namespace SerialManager {
     }
 
     void handle() {
-        if (!Serial.available()) return;
+        while (Serial.available() > 0) {
+            const int raw = Serial.read();
+            if (raw < 0) {
+                break;
+            }
+            const char ch = (char)raw;
 
-        String cmd = Serial.readStringUntil('\n');
-        cmd.trim();
+            if (ch == '\r') {
+                continue;
+            }
 
-        if (cmd.isEmpty()) {
-            return;
-        }
-
-        DebugManager::printf(DebugCategory::Serial, "[SERIAL] command=%s\n", cmd.c_str());
-
-        for (size_t i = 0; i < kCommandCount; i++) {
-            const CommandDef& c = kCommands[i];
-
-            if (c.mode == MatchMode::Exact) {
-                if (equalsIgnoreCase(cmd, c.trigger)) {
-                    c.handler("");
-                    return;
+            if (ch != '\n') {
+                if (sSerialLineLen < (sizeof(sSerialLineBuf) - 1)) {
+                    sSerialLineBuf[sSerialLineLen++] = ch;
                 }
                 continue;
             }
 
-            if (startsWithIgnoreCase(cmd, c.trigger)) {
-                const String prefix = c.trigger;
-                String args = cmd.substring(prefix.length());
-                args.trim();
-                c.handler(args);
-                return;
+            sSerialLineBuf[sSerialLineLen] = '\0';
+            String cmd = String(sSerialLineBuf);
+            sSerialLineLen = 0;
+            cmd.trim();
+
+            if (cmd.isEmpty()) {
+                continue;
+            }
+
+            DebugManager::printf(DebugCategory::Serial, "[SERIAL] command=%s\n", cmd.c_str());
+
+            bool handled = false;
+            for (size_t i = 0; i < kCommandCount; i++) {
+                const CommandDef& c = kCommands[i];
+
+                if (c.mode == MatchMode::Exact) {
+                    if (equalsIgnoreCase(cmd, c.trigger)) {
+                        c.handler("");
+                        handled = true;
+                        break;
+                    }
+                    continue;
+                }
+
+                if (startsWithIgnoreCase(cmd, c.trigger)) {
+                    const String prefix = c.trigger;
+                    String args = cmd.substring(prefix.length());
+                    args.trim();
+                    c.handler(args);
+                    handled = true;
+                    break;
+                }
+            }
+
+            if (!handled) {
+                Serial.print("Unbekannter Befehl: ");
+                Serial.println(cmd);
+                Serial.println("'help' fuer alle Befehle");
             }
         }
-
-        Serial.print("Unbekannter Befehl: ");
-        Serial.println(cmd);
-        Serial.println("'help' fuer alle Befehle");
     }
 }
 
