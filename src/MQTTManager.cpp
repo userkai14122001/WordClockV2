@@ -920,11 +920,22 @@ String MQTTManager::chooseAvailableDeviceAlias(const String& excludedAlias) cons
 }
 
 bool MQTTManager::resolveDeviceName(bool forceRandomize) {
+    if (!has_persisted_device_name) {
+        String storedAlias;
+        if (loadStoredDeviceAlias(storedAlias)) {
+            setDeviceAlias(storedAlias);
+            has_persisted_device_name = true;
+        }
+    }
+
     const String previousAlias = device_alias;
-    collectPeerDeviceNames(350);
+    const bool needsNetworkProbe = forceRandomize || previousAlias.isEmpty() || !has_persisted_device_name;
+    if (needsNetworkProbe) {
+        collectPeerDeviceNames(350);
+    }
 
     String targetAlias = previousAlias;
-    if (forceRandomize || targetAlias.isEmpty() || !has_persisted_device_name || isDeviceAliasClaimed(targetAlias)) {
+    if (forceRandomize || targetAlias.isEmpty() || !has_persisted_device_name) {
         targetAlias = chooseAvailableDeviceAlias(forceRandomize ? previousAlias : "");
     }
 
