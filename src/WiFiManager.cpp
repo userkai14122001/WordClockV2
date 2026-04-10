@@ -72,14 +72,19 @@ static bool parseBoundedUInt(const String& raw, uint32_t minVal, uint32_t maxVal
     return true;
 }
 
+static void sendJsonDocument(WebServer& server, int httpCode, const JsonDocument& doc) {
+    server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+    server.send(httpCode, "application/json", "");
+    WiFiClient client = server.client();
+    serializeJson(doc, client);
+}
+
 static void sendApiError(WebServer& server, int httpCode, const char* code, const char* message) {
     DynamicJsonDocument doc(256);
     doc["status"] = "error";
     doc["code"] = code;
     doc["message"] = message;
-    String payload;
-    serializeJson(doc, payload);
-    server.send(httpCode, "application/json", payload);
+    sendJsonDocument(server, httpCode, doc);
 }
 
 static bool isApiKeyConfigured() {
@@ -199,10 +204,6 @@ static bool loadConfigBackupFile(String& ssid,
     return !(ssid.isEmpty() && mqttServer.isEmpty() && mqttUser.isEmpty() && mqttPassword.isEmpty());
 }
 
-extern bool powerState;
-extern String currentEffect;
-extern uint32_t color;
-extern uint8_t brightness;
 extern uint8_t effectSpeed;
 extern uint8_t effectIntensity;
 extern uint8_t effectDensity;
@@ -244,7 +245,11 @@ void WiFiManager::loadConfig() {
         prefs.end();
     }
 
-    const bool missingPrimaryConfig = ssid.isEmpty() && mqtt_server.isEmpty() && mqtt_user.isEmpty() && mqtt_password.isEmpty();
+    // Fallback auf Backup-Datei wenn NVS nicht lesbar ODER Zugangsdaten fehlen.
+    // Bedingung: SSID leer (genuegt - ohne SSID kann nicht verbunden werden).
+    // Fruehere Bedingung (alle Felder leer) war zu restriktiv und hat den Fallback
+    // z.B. nach einem IDF-Major-Version-Wechsel via OTA unterdrückt.
+    const bool missingPrimaryConfig = ssid.isEmpty();
     if (!prefsReadable || missingPrimaryConfig) {
         String backupSsid;
         String backupPassword;
@@ -465,10 +470,14 @@ void WiFiManager::connectToWiFi() {
     DebugManager::println(DebugCategory::WiFi, trySsid);
     
     WiFi.mode(WIFI_STA);
+    // disconnect(true) loescht den internen WiFi-State – notwendig nach OTA-Reboot
+    // mit IDF 5 (Arduino ESP32 3.x), wo begin() ohne vorherigen Reset haengen kann.
+    WiFi.disconnect(true);
+    waitMs(100);
     WiFi.begin(trySsid.c_str(), tryPass.c_str());
     
     int attempts = 0;
-    while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+    while (WiFi.status() != WL_CONNECTED && attempts < 40) {
         waitMs(500);
         DebugManager::print(DebugCategory::WiFi, ".");
         attempts++;
@@ -636,9 +645,10 @@ void WiFiManager::handleScan() {
     WiFi.scanDelete();
     WiFi.scanNetworks(true);
 
-    String json;
-    serializeJson(arr, json);
-    server.send(200, "application/json", json);
+    server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+    server.send(200, "application/json", "");
+    WiFiClient client = server.client();
+    serializeJson(arr, client);
 }
 
 void WiFiManager::handleSave() {
@@ -798,17 +808,26 @@ void WiFiManager::handleStatus() {
         loadConfig();
     }
 
+    const bool statePower = stateManager.getPowerState();
+    const String stateEffect = stateManager.getCurrentEffect();
+    const uint8_t stateBrightness = stateManager.getBrightness();
+    const uint32_t stateColor = stateManager.getColor();
+    const uint8_t stateSpeed = stateManager.getSpeed();
+    const uint8_t stateIntensity = stateManager.getIntensity();
+    const uint8_t stateDensity = stateManager.getDensity();
+    const uint16_t stateTransitionMs = stateManager.getTransitionMs();
+
     DynamicJsonDocument doc(4096);
-    doc["state"] = powerState ? "ON" : "OFF";
-    doc["effect"] = currentEffect;
-    doc["brightness"] = brightness;
-    doc["speed"] = effectSpeed;
-    doc["intensity"] = effectIntensity;
-    doc["density"] = effectDensity;
-    doc["transition_ms"] = transitionMs;
+    doc["state"] = statePower ? "ON" : "OFF";
+    doc["effect"] = stateEffect;
+    doc["brightness"] = stateBrightness;
+    doc["speed"] = stateSpeed;
+    doc["intensity"] = stateIntensity;
+    doc["density"] = stateDensity;
+    doc["transition_ms"] = stateTransitionMs;
 
     char color_hex[8];
-    snprintf(color_hex, sizeof(color_hex), "#%06lX", (unsigned long)(color & 0xFFFFFF));
+    snprintf(color_hex, sizeof(color_hex), "#%06lX", (unsigned long)(stateColor & 0xFFFFFF));
     doc["color"] = color_hex;
     doc["ip"] = WiFi.isConnected() ? WiFi.localIP().toString() : "offline";
     doc["rssi"] = WiFi.isConnected() ? WiFi.RSSI() : -127;
@@ -857,9 +876,7 @@ void WiFiManager::handleStatus() {
         }
     }
 
-    String payload;
-    serializeJson(doc, payload);
-    server.send(200, "application/json", payload);
+    sendJsonDocument(server, 200, doc);
 }
 
 void WiFiManager::handlePreview() {
@@ -907,7 +924,7 @@ void WiFiManager::handlePreview() {
     }
 
     bool hasPower = !stateArg.isEmpty();
-    bool newPower = powerState;
+    bool newPower = stateManager.getPowerState();
     if (hasPower) {
         if (stateArg != "ON" && stateArg != "OFF") {
             sendApiError(server, 422, "invalid_state", "state muss ON oder OFF sein");
@@ -917,7 +934,7 @@ void WiFiManager::handlePreview() {
     }
 
     bool hasBrightness = !brightnessArg.isEmpty();
-    uint8_t newBrightness = brightness;
+    uint8_t newBrightness = stateManager.getBrightness();
     if (hasBrightness) {
         uint32_t b = 0;
         if (!parseBoundedUInt(brightnessArg, 0, 255, b)) {
@@ -928,7 +945,7 @@ void WiFiManager::handlePreview() {
     }
 
     bool hasColor = false;
-    uint32_t newColor = color;
+    uint32_t newColor = stateManager.getColor();
     if (!colorArg.isEmpty()) {
         if (colorArg.startsWith("#")) {
             colorArg = colorArg.substring(1);
@@ -1055,9 +1072,10 @@ void WiFiManager::handleQuickTest() {
     if (action == "all_on") {
         for (int y = 0; y < HEIGHT; y++) {
             for (int x = 0; x < WIDTH; x++) {
-                uint8_t r = (color >> 16) & 0xFF;
-                uint8_t g = (color >> 8) & 0xFF;
-                uint8_t b = color & 0xFF;
+                const uint32_t activeColor = stateManager.getColor();
+                uint8_t r = (activeColor >> 16) & 0xFF;
+                uint8_t g = (activeColor >> 8) & 0xFF;
+                uint8_t b = activeColor & 0xFF;
                 strip->setPixelColor(XY(x, y), makeColorWithBrightness(r, g, b));
             }
         }
@@ -1278,9 +1296,7 @@ void WiFiManager::handleQuickTest() {
     DynamicJsonDocument doc(160);
     doc["status"] = "ok";
     doc["action"] = action;
-    String payload;
-    serializeJson(doc, payload);
-    server.send(200, "application/json", payload);
+    sendJsonDocument(server, 200, doc);
 }
 
 void WiFiManager::handleOtaInfo() {
@@ -1295,9 +1311,7 @@ void WiFiManager::handleOtaInfo() {
     doc["ota_channel"] = getOtaChannel();
     doc["ota_interval_s"] = getOtaAutoCheckIntervalMs() / 1000UL;
 
-    String payload;
-    serializeJson(doc, payload);
-    server.send(200, "application/json", payload);
+    sendJsonDocument(server, 200, doc);
 }
 
 void WiFiManager::handleOtaCheck() {
@@ -1317,10 +1331,7 @@ void WiFiManager::handleOtaCheck() {
     bool started = checkForUpdateAndInstall(true);
     doc["update_started"] = started;
     doc["message"] = started ? "Update gestartet" : "Keine neuere Version gefunden";
-
-    String payload;
-    serializeJson(doc, payload);
-    server.send(200, "application/json", payload);
+    sendJsonDocument(server, 200, doc);
 }
 
 void WiFiManager::handleOtaProfile() {
@@ -1346,10 +1357,7 @@ void WiFiManager::handleOtaProfile() {
     doc["ota_interval_s"] = getOtaAutoCheckIntervalMs() / 1000UL;
     doc["ota_channel"] = getOtaChannel();
     doc["message"] = "OTA-Profil gespeichert";
-
-    String payload;
-    serializeJson(doc, payload);
-    server.send(200, "application/json", payload);
+    sendJsonDocument(server, 200, doc);
 }
 
 void WiFiManager::handleLayoutGet() {
@@ -1359,10 +1367,7 @@ void WiFiManager::handleLayoutGet() {
     doc["layout_name"] = wordClockLayoutActiveName();
     doc["layout_text"] = wordClockLayoutText();
     doc["word_positions"] = wordClockLayoutWordPositionsJson();
-
-    String payload;
-    serializeJson(doc, payload);
-    server.send(200, "application/json", payload);
+    sendJsonDocument(server, 200, doc);
 }
 
 void WiFiManager::handleLayoutSet() {
@@ -1396,8 +1401,5 @@ void WiFiManager::handleLayoutSet() {
     doc["layout_name"] = wordClockLayoutActiveName();
     doc["layout_text"] = wordClockLayoutText();
     doc["message"] = "Layout gespeichert";
-
-    String payload;
-    serializeJson(doc, payload);
-    server.send(200, "application/json", payload);
+    sendJsonDocument(server, 200, doc);
 }

@@ -519,8 +519,10 @@ void setup() {
     DebugManager::println(DebugCategory::Boot, "============================================");
 
     logBootSection(F("Storage"));
-    if (!SPIFFS.begin(true)) {
-        DebugManager::println(DebugCategory::Boot, "SPIFFS: Mount fehlgeschlagen");
+    // formatOnFail=false: niemals SPIFFS reformatieren, da sonst die wifi_config.json
+    // (Backup der Zugangsdaten) geloescht wuerde. Fehler wird nur geloggt.
+    if (!SPIFFS.begin(false)) {
+        DebugManager::println(DebugCategory::Boot, "SPIFFS: Mount fehlgeschlagen (kein Reformatieren)");
     } else {
         DebugManager::println(DebugCategory::Boot, "SPIFFS: Bereit");
     }

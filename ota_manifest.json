@@ -1,5 +1,5 @@
 ﻿{
-  "version": "0.2.28",
+  "version": "0.2.29",
   "firmware_url": "https://raw.githubusercontent.com/userkai14122001/WordClockV2/main/firmware/firmware.bin",
-  "notes": "USB-Flash-Stabilitaet verbessert durch espressif32@6.13.0 und robustere Upload-Toolchain"
+  "notes": "Fix: SPIFFS nicht mehr auto-formatieren, SSID-Fallback auf Backup robuster, WiFi-Init-Reset vor begin() - verhindert Setup-Mode-Schlaufe nach OTA-Upgrade von IDF4 auf IDF5"
 }
