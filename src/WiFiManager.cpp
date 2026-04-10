@@ -73,10 +73,9 @@ static bool parseBoundedUInt(const String& raw, uint32_t minVal, uint32_t maxVal
 }
 
 static void sendJsonDocument(WebServer& server, int httpCode, const JsonDocument& doc) {
-    server.setContentLength(CONTENT_LENGTH_UNKNOWN);
-    server.send(httpCode, "application/json", "");
-    WiFiClient client = server.client();
-    serializeJson(doc, client);
+    String payload;
+    serializeJson(doc, payload);
+    server.send(httpCode, "application/json", payload);
 }
 
 static void sendApiError(WebServer& server, int httpCode, const char* code, const char* message) {
@@ -645,10 +644,9 @@ void WiFiManager::handleScan() {
     WiFi.scanDelete();
     WiFi.scanNetworks(true);
 
-    server.setContentLength(CONTENT_LENGTH_UNKNOWN);
-    server.send(200, "application/json", "");
-    WiFiClient client = server.client();
-    serializeJson(arr, client);
+    String payload;
+    serializeJson(arr, payload);
+    server.send(200, "application/json", payload);
 }
 
 void WiFiManager::handleSave() {
@@ -817,7 +815,9 @@ void WiFiManager::handleStatus() {
     const uint8_t stateDensity = stateManager.getDensity();
     const uint16_t stateTransitionMs = stateManager.getTransitionMs();
 
-    DynamicJsonDocument doc(4096);
+    // Matrix: 10 rows x 11 cols = 110 hex strings (~16 bytes/node in ArduinoJson 6) plus
+    // ~40 scalar fields and string storage. 6144 bytes gives safe headroom.
+    DynamicJsonDocument doc(6144);
     doc["state"] = statePower ? "ON" : "OFF";
     doc["effect"] = stateEffect;
     doc["brightness"] = stateBrightness;
