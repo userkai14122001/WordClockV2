@@ -6,6 +6,7 @@
 #include "RTCManager.h"
 #include "SystemControl.h"
 #include "ota_https_update.h"
+#include <Preferences.h>
 
 // Effect tuning parameters defined in main.cpp
 extern uint8_t  effectSpeed;
@@ -22,15 +23,52 @@ static inline void waitMs(uint32_t ms) {
 }
 
 static String buildConnectClientId(const String& baseId) {
+    // baseId is already made unique via MAC suffix during initialization.
+    return baseId;
+}
+
+static String getMacToken() {
     String mac = WiFi.macAddress();
     mac.replace(":", "");
     mac.toLowerCase();
 
-    if (mac.length() >= 6) {
-        String suffix = mac.substring(mac.length() - 6);
-        return baseId + "-" + suffix;
+    if (mac.length() == 12) {
+        return mac;
     }
-    return baseId;
+    return "000000000000";
+}
+
+static String getMacSuffix6() {
+    String mac = getMacToken();
+    return mac.substring(mac.length() - 6);
+}
+
+static String loadOrCreateEasterEggName() {
+    static const char* kNames[] = {
+        "Peter", "Paula", "Nemo", "Mila", "Otto", "Luna", "Momo", "Kira",
+        "Nova", "Rico", "Ava", "Theo", "Pico", "Berta", "Susi", "Hugo"
+    };
+    static const size_t kNameCount = sizeof(kNames) / sizeof(kNames[0]);
+
+    Preferences prefs;
+    if (!prefs.begin("device", false)) {
+        return "WordClock";
+    }
+
+    String name = prefs.getString("clock_name", "");
+    name.trim();
+    if (name.isEmpty()) {
+        uint32_t rnd = (uint32_t)esp_random();
+        size_t idx = (size_t)(rnd % kNameCount);
+        name = String(kNames[idx]);
+        prefs.putString("clock_name", name);
+    }
+    prefs.end();
+    return name;
+}
+
+static String buildDiscoveryConfigTopic(const char* component, const String& objectId) {
+    return String("homeassistant/") + component + "/" + objectId + "/config";
 }
 
 static const char* mqttStateText(int state) {
@@ -78,6 +116,37 @@ MQTTManager::MQTTManager(WiFiClient& wifi_client, const String& device_id)
             last_telemetry_publish(0),
             last_connect_ms(0),
             reconnect_failures(0) {
+            const String macSuffix = getMacSuffix6();
+            const String stableId = String("wordclock_") + macSuffix;
+            const String easterName = loadOrCreateEasterEggName();
+
+            this->device_id = stableId;
+            this->device_name = easterName + " " + macSuffix;
+
+            const String baseTopic = stableId;
+            command_topic = baseTopic + "/set";
+            state_topic = baseTopic + "/state";
+            discover_topic = buildDiscoveryConfigTopic("light", stableId);
+            availability_topic = baseTopic + "/availability";
+            uptime_topic = baseTopic + "/uptime";
+            rssi_topic = baseTopic + "/rssi";
+            ip_topic = baseTopic + "/ip";
+            mqtt_state_topic = baseTopic + "/mqtt_state";
+            version_topic = baseTopic + "/version";
+            reboot_command_topic = baseTopic + "/reboot/set";
+            speed_command_topic = baseTopic + "/speed/set";
+            speed_state_topic = baseTopic + "/speed/state";
+            intensity_command_topic = baseTopic + "/intensity/set";
+            intensity_state_topic = baseTopic + "/intensity/state";
+            density_command_topic = baseTopic + "/density/set";
+            density_state_topic = baseTopic + "/density/state";
+            transition_command_topic = baseTopic + "/transition/set";
+            transition_state_topic = baseTopic + "/transition/state";
+            tuning_reset_command_topic = baseTopic + "/tuning_reset/set";
+            rtc_temp_topic = baseTopic + "/rtc/temperature";
+            rtc_battery_warning_topic = baseTopic + "/rtc/battery_warning";
+            ota_check_command_topic = baseTopic + "/ota_check/set";
+
     mqtt.setBufferSize(2048);  // Discovery-Payload kann ~1100 Bytes gross sein, Default wäre nur 256
     mqtt.setCallback([this](char* topic, byte* payload, unsigned int length) {
         String msg;
@@ -279,7 +348,7 @@ void MQTTManager::publishDiscovery() {
     }
 
     DynamicJsonDocument doc(2048);
-    doc["name"]                  = "WordClock";
+    doc["name"]                  = device_name;
     doc["unique_id"]             = device_id;
     doc["schema"]                = "json";
     doc["command_topic"]         = command_topic;
@@ -315,7 +384,7 @@ void MQTTManager::publishDiscovery() {
     JsonObject device = doc.createNestedObject("device");
     JsonArray identifiers = device.createNestedArray("identifiers");
     identifiers.add(device_id);
-    device["name"]         = "WordClock";
+    device["name"]         = device_name;
     device["model"]        = "Seeed XIAO ESP32-C3";
     device["manufacturer"] = "Custom";
 
@@ -347,14 +416,15 @@ void MQTTManager::publishDiagnosticsDiscovery() {
         JsonObject dev = doc.createNestedObject("device");
         JsonArray ids = dev.createNestedArray("identifiers");
         ids.add(device_id);
-        dev["name"] = "WordClock";
+        dev["name"] = device_name;
         dev["model"] = "Seeed XIAO ESP32-C3";
         dev["manufacturer"] = "Custom";
     };
 
     DynamicJsonDocument uptimeDoc(512);
-    uptimeDoc["name"] = "WordClock Uptime";
-    uptimeDoc["object_id"] = "wordclock_uptime";
+    const String uptimeObjectId = device_id + "_uptime";
+    uptimeDoc["name"] = device_name + " Uptime";
+    uptimeDoc["object_id"] = uptimeObjectId;
     uptimeDoc["unique_id"] = device_id + "_uptime";
     uptimeDoc["state_topic"] = uptime_topic;
     uptimeDoc["availability_topic"] = availability_topic;
@@ -368,11 +438,12 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     attachDevice(uptimeDoc);
     String uptimeCfg;
     serializeJson(uptimeDoc, uptimeCfg);
-    mqtt.publish("homeassistant/sensor/wordclock_uptime/config", uptimeCfg.c_str(), true);
+    mqtt.publish(buildDiscoveryConfigTopic("sensor", uptimeObjectId).c_str(), uptimeCfg.c_str(), true);
 
     DynamicJsonDocument rssiDoc(512);
-    rssiDoc["name"] = "WordClock RSSI";
-    rssiDoc["object_id"] = "wordclock_rssi";
+    const String rssiObjectId = device_id + "_rssi";
+    rssiDoc["name"] = device_name + " RSSI";
+    rssiDoc["object_id"] = rssiObjectId;
     rssiDoc["unique_id"] = device_id + "_rssi";
     rssiDoc["state_topic"] = rssi_topic;
     rssiDoc["availability_topic"] = availability_topic;
@@ -386,11 +457,12 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     attachDevice(rssiDoc);
     String rssiCfg;
     serializeJson(rssiDoc, rssiCfg);
-    mqtt.publish("homeassistant/sensor/wordclock_rssi/config", rssiCfg.c_str(), true);
+    mqtt.publish(buildDiscoveryConfigTopic("sensor", rssiObjectId).c_str(), rssiCfg.c_str(), true);
 
     DynamicJsonDocument ipDoc(512);
-    ipDoc["name"] = "WordClock IP";
-    ipDoc["object_id"] = "wordclock_ip";
+    const String ipObjectId = device_id + "_ip";
+    ipDoc["name"] = device_name + " IP";
+    ipDoc["object_id"] = ipObjectId;
     ipDoc["unique_id"] = device_id + "_ip";
     ipDoc["state_topic"] = ip_topic;
     ipDoc["availability_topic"] = availability_topic;
@@ -401,11 +473,12 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     attachDevice(ipDoc);
     String ipCfg;
     serializeJson(ipDoc, ipCfg);
-    mqtt.publish("homeassistant/sensor/wordclock_ip/config", ipCfg.c_str(), true);
+    mqtt.publish(buildDiscoveryConfigTopic("sensor", ipObjectId).c_str(), ipCfg.c_str(), true);
 
     DynamicJsonDocument versionDoc(512);
-    versionDoc["name"] = "WordClock Version";
-    versionDoc["object_id"] = "wordclock_version";
+    const String versionObjectId = device_id + "_version";
+    versionDoc["name"] = device_name + " Version";
+    versionDoc["object_id"] = versionObjectId;
     versionDoc["unique_id"] = device_id + "_version";
     versionDoc["state_topic"] = version_topic;
     versionDoc["availability_topic"] = availability_topic;
@@ -416,12 +489,13 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     attachDevice(versionDoc);
     String versionCfg;
     serializeJson(versionDoc, versionCfg);
-    mqtt.publish("homeassistant/sensor/wordclock_version/config", versionCfg.c_str(), true);
+    mqtt.publish(buildDiscoveryConfigTopic("sensor", versionObjectId).c_str(), versionCfg.c_str(), true);
 
     // --- Update: Check-Button ---
     DynamicJsonDocument otaCheckDoc(512);
-    otaCheckDoc["name"] = "WordClock Update pr\u00fcfen";
-    otaCheckDoc["object_id"] = "wordclock_update_check";
+    const String otaCheckObjectId = device_id + "_update_check";
+    otaCheckDoc["name"] = device_name + " Update pr\u00fcfen";
+    otaCheckDoc["object_id"] = otaCheckObjectId;
     otaCheckDoc["unique_id"] = device_id + "_ota_check";
     otaCheckDoc["command_topic"] = ota_check_command_topic;
     otaCheckDoc["payload_press"] = "CHECK";
@@ -431,11 +505,12 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     attachDevice(otaCheckDoc);
     String otaCheckCfg;
     serializeJson(otaCheckDoc, otaCheckCfg);
-    mqtt.publish("homeassistant/button/wordclock_ota_check/config", otaCheckCfg.c_str(), true);
+    mqtt.publish(buildDiscoveryConfigTopic("button", otaCheckObjectId).c_str(), otaCheckCfg.c_str(), true);
 
     DynamicJsonDocument mqttStateDoc(512);
-    mqttStateDoc["name"] = "WordClock MQTT State";
-    mqttStateDoc["object_id"] = "wordclock_mqtt_state";
+    const String mqttStateObjectId = device_id + "_mqtt_state";
+    mqttStateDoc["name"] = device_name + " MQTT State";
+    mqttStateDoc["object_id"] = mqttStateObjectId;
     mqttStateDoc["unique_id"] = device_id + "_mqtt_state";
     mqttStateDoc["state_topic"] = mqtt_state_topic;
     mqttStateDoc["availability_topic"] = availability_topic;
@@ -446,11 +521,12 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     attachDevice(mqttStateDoc);
     String mqttStateCfg;
     serializeJson(mqttStateDoc, mqttStateCfg);
-    mqtt.publish("homeassistant/sensor/wordclock_mqtt_state/config", mqttStateCfg.c_str(), true);
+    mqtt.publish(buildDiscoveryConfigTopic("sensor", mqttStateObjectId).c_str(), mqttStateCfg.c_str(), true);
 
     DynamicJsonDocument rebootDoc(512);
-    rebootDoc["name"] = "WordClock Reboot";
-    rebootDoc["object_id"] = "wordclock_reboot";
+    const String rebootObjectId = device_id + "_reboot";
+    rebootDoc["name"] = device_name + " Reboot";
+    rebootDoc["object_id"] = rebootObjectId;
     rebootDoc["unique_id"] = device_id + "_reboot";
     rebootDoc["command_topic"] = reboot_command_topic;
     rebootDoc["payload_press"] = "REBOOT";
@@ -459,12 +535,13 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     attachDevice(rebootDoc);
     String rebootCfg;
     serializeJson(rebootDoc, rebootCfg);
-    mqtt.publish("homeassistant/button/wordclock_reboot/config", rebootCfg.c_str(), true);
+    mqtt.publish(buildDiscoveryConfigTopic("button", rebootObjectId).c_str(), rebootCfg.c_str(), true);
 
     // --- RTC Temperatur ---
     DynamicJsonDocument rtcTempDoc(512);
-    rtcTempDoc["name"] = "WordClock RTC Temperatur";
-    rtcTempDoc["object_id"] = "wordclock_rtc_temp";
+    const String rtcTempObjectId = device_id + "_rtc_temp";
+    rtcTempDoc["name"] = device_name + " RTC Temperatur";
+    rtcTempDoc["object_id"] = rtcTempObjectId;
     rtcTempDoc["unique_id"] = device_id + "_rtc_temp";
     rtcTempDoc["state_topic"] = rtc_temp_topic;
     rtcTempDoc["availability_topic"] = availability_topic;
@@ -478,12 +555,13 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     attachDevice(rtcTempDoc);
     String rtcTempCfg;
     serializeJson(rtcTempDoc, rtcTempCfg);
-    mqtt.publish("homeassistant/sensor/wordclock_rtc_temp/config", rtcTempCfg.c_str(), true);
+    mqtt.publish(buildDiscoveryConfigTopic("sensor", rtcTempObjectId).c_str(), rtcTempCfg.c_str(), true);
 
     // --- RTC Batterie-Warnung ---
     DynamicJsonDocument rtcBatDoc(512);
-    rtcBatDoc["name"] = "WordClock RTC Batterie";
-    rtcBatDoc["object_id"] = "wordclock_rtc_battery";
+    const String rtcBatObjectId = device_id + "_rtc_battery";
+    rtcBatDoc["name"] = device_name + " RTC Batterie";
+    rtcBatDoc["object_id"] = rtcBatObjectId;
     rtcBatDoc["unique_id"] = device_id + "_rtc_battery";
     rtcBatDoc["state_topic"] = rtc_battery_warning_topic;
     rtcBatDoc["availability_topic"] = availability_topic;
@@ -497,7 +575,7 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     attachDevice(rtcBatDoc);
     String rtcBatCfg;
     serializeJson(rtcBatDoc, rtcBatCfg);
-    mqtt.publish("homeassistant/binary_sensor/wordclock_rtc_battery/config", rtcBatCfg.c_str(), true);
+    mqtt.publish(buildDiscoveryConfigTopic("binary_sensor", rtcBatObjectId).c_str(), rtcBatCfg.c_str(), true);
 
     DebugManager::println(DebugCategory::MQTT, "MQTTManager: Informationen discovery published");
 }
@@ -509,15 +587,16 @@ void MQTTManager::publishTuningDiscovery() {
         JsonObject dev = doc.createNestedObject("device");
         JsonArray ids = dev.createNestedArray("identifiers");
         ids.add(device_id);
-        dev["name"] = "WordClock";
+        dev["name"] = device_name;
         dev["model"] = "Seeed XIAO ESP32-C3";
         dev["manufacturer"] = "Custom";
     };
 
     // --- Speed ---
     DynamicJsonDocument speedDoc(512);
-    speedDoc["name"] = "WordClock Geschwindigkeit";
-    speedDoc["object_id"] = "wordclock_geschwindigkeit";
+    const String speedObjectId = device_id + "_geschwindigkeit";
+    speedDoc["name"] = device_name + " Geschwindigkeit";
+    speedDoc["object_id"] = speedObjectId;
     speedDoc["unique_id"] = device_id + "_speed";
     speedDoc["command_topic"] = speed_command_topic;
     speedDoc["state_topic"] = speed_state_topic;
@@ -531,12 +610,13 @@ void MQTTManager::publishTuningDiscovery() {
     attachDevice(speedDoc);
     String speedCfg;
     serializeJson(speedDoc, speedCfg);
-    mqtt.publish("homeassistant/number/wordclock_speed/config", speedCfg.c_str(), true);
+    mqtt.publish(buildDiscoveryConfigTopic("number", speedObjectId).c_str(), speedCfg.c_str(), true);
 
     // --- Intensity ---
     DynamicJsonDocument intDoc(512);
-    intDoc["name"] = "WordClock Intensit\u00e4t";
-    intDoc["object_id"] = "wordclock_intensitaet";
+    const String intensityObjectId = device_id + "_intensitaet";
+    intDoc["name"] = device_name + " Intensit\u00e4t";
+    intDoc["object_id"] = intensityObjectId;
     intDoc["unique_id"] = device_id + "_intensity";
     intDoc["command_topic"] = intensity_command_topic;
     intDoc["state_topic"] = intensity_state_topic;
@@ -550,12 +630,13 @@ void MQTTManager::publishTuningDiscovery() {
     attachDevice(intDoc);
     String intCfg;
     serializeJson(intDoc, intCfg);
-    mqtt.publish("homeassistant/number/wordclock_intensity/config", intCfg.c_str(), true);
+    mqtt.publish(buildDiscoveryConfigTopic("number", intensityObjectId).c_str(), intCfg.c_str(), true);
 
     // --- Density ---
     DynamicJsonDocument denDoc(512);
-    denDoc["name"] = "WordClock Objekt-Dichte";
-    denDoc["object_id"] = "wordclock_dichte";
+    const String densityObjectId = device_id + "_dichte";
+    denDoc["name"] = device_name + " Objekt-Dichte";
+    denDoc["object_id"] = densityObjectId;
     denDoc["unique_id"] = device_id + "_density";
     denDoc["command_topic"] = density_command_topic;
     denDoc["state_topic"] = density_state_topic;
@@ -569,12 +650,13 @@ void MQTTManager::publishTuningDiscovery() {
     attachDevice(denDoc);
     String denCfg;
     serializeJson(denDoc, denCfg);
-    mqtt.publish("homeassistant/number/wordclock_density/config", denCfg.c_str(), true);
+    mqtt.publish(buildDiscoveryConfigTopic("number", densityObjectId).c_str(), denCfg.c_str(), true);
 
     // --- Transition ---
     DynamicJsonDocument transDoc(512);
-    transDoc["name"] = "WordClock \u00dcbergang";
-    transDoc["object_id"] = "wordclock_uebergang";
+    const String transitionObjectId = device_id + "_uebergang";
+    transDoc["name"] = device_name + " \u00dcbergang";
+    transDoc["object_id"] = transitionObjectId;
     transDoc["unique_id"] = device_id + "_transition";
     transDoc["command_topic"] = transition_command_topic;
     transDoc["state_topic"] = transition_state_topic;
@@ -588,12 +670,13 @@ void MQTTManager::publishTuningDiscovery() {
     attachDevice(transDoc);
     String transCfg;
     serializeJson(transDoc, transCfg);
-    mqtt.publish("homeassistant/number/wordclock_transition/config", transCfg.c_str(), true);
+    mqtt.publish(buildDiscoveryConfigTopic("number", transitionObjectId).c_str(), transCfg.c_str(), true);
 
     // --- Tuning Reset Button ---
     DynamicJsonDocument resetDoc(512);
-    resetDoc["name"] = "WordClock Default";
-    resetDoc["object_id"] = "wordclock_default";
+    const String resetObjectId = device_id + "_default";
+    resetDoc["name"] = device_name + " Default";
+    resetDoc["object_id"] = resetObjectId;
     resetDoc["unique_id"] = device_id + "_tuning_reset";
     resetDoc["command_topic"] = tuning_reset_command_topic;
     resetDoc["payload_press"] = "RESET";
@@ -603,12 +686,12 @@ void MQTTManager::publishTuningDiscovery() {
     attachDevice(resetDoc);
     String resetCfg;
     serializeJson(resetDoc, resetCfg);
-    mqtt.publish("homeassistant/button/wordclock_tuning_reset/config", resetCfg.c_str(), true);
+    mqtt.publish(buildDiscoveryConfigTopic("button", resetObjectId).c_str(), resetCfg.c_str(), true);
 
     // Entfernte HA-Entities aktiv aus Discovery loeschen (retained empty payload).
-    mqtt.publish("homeassistant/text/wordclock_service/config", "", true);
-    mqtt.publish("homeassistant/select/wordclock_palette/config", "", true);
-    mqtt.publish("homeassistant/number/wordclock_hueshift/config", "", true);
+    mqtt.publish(buildDiscoveryConfigTopic("text", "wordclock_service").c_str(), "", true);
+    mqtt.publish(buildDiscoveryConfigTopic("select", "wordclock_palette").c_str(), "", true);
+    mqtt.publish(buildDiscoveryConfigTopic("number", "wordclock_hueshift").c_str(), "", true);
 
     DebugManager::println(DebugCategory::MQTT, "MQTTManager: Tuning discovery published");
 }

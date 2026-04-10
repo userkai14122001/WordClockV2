@@ -46,12 +46,14 @@ public:
     String getStateTopic() const { return state_topic; }
     String getDiscoverTopic() const { return discover_topic; }
     String getDeviceId() const { return device_id; }
+    String getDeviceName() const { return device_name; }
     
 private:
     PubSubClient mqtt;
     WiFiClient& wifi_client;
     
     String device_id;
+    String device_name;
     String server;
     int port;
     String user;

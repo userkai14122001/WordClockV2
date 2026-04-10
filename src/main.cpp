@@ -859,7 +859,9 @@ static void updateBootSequence() {
         case BootPhase::NetInit: {
             logBootSection(F("NTP / OTA"));
             timeManager.setTimezone("CET-1CEST,M3.5.0,M10.5.0/3");
-            ArduinoOTA.setHostname("WordClock");
+            String otaHost = mqttManager.getDeviceId();
+            otaHost.replace("_", "-");
+            ArduinoOTA.setHostname(otaHost.c_str());
             ArduinoOTA.setPassword("update123");
             ArduinoOTA.begin();
 
