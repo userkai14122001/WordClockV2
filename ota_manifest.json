@@ -1,11 +1,11 @@
 ﻿{
   "channels": {
     "stable": {
-      "version": "0.2.44",
-      "firmware_url": "https://github.com/userkai14122001/WordClockV2/releases/download/v0.2.44/firmware.bin",
-      "sha256": "0dfca6c02e1cf09a58dea98119473cbaf45459db10a7f42f22681b0200c18edc",
+      "version": "0.2.45",
+      "firmware_url": "https://github.com/userkai14122001/WordClockV2/releases/download/v0.2.45/firmware.bin",
+      "sha256": "e612ea92bdd6111ee6a998ffddf0cff48852b066220cece6eedbd946e7b3b444",
       "status": "ready",
-      "notes": "Hotfix OTA: Build-Version korrigiert, Update-Schleife beendet; langsame Clock-Morph-Uebergaenge bleiben aktiv"
+      "notes": "Automated release 0.2.45"
     },
     "beta": {
       "version": "0.2.44",
