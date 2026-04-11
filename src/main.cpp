@@ -36,6 +36,7 @@ static void syncRtcFromNtpIfNeeded();
 static void logBootSection(const __FlashStringHelper* title);
 static void configureMqttCallbacks();
 static void updateBootSequence();
+static bool shouldShowMqttMinuteWarning(unsigned long nowMs);
 static void renderAfterControlChange(bool changed, bool effectChanged, bool colorAppliedNow);
 static void publishAfterControlChange(bool changed, bool publishState);
 void applyControlUpdate(
@@ -86,14 +87,21 @@ static void logBootSection(const __FlashStringHelper* title) {
     DebugManager::println(DebugCategory::Boot, F("--------------------------------------------------"));
 }
 
-static void applyRtcMinuteWarningOverlay(unsigned long nowMs) {
-    // Triangular pulse (about 0.83 Hz): 24..255 red brightness.
+static void applyMinutePulseOverlay(unsigned long nowMs,
+                                    unsigned long phaseStartMs,
+                                    uint8_t baseR,
+                                    uint8_t baseG,
+                                    uint8_t baseB) {
+    // Triangular pulse (about 0.83 Hz): 24..255 overlay brightness.
     const unsigned long periodMs = 1200UL;
     const unsigned long halfMs = periodMs / 2UL;
-    const unsigned long phaseMs = nowMs % periodMs;
+    const unsigned long phaseMs = (nowMs - phaseStartMs) % periodMs;
     const unsigned long ramp = (phaseMs <= halfMs) ? phaseMs : (periodMs - phaseMs);
-    const uint8_t red = (uint8_t)(24UL + ((ramp * 231UL) / halfMs));
-    const uint32_t warnColor = makeColorWithBrightness(red, 0, 0);
+    const uint8_t level = (uint8_t)(24UL + ((ramp * 231UL) / halfMs));
+    const uint8_t red = (uint8_t)(((uint16_t)baseR * level) / 255U);
+    const uint8_t green = (uint8_t)(((uint16_t)baseG * level) / 255U);
+    const uint8_t blue = (uint8_t)(((uint16_t)baseB * level) / 255U);
+    const uint32_t warnColor = makeColorWithBrightness(red, green, blue);
 
     const char* minuteKeys[] = {"M1", "M2", "M3", "M4"};
     for (size_t i = 0; i < 4; i++) {
@@ -160,6 +168,8 @@ static unsigned long gLastLoopHeartbeatMs = 0;
 static uint32_t gLastEffectUpdateUs = 0;
 static uint32_t gMaxEffectUpdateUsWindow = 0;
 static uint32_t gEffectUpdateSamples = 0;
+static unsigned long gMqttWarnBurstStartMs = 0;
+static unsigned long gMqttWarnNextBurstAtMs = 0;
 
 static constexpr unsigned long MQTT_QUEUE_WARN_MS = 75;
 static constexpr uint32_t MQTT_APPLY_WARN_US = 40000;
@@ -167,6 +177,9 @@ static constexpr uint32_t MQTT_PUBLISH_WARN_US = 30000;
 static constexpr unsigned long MAIN_LOOP_WARN_MS = 50;
 static constexpr uint32_t EFFECT_UPDATE_WARN_US = 12000;
 static constexpr unsigned long LOOP_HEARTBEAT_MS = 2000;
+static constexpr unsigned long MQTT_WARN_BURST_REPEAT_MS = 3UL * 60UL * 1000UL;
+static constexpr unsigned long MQTT_WARN_PULSE_PERIOD_MS = 1200UL;
+static constexpr uint8_t MQTT_WARN_PULSES_PER_BURST = 5;
 static constexpr unsigned long BOOT_SERIAL_WAIT_MS = 3000UL;
 static constexpr unsigned long OTA_FIRST_CHECK_DELAY_MS = 30UL * 1000UL;           // 30 s after boot
 static constexpr unsigned long OTA_UPLOAD_WINDOW_MS = 60UL * 60UL * 1000UL;        // 1 h after boot
@@ -432,6 +445,46 @@ static void publishAfterControlChange(bool changed, bool publishState) {
     if (publishState && changed && g_mqttManager) {
         g_mqttManager->publishState(powerState, currentEffect, color, brightness);
     }
+}
+
+static bool shouldShowMqttMinuteWarning(unsigned long nowMs) {
+    const bool mqttConfigured = !wifiManager.getMQTTServer().isEmpty();
+    const bool warningCondition = powerState &&
+                                  !gBootActive &&
+                                  !wifiManager.isSetupMode() &&
+                                  WiFi.isConnected() &&
+                                  mqttConfigured &&
+                                  !mqttManager.isConnected();
+
+    if (!warningCondition) {
+        gMqttWarnBurstStartMs = 0;
+        gMqttWarnNextBurstAtMs = 0;
+        return false;
+    }
+
+    if (gMqttWarnBurstStartMs == 0 && gMqttWarnNextBurstAtMs == 0) {
+        gMqttWarnBurstStartMs = nowMs;
+        gMqttWarnNextBurstAtMs = nowMs + MQTT_WARN_BURST_REPEAT_MS;
+        DebugManager::println(DebugCategory::MQTT,
+                              "[MQTT][WARN] broker configured but disconnected -> minute pulse warning active");
+    }
+
+    if (gMqttWarnBurstStartMs == 0 && nowMs >= gMqttWarnNextBurstAtMs) {
+        gMqttWarnBurstStartMs = nowMs;
+        gMqttWarnNextBurstAtMs = nowMs + MQTT_WARN_BURST_REPEAT_MS;
+    }
+
+    if (gMqttWarnBurstStartMs == 0) {
+        return false;
+    }
+
+    const unsigned long burstDurationMs = MQTT_WARN_PULSE_PERIOD_MS * MQTT_WARN_PULSES_PER_BURST;
+    if (nowMs - gMqttWarnBurstStartMs >= burstDurationMs) {
+        gMqttWarnBurstStartMs = 0;
+        return false;
+    }
+
+    return true;
 }
 
 static ControlUpdate parseMqttControlUpdate(const DynamicJsonDocument& doc) {
@@ -983,6 +1036,9 @@ void loop() {
             strip->show();
         } else {
             handleCurrentEffect();
+            if (shouldShowMqttMinuteWarning(_nowMs)) {
+                applyMinutePulseOverlay(_nowMs, gMqttWarnBurstStartMs, 255, 96, 0);
+            }
         }
     }
 
@@ -1141,7 +1197,7 @@ void handleCurrentEffect() {
         // RTC battery/module warning: pulse minute indicators in red.
         const bool rtcMinuteWarning = (!rtcManager.isAvailable()) || rtcManager.hasBatteryWarning();
         if (displayMinute >= 0 && rtcMinuteWarning) {
-            applyRtcMinuteWarningOverlay(nowMs);
+            applyMinutePulseOverlay(nowMs, 0, 255, 0, 0);
         } else if (displayMinute >= 0) {
             // Normal clock display already showed via showTime()
             // Don't call strip->show() again - it's already been called
