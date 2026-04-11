@@ -167,6 +167,7 @@ static constexpr uint32_t MQTT_PUBLISH_WARN_US = 30000;
 static constexpr unsigned long MAIN_LOOP_WARN_MS = 50;
 static constexpr uint32_t EFFECT_UPDATE_WARN_US = 12000;
 static constexpr unsigned long LOOP_HEARTBEAT_MS = 2000;
+static constexpr unsigned long BOOT_SERIAL_WAIT_MS = 3000UL;
 static constexpr unsigned long OTA_FIRST_CHECK_DELAY_MS = 30UL * 1000UL;           // 30 s after boot
 static constexpr unsigned long OTA_UPLOAD_WINDOW_MS = 60UL * 60UL * 1000UL;        // 1 h after boot
 
@@ -371,8 +372,10 @@ void transitionToEffect(const String& newEffect) {
     renderEffectNow(newEffect);
     captureFrame(toFrame);
 
-    const uint8_t steps = 14;
-    const uint16_t frameDelayMs = 16;
+    const uint16_t transitionDurationMs =
+        constrain(transitionMs, ControlConfig::TRANSITION_MIN_MS, ControlConfig::TRANSITION_MAX_MS);
+    const uint8_t steps = (uint8_t)constrain((int)(transitionDurationMs / 16), 8, 48);
+    const uint16_t frameDelayMs = max((uint16_t)8, (uint16_t)(transitionDurationMs / steps));
     ledMatrix.setBrightness(targetBrightness);
     for (uint8_t s = 1; s <= steps; s++) {
         float frac = (float)s / (float)steps;
@@ -522,9 +525,9 @@ void applyControlUpdate(
 void setup() {
     Serial.begin(115200);
     // Native USB-CDC: erst warten bis Host-Monitor verbunden, DANN drucken
-    // 15s Timeout damit nach Reset genug Zeit zum Reconnect bleibt
+    // Kurzes Timeout fuer schnelleren Start ohne USB-Host.
     unsigned long t0 = millis();
-    while (!Serial && (millis() - t0) < 15000) waitMs(10);
+    while (!Serial && (millis() - t0) < BOOT_SERIAL_WAIT_MS) waitMs(10);
     waitMs(200); // USB-Stack des Host stabilisieren lassen
 
     gBootSerialReplayUntilMs = millis() + 30000;

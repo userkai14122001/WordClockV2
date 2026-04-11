@@ -304,9 +304,10 @@ void showTime(int hour, int minute) {
         return;
     }
 
-    const uint16_t morphDurationMs = transitionMs;
-    const uint8_t steps = 30;
-    const uint16_t frameDelayMs = max((uint16_t)10, (uint16_t)(morphDurationMs / steps));
+    // Keep clock minute morph independent from transition tuning to avoid blocking control traffic.
+    const uint16_t morphDurationMs = 220;
+    const uint8_t steps = 16;
+    const uint16_t frameDelayMs = max((uint16_t)8, (uint16_t)(morphDurationMs / steps));
 
     for (uint8_t s = 1; s <= steps; s++) {
         uint8_t morphMask[LED_PIXEL_AMOUNT];

@@ -2,10 +2,6 @@
 
 ESP32-C3-basierte Wortuhr mit 11×10 NeoPixel-Matrix, DS3231-RTC, WiFi-Setup-Portal, MQTT/Home-Assistant-Integration und mehreren Animationseffekten.
 
-Release process and OTA checklist:
-- [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)
-- [TEST_RELEASE_v0.2.47.md](TEST_RELEASE_v0.2.47.md)
-
 ---
 
 ## Hardware
@@ -92,7 +88,9 @@ WordClock/
 | Environment | Zweck |
 |---|---|
 | `seeed_xiao_esp32c3_usb` | USB-Upload (Standard) |
-| `seeed_xiao_esp32c3_ota` | OTA-Upload über WLAN |
+| `seeed_xiao_esp32c3_ota` | OTA-Upload über WLAN (stable) |
+| `seeed_xiao_esp32c3_usb_beta` | USB-Upload für Beta-Testing |
+| `seeed_xiao_esp32c3_ota_beta` | OTA-Upload für Beta-Testing |
 
 ```bash
 pio run                                            # kompilieren
@@ -135,8 +133,9 @@ Alle Eingaben laufen über denselben Update-Pfad:
 
 ### Aktuelle Optimierungen
 
+- **Clock-Morph-Entkopplung:** Clock-Minute-Morph läuft mit fester kurzer Dauer (220 ms), unabhängig vom `transition`-Parameter. Dies verhindert MQTT/Steuer-Blockaden.
+- **Transition nur für Effekte:** Der `transition`-Parameter (`uebergang`) steuert ausschließlich Effektwechsel-Animationen, nicht die Uhrzeit-Übergänge.
 - **Clock-Morph-Skip:** Identische Wortmasken lösen keinen erneuten Morph aus, sondern ein direktes Re-Render.
-- **Clock-Morph-Cap:** Morph-Dauer ist auf `CLOCK_MORPH_MAX_MS = 1200 ms` begrenzt, unabhängig vom konfigurierten `transition`-Wert. Verhindert Loop-Blockaden bei hohen Transition-Einstellungen.
 - **MQTT JSON Coalescing:** Rapid-Fire-Updates auf `wordclock/set` werden innerhalb von 60 ms zusammengeführt. Nur der finale Zustand wird angewendet und publiziert.
 - **Debounced Preferences Save:** `StateManager::scheduleSave()` entkoppelt NVS-Schreiboperationen vom MQTT-Callback-Pfad. Schreiben erfolgt frühestens 750 ms nach dem letzten Befehl.
 
@@ -179,7 +178,7 @@ Alle Eingaben laufen über denselben Update-Pfad:
 |---|---|---|
 | `wordclock/speed/set` | 1–100 | Effektgeschwindigkeit |
 | `wordclock/intensity/set` | 1–100 | Effektintensität |
-| `wordclock/transition/set` | 200–10000 ms | Übergangsdauer (Clock-Morph intern auf 1200 ms gecappt) |
+| `wordclock/transition/set` | 200–10000 ms | Effektwechsel-Animationsdauer (beeinflusst Uhrzeit-Morph nicht) |
 | `wordclock/palette/set` | 0–4 | Farbpalette: `Auto`, `Warm`, `Cool`, `Natur`, `Candy` |
 | `wordclock/hueshift/set` | 0–359 | Farbton-Verschiebung |
 
@@ -274,30 +273,41 @@ Alle Kategorien sind zur Laufzeit per Serial ein- und ausschaltbar:
 
 ## GitHub OTA Auto-Update
 
-Die Firmware prueft automatisch auf neue Versionen in GitHub und installiert diese selbststaendig.
+Die Firmware prüft automatisch auf neue Versionen in GitHub und installiert diese selbstständig.
 
 ### Wie es funktioniert
 
-1. Beim Start wartet das Geraet 2 Minuten.
-2. Danach wird `ota_manifest.json` von GitHub geladen.
+1. Nach dem Start wartet das Gerät 30 Sekunden.
+2. Danach wird `ota_manifest.json` von GitHub (stable) oder lokales OTA_CHANNEL (beta) geladen.
 3. `version` im Manifest wird mit der lokal kompilierten `FIRMWARE_VERSION` verglichen.
 4. Wenn `remote > local`, startet HTTPS-OTA mit `firmware_url`.
-5. Danach wird alle 6 Stunden erneut geprueft.
+5. Nach einem erfolgreichen Update werden Checks regelmäßig wiederholt (Standard: täglich).
 
-Manifest-Datei im Repo-Root:
+### Manifest-Format
 
 ```json
 {
-    "version": "0.1.0",
-    "firmware_url": "https://github.com/userkai14122001/WordClockV2/releases/latest/download/firmware.bin"
+    "channels": {
+        "stable": {
+            "version": "0.3.2",
+            "firmware_url": "https://github.com/userkai14122001/WordClockV2/releases/download/v0.3.2/firmware.bin",
+            "sha256": "...",
+            "status": "ready"
+        },
+        "beta": {
+            "version": "0.3.2",
+            "firmware_url": "https://github.com/userkai14122001/WordClockV2/releases/download/v0.3.2/firmware.bin",
+            "sha256": "...",
+            "status": "ready"
+        }
+    }
 }
 ```
 
-### Release-Ablauf
+### OTA-Kanäle
 
-1. Neue Firmware bauen:
-     `pio run`
-2. Firmware-Datei aus `.pio/build/seeed_xiao_esp32c3_usb/firmware.bin` nehmen.
+- **stable:** Regulärer OTA-Kanal für alle Uhren (Standardeinstellung).
+- **beta:** Beta-Kanal für Testuhr (compile `-DOTA_CHANNEL=\"beta\"`).
 3. In GitHub einen Release erstellen und die Datei als Asset exakt `firmware.bin` hochladen.
 4. In `ota_manifest.json` die `version` erhoehen (z. B. `0.1.1`) und commit/push.
 5. In `platformio.ini` `FIRMWARE_VERSION` auf denselben Wert setzen, commit/push.
