@@ -508,7 +508,7 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     DynamicJsonDocument uptimeDoc(512);
     const String uptimeObjectId = "uptime";
     const String uptimeLegacyObjectId = device_id + "_uptime";
-    uptimeDoc["name"] = device_name + " Uptime";
+    uptimeDoc["name"] = "Uptime";
     uptimeDoc["object_id"] = uptimeObjectId;
     uptimeDoc["unique_id"] = device_id + "_uptime";
     uptimeDoc["state_topic"] = uptime_topic;
@@ -528,7 +528,7 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     DynamicJsonDocument rssiDoc(512);
     const String rssiObjectId = "rssi";
     const String rssiLegacyObjectId = device_id + "_rssi";
-    rssiDoc["name"] = device_name + " RSSI";
+    rssiDoc["name"] = "RSSI";
     rssiDoc["object_id"] = rssiObjectId;
     rssiDoc["unique_id"] = device_id + "_rssi";
     rssiDoc["state_topic"] = rssi_topic;
@@ -548,7 +548,7 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     DynamicJsonDocument ipDoc(512);
     const String ipObjectId = "ip";
     const String ipLegacyObjectId = device_id + "_ip";
-    ipDoc["name"] = device_name + " IP";
+    ipDoc["name"] = "IP";
     ipDoc["object_id"] = ipObjectId;
     ipDoc["unique_id"] = device_id + "_ip";
     ipDoc["state_topic"] = ip_topic;
@@ -565,7 +565,7 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     DynamicJsonDocument versionDoc(512);
     const String versionObjectId = "version";
     const String versionLegacyObjectId = device_id + "_version";
-    versionDoc["name"] = device_name + " Version";
+    versionDoc["name"] = "Version";
     versionDoc["object_id"] = versionObjectId;
     versionDoc["unique_id"] = device_id + "_version";
     versionDoc["state_topic"] = version_topic;
@@ -583,7 +583,7 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     DynamicJsonDocument otaCheckDoc(512);
     const String otaCheckObjectId = "update_check";
     const String otaCheckLegacyObjectId = device_id + "_update_check";
-    otaCheckDoc["name"] = device_name + " Update pr\u00fcfen";
+    otaCheckDoc["name"] = "Update pr\u00fcfen";
     otaCheckDoc["object_id"] = otaCheckObjectId;
     otaCheckDoc["unique_id"] = device_id + "_ota_check";
     otaCheckDoc["command_topic"] = ota_check_command_topic;
@@ -599,7 +599,7 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     DynamicJsonDocument mqttStateDoc(512);
     const String mqttStateObjectId = "mqtt_state";
     const String mqttStateLegacyObjectId = device_id + "_mqtt_state";
-    mqttStateDoc["name"] = device_name + " MQTT State";
+    mqttStateDoc["name"] = "MQTT State";
     mqttStateDoc["object_id"] = mqttStateObjectId;
     mqttStateDoc["unique_id"] = device_id + "_mqtt_state";
     mqttStateDoc["state_topic"] = mqtt_state_topic;
@@ -616,7 +616,7 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     DynamicJsonDocument rebootDoc(512);
     const String rebootObjectId = "reboot";
     const String rebootLegacyObjectId = device_id + "_reboot";
-    rebootDoc["name"] = device_name + " Reboot";
+    rebootDoc["name"] = "Reboot";
     rebootDoc["object_id"] = rebootObjectId;
     rebootDoc["unique_id"] = device_id + "_reboot";
     rebootDoc["command_topic"] = reboot_command_topic;
@@ -632,7 +632,7 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     DynamicJsonDocument rtcTempDoc(512);
     const String rtcTempObjectId = "rtc_temp";
     const String rtcTempLegacyObjectId = device_id + "_rtc_temp";
-    rtcTempDoc["name"] = device_name + " RTC Temperatur";
+    rtcTempDoc["name"] = "RTC Temperatur";
     rtcTempDoc["object_id"] = rtcTempObjectId;
     rtcTempDoc["unique_id"] = device_id + "_rtc_temp";
     rtcTempDoc["state_topic"] = rtc_temp_topic;
@@ -653,7 +653,7 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     DynamicJsonDocument rtcBatDoc(512);
     const String rtcBatObjectId = "rtc_battery";
     const String rtcBatLegacyObjectId = device_id + "_rtc_battery";
-    rtcBatDoc["name"] = device_name + " RTC Batterie";
+    rtcBatDoc["name"] = "RTC Batterie";
     rtcBatDoc["object_id"] = rtcBatObjectId;
     rtcBatDoc["unique_id"] = device_id + "_rtc_battery";
     rtcBatDoc["state_topic"] = rtc_battery_warning_topic;
@@ -698,7 +698,7 @@ void MQTTManager::publishTuningDiscovery() {
     DynamicJsonDocument speedDoc(512);
     const String speedObjectId = "geschwindigkeit";
     const String speedLegacyObjectId = device_id + "_geschwindigkeit";
-    speedDoc["name"] = device_name + " Geschwindigkeit";
+    speedDoc["name"] = "Geschwindigkeit";
     speedDoc["object_id"] = speedObjectId;
     speedDoc["unique_id"] = device_id + "_speed";
     speedDoc["command_topic"] = speed_command_topic;
@@ -719,7 +719,7 @@ void MQTTManager::publishTuningDiscovery() {
     DynamicJsonDocument intDoc(512);
     const String intensityObjectId = "intensitaet";
     const String intensityLegacyObjectId = device_id + "_intensitaet";
-    intDoc["name"] = device_name + " Intensit\u00e4t";
+    intDoc["name"] = "Intensit\u00e4t";
     intDoc["object_id"] = intensityObjectId;
     intDoc["unique_id"] = device_id + "_intensity";
     intDoc["command_topic"] = intensity_command_topic;
@@ -740,7 +740,7 @@ void MQTTManager::publishTuningDiscovery() {
     DynamicJsonDocument denDoc(512);
     const String densityObjectId = "dichte";
     const String densityLegacyObjectId = device_id + "_dichte";
-    denDoc["name"] = device_name + " Objekt-Dichte";
+    denDoc["name"] = "Objekt-Dichte";
     denDoc["object_id"] = densityObjectId;
     denDoc["unique_id"] = device_id + "_density";
     denDoc["command_topic"] = density_command_topic;
@@ -761,7 +761,7 @@ void MQTTManager::publishTuningDiscovery() {
     DynamicJsonDocument transDoc(512);
     const String transitionObjectId = "uebergang";
     const String transitionLegacyObjectId = device_id + "_uebergang";
-    transDoc["name"] = device_name + " \u00dcbergang";
+    transDoc["name"] = "\u00dcbergang";
     transDoc["object_id"] = transitionObjectId;
     transDoc["unique_id"] = device_id + "_transition";
     transDoc["command_topic"] = transition_command_topic;
@@ -782,7 +782,7 @@ void MQTTManager::publishTuningDiscovery() {
     DynamicJsonDocument resetDoc(512);
     const String resetObjectId = "default";
     const String resetLegacyObjectId = device_id + "_default";
-    resetDoc["name"] = device_name + " Default";
+    resetDoc["name"] = "Default";
     resetDoc["object_id"] = resetObjectId;
     resetDoc["unique_id"] = device_id + "_tuning_reset";
     resetDoc["command_topic"] = tuning_reset_command_topic;
