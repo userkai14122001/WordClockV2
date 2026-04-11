@@ -130,6 +130,10 @@ static String buildDiscoveryConfigTopic(const char* component, const String& obj
     return String("homeassistant/") + component + "/" + objectId + "/config";
 }
 
+static String buildDiscoveryConfigTopic(const char* component, const String& nodeId, const String& objectId) {
+    return String("homeassistant/") + component + "/" + nodeId + "/" + objectId + "/config";
+}
+
 static const char* mqttStateText(int state) {
     switch (state) {
         case MQTT_CONNECTION_TIMEOUT: return "MQTT_CONNECTION_TIMEOUT";
@@ -492,8 +496,17 @@ void MQTTManager::publishDiagnosticsDiscovery() {
         dev["manufacturer"] = "Custom";
     };
 
+    auto publishEntityDiscovery = [this](const char* component,
+                                         const String& objectId,
+                                         const String& legacyObjectId,
+                                         const String& payload) {
+        mqtt.publish(buildDiscoveryConfigTopic(component, device_id, objectId).c_str(), payload.c_str(), true);
+        mqtt.publish(buildDiscoveryConfigTopic(component, legacyObjectId).c_str(), "", true);
+    };
+
     DynamicJsonDocument uptimeDoc(512);
-    const String uptimeObjectId = device_id + "_uptime";
+    const String uptimeObjectId = "uptime";
+    const String uptimeLegacyObjectId = device_id + "_uptime";
     uptimeDoc["name"] = device_name + " Uptime";
     uptimeDoc["object_id"] = uptimeObjectId;
     uptimeDoc["unique_id"] = device_id + "_uptime";
@@ -509,10 +522,11 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     attachDevice(uptimeDoc);
     String uptimeCfg;
     serializeJson(uptimeDoc, uptimeCfg);
-    mqtt.publish(buildDiscoveryConfigTopic("sensor", uptimeObjectId).c_str(), uptimeCfg.c_str(), true);
+    publishEntityDiscovery("sensor", uptimeObjectId, uptimeLegacyObjectId, uptimeCfg);
 
     DynamicJsonDocument rssiDoc(512);
-    const String rssiObjectId = device_id + "_rssi";
+    const String rssiObjectId = "rssi";
+    const String rssiLegacyObjectId = device_id + "_rssi";
     rssiDoc["name"] = device_name + " RSSI";
     rssiDoc["object_id"] = rssiObjectId;
     rssiDoc["unique_id"] = device_id + "_rssi";
@@ -528,10 +542,11 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     attachDevice(rssiDoc);
     String rssiCfg;
     serializeJson(rssiDoc, rssiCfg);
-    mqtt.publish(buildDiscoveryConfigTopic("sensor", rssiObjectId).c_str(), rssiCfg.c_str(), true);
+    publishEntityDiscovery("sensor", rssiObjectId, rssiLegacyObjectId, rssiCfg);
 
     DynamicJsonDocument ipDoc(512);
-    const String ipObjectId = device_id + "_ip";
+    const String ipObjectId = "ip";
+    const String ipLegacyObjectId = device_id + "_ip";
     ipDoc["name"] = device_name + " IP";
     ipDoc["object_id"] = ipObjectId;
     ipDoc["unique_id"] = device_id + "_ip";
@@ -544,10 +559,11 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     attachDevice(ipDoc);
     String ipCfg;
     serializeJson(ipDoc, ipCfg);
-    mqtt.publish(buildDiscoveryConfigTopic("sensor", ipObjectId).c_str(), ipCfg.c_str(), true);
+    publishEntityDiscovery("sensor", ipObjectId, ipLegacyObjectId, ipCfg);
 
     DynamicJsonDocument versionDoc(512);
-    const String versionObjectId = device_id + "_version";
+    const String versionObjectId = "version";
+    const String versionLegacyObjectId = device_id + "_version";
     versionDoc["name"] = device_name + " Version";
     versionDoc["object_id"] = versionObjectId;
     versionDoc["unique_id"] = device_id + "_version";
@@ -560,11 +576,12 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     attachDevice(versionDoc);
     String versionCfg;
     serializeJson(versionDoc, versionCfg);
-    mqtt.publish(buildDiscoveryConfigTopic("sensor", versionObjectId).c_str(), versionCfg.c_str(), true);
+    publishEntityDiscovery("sensor", versionObjectId, versionLegacyObjectId, versionCfg);
 
     // --- Update: Check-Button ---
     DynamicJsonDocument otaCheckDoc(512);
-    const String otaCheckObjectId = device_id + "_update_check";
+    const String otaCheckObjectId = "update_check";
+    const String otaCheckLegacyObjectId = device_id + "_update_check";
     otaCheckDoc["name"] = device_name + " Update pr\u00fcfen";
     otaCheckDoc["object_id"] = otaCheckObjectId;
     otaCheckDoc["unique_id"] = device_id + "_ota_check";
@@ -576,10 +593,11 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     attachDevice(otaCheckDoc);
     String otaCheckCfg;
     serializeJson(otaCheckDoc, otaCheckCfg);
-    mqtt.publish(buildDiscoveryConfigTopic("button", otaCheckObjectId).c_str(), otaCheckCfg.c_str(), true);
+    publishEntityDiscovery("button", otaCheckObjectId, otaCheckLegacyObjectId, otaCheckCfg);
 
     DynamicJsonDocument mqttStateDoc(512);
-    const String mqttStateObjectId = device_id + "_mqtt_state";
+    const String mqttStateObjectId = "mqtt_state";
+    const String mqttStateLegacyObjectId = device_id + "_mqtt_state";
     mqttStateDoc["name"] = device_name + " MQTT State";
     mqttStateDoc["object_id"] = mqttStateObjectId;
     mqttStateDoc["unique_id"] = device_id + "_mqtt_state";
@@ -592,10 +610,11 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     attachDevice(mqttStateDoc);
     String mqttStateCfg;
     serializeJson(mqttStateDoc, mqttStateCfg);
-    mqtt.publish(buildDiscoveryConfigTopic("sensor", mqttStateObjectId).c_str(), mqttStateCfg.c_str(), true);
+    publishEntityDiscovery("sensor", mqttStateObjectId, mqttStateLegacyObjectId, mqttStateCfg);
 
     DynamicJsonDocument rebootDoc(512);
-    const String rebootObjectId = device_id + "_reboot";
+    const String rebootObjectId = "reboot";
+    const String rebootLegacyObjectId = device_id + "_reboot";
     rebootDoc["name"] = device_name + " Reboot";
     rebootDoc["object_id"] = rebootObjectId;
     rebootDoc["unique_id"] = device_id + "_reboot";
@@ -606,11 +625,12 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     attachDevice(rebootDoc);
     String rebootCfg;
     serializeJson(rebootDoc, rebootCfg);
-    mqtt.publish(buildDiscoveryConfigTopic("button", rebootObjectId).c_str(), rebootCfg.c_str(), true);
+    publishEntityDiscovery("button", rebootObjectId, rebootLegacyObjectId, rebootCfg);
 
     // --- RTC Temperatur ---
     DynamicJsonDocument rtcTempDoc(512);
-    const String rtcTempObjectId = device_id + "_rtc_temp";
+    const String rtcTempObjectId = "rtc_temp";
+    const String rtcTempLegacyObjectId = device_id + "_rtc_temp";
     rtcTempDoc["name"] = device_name + " RTC Temperatur";
     rtcTempDoc["object_id"] = rtcTempObjectId;
     rtcTempDoc["unique_id"] = device_id + "_rtc_temp";
@@ -626,11 +646,12 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     attachDevice(rtcTempDoc);
     String rtcTempCfg;
     serializeJson(rtcTempDoc, rtcTempCfg);
-    mqtt.publish(buildDiscoveryConfigTopic("sensor", rtcTempObjectId).c_str(), rtcTempCfg.c_str(), true);
+    publishEntityDiscovery("sensor", rtcTempObjectId, rtcTempLegacyObjectId, rtcTempCfg);
 
     // --- RTC Batterie-Warnung ---
     DynamicJsonDocument rtcBatDoc(512);
-    const String rtcBatObjectId = device_id + "_rtc_battery";
+    const String rtcBatObjectId = "rtc_battery";
+    const String rtcBatLegacyObjectId = device_id + "_rtc_battery";
     rtcBatDoc["name"] = device_name + " RTC Batterie";
     rtcBatDoc["object_id"] = rtcBatObjectId;
     rtcBatDoc["unique_id"] = device_id + "_rtc_battery";
@@ -646,7 +667,7 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     attachDevice(rtcBatDoc);
     String rtcBatCfg;
     serializeJson(rtcBatDoc, rtcBatCfg);
-    mqtt.publish(buildDiscoveryConfigTopic("binary_sensor", rtcBatObjectId).c_str(), rtcBatCfg.c_str(), true);
+    publishEntityDiscovery("binary_sensor", rtcBatObjectId, rtcBatLegacyObjectId, rtcBatCfg);
 
     DebugManager::println(DebugCategory::MQTT, "MQTTManager: Informationen discovery published");
 }
@@ -663,9 +684,18 @@ void MQTTManager::publishTuningDiscovery() {
         dev["manufacturer"] = "Custom";
     };
 
+    auto publishEntityDiscovery = [this](const char* component,
+                                         const String& objectId,
+                                         const String& legacyObjectId,
+                                         const String& payload) {
+        mqtt.publish(buildDiscoveryConfigTopic(component, device_id, objectId).c_str(), payload.c_str(), true);
+        mqtt.publish(buildDiscoveryConfigTopic(component, legacyObjectId).c_str(), "", true);
+    };
+
     // --- Speed ---
     DynamicJsonDocument speedDoc(512);
-    const String speedObjectId = device_id + "_geschwindigkeit";
+    const String speedObjectId = "geschwindigkeit";
+    const String speedLegacyObjectId = device_id + "_geschwindigkeit";
     speedDoc["name"] = device_name + " Geschwindigkeit";
     speedDoc["object_id"] = speedObjectId;
     speedDoc["unique_id"] = device_id + "_speed";
@@ -681,11 +711,12 @@ void MQTTManager::publishTuningDiscovery() {
     attachDevice(speedDoc);
     String speedCfg;
     serializeJson(speedDoc, speedCfg);
-    mqtt.publish(buildDiscoveryConfigTopic("number", speedObjectId).c_str(), speedCfg.c_str(), true);
+    publishEntityDiscovery("number", speedObjectId, speedLegacyObjectId, speedCfg);
 
     // --- Intensity ---
     DynamicJsonDocument intDoc(512);
-    const String intensityObjectId = device_id + "_intensitaet";
+    const String intensityObjectId = "intensitaet";
+    const String intensityLegacyObjectId = device_id + "_intensitaet";
     intDoc["name"] = device_name + " Intensit\u00e4t";
     intDoc["object_id"] = intensityObjectId;
     intDoc["unique_id"] = device_id + "_intensity";
@@ -701,11 +732,12 @@ void MQTTManager::publishTuningDiscovery() {
     attachDevice(intDoc);
     String intCfg;
     serializeJson(intDoc, intCfg);
-    mqtt.publish(buildDiscoveryConfigTopic("number", intensityObjectId).c_str(), intCfg.c_str(), true);
+    publishEntityDiscovery("number", intensityObjectId, intensityLegacyObjectId, intCfg);
 
     // --- Density ---
     DynamicJsonDocument denDoc(512);
-    const String densityObjectId = device_id + "_dichte";
+    const String densityObjectId = "dichte";
+    const String densityLegacyObjectId = device_id + "_dichte";
     denDoc["name"] = device_name + " Objekt-Dichte";
     denDoc["object_id"] = densityObjectId;
     denDoc["unique_id"] = device_id + "_density";
@@ -721,11 +753,12 @@ void MQTTManager::publishTuningDiscovery() {
     attachDevice(denDoc);
     String denCfg;
     serializeJson(denDoc, denCfg);
-    mqtt.publish(buildDiscoveryConfigTopic("number", densityObjectId).c_str(), denCfg.c_str(), true);
+    publishEntityDiscovery("number", densityObjectId, densityLegacyObjectId, denCfg);
 
     // --- Transition ---
     DynamicJsonDocument transDoc(512);
-    const String transitionObjectId = device_id + "_uebergang";
+    const String transitionObjectId = "uebergang";
+    const String transitionLegacyObjectId = device_id + "_uebergang";
     transDoc["name"] = device_name + " \u00dcbergang";
     transDoc["object_id"] = transitionObjectId;
     transDoc["unique_id"] = device_id + "_transition";
@@ -741,11 +774,12 @@ void MQTTManager::publishTuningDiscovery() {
     attachDevice(transDoc);
     String transCfg;
     serializeJson(transDoc, transCfg);
-    mqtt.publish(buildDiscoveryConfigTopic("number", transitionObjectId).c_str(), transCfg.c_str(), true);
+    publishEntityDiscovery("number", transitionObjectId, transitionLegacyObjectId, transCfg);
 
     // --- Tuning Reset Button ---
     DynamicJsonDocument resetDoc(512);
-    const String resetObjectId = device_id + "_default";
+    const String resetObjectId = "default";
+    const String resetLegacyObjectId = device_id + "_default";
     resetDoc["name"] = device_name + " Default";
     resetDoc["object_id"] = resetObjectId;
     resetDoc["unique_id"] = device_id + "_tuning_reset";
@@ -757,7 +791,7 @@ void MQTTManager::publishTuningDiscovery() {
     attachDevice(resetDoc);
     String resetCfg;
     serializeJson(resetDoc, resetCfg);
-    mqtt.publish(buildDiscoveryConfigTopic("button", resetObjectId).c_str(), resetCfg.c_str(), true);
+    publishEntityDiscovery("button", resetObjectId, resetLegacyObjectId, resetCfg);
 
     // Entfernte HA-Entities aktiv aus Discovery loeschen (retained empty payload).
     mqtt.publish(buildDiscoveryConfigTopic("text", "wordclock_service").c_str(), "", true);
