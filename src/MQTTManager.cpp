@@ -487,6 +487,8 @@ void MQTTManager::publishDiagnosticsDiscovery() {
         return;
     }
 
+    const String uniqueRev = "_ha2";
+
     auto attachDevice = [this](JsonDocument& doc) {
         JsonObject dev = doc.createNestedObject("device");
         JsonArray ids = dev.createNestedArray("identifiers");
@@ -510,7 +512,7 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     const String uptimeLegacyObjectId = device_id + "_uptime";
     uptimeDoc["name"] = "Uptime";
     uptimeDoc["object_id"] = uptimeObjectId;
-    uptimeDoc["unique_id"] = device_id + "_uptime";
+    uptimeDoc["unique_id"] = device_id + "_uptime" + uniqueRev;
     uptimeDoc["state_topic"] = uptime_topic;
     uptimeDoc["availability_topic"] = availability_topic;
     uptimeDoc["payload_available"] = "online";
@@ -530,7 +532,7 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     const String rssiLegacyObjectId = device_id + "_rssi";
     rssiDoc["name"] = "RSSI";
     rssiDoc["object_id"] = rssiObjectId;
-    rssiDoc["unique_id"] = device_id + "_rssi";
+    rssiDoc["unique_id"] = device_id + "_rssi" + uniqueRev;
     rssiDoc["state_topic"] = rssi_topic;
     rssiDoc["availability_topic"] = availability_topic;
     rssiDoc["payload_available"] = "online";
@@ -550,7 +552,7 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     const String ipLegacyObjectId = device_id + "_ip";
     ipDoc["name"] = "IP";
     ipDoc["object_id"] = ipObjectId;
-    ipDoc["unique_id"] = device_id + "_ip";
+    ipDoc["unique_id"] = device_id + "_ip" + uniqueRev;
     ipDoc["state_topic"] = ip_topic;
     ipDoc["availability_topic"] = availability_topic;
     ipDoc["payload_available"] = "online";
@@ -567,7 +569,7 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     const String versionLegacyObjectId = device_id + "_version";
     versionDoc["name"] = "Version";
     versionDoc["object_id"] = versionObjectId;
-    versionDoc["unique_id"] = device_id + "_version";
+    versionDoc["unique_id"] = device_id + "_version" + uniqueRev;
     versionDoc["state_topic"] = version_topic;
     versionDoc["availability_topic"] = availability_topic;
     versionDoc["payload_available"] = "online";
@@ -585,7 +587,7 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     const String otaCheckLegacyObjectId = device_id + "_update_check";
     otaCheckDoc["name"] = "Update pr\u00fcfen";
     otaCheckDoc["object_id"] = otaCheckObjectId;
-    otaCheckDoc["unique_id"] = device_id + "_ota_check";
+    otaCheckDoc["unique_id"] = device_id + "_ota_check" + uniqueRev;
     otaCheckDoc["command_topic"] = ota_check_command_topic;
     otaCheckDoc["payload_press"] = "CHECK";
     otaCheckDoc["entity_category"] = "config";
@@ -601,7 +603,7 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     const String mqttStateLegacyObjectId = device_id + "_mqtt_state";
     mqttStateDoc["name"] = "MQTT State";
     mqttStateDoc["object_id"] = mqttStateObjectId;
-    mqttStateDoc["unique_id"] = device_id + "_mqtt_state";
+    mqttStateDoc["unique_id"] = device_id + "_mqtt_state" + uniqueRev;
     mqttStateDoc["state_topic"] = mqtt_state_topic;
     mqttStateDoc["availability_topic"] = availability_topic;
     mqttStateDoc["payload_available"] = "online";
@@ -618,7 +620,7 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     const String rebootLegacyObjectId = device_id + "_reboot";
     rebootDoc["name"] = "Reboot";
     rebootDoc["object_id"] = rebootObjectId;
-    rebootDoc["unique_id"] = device_id + "_reboot";
+    rebootDoc["unique_id"] = device_id + "_reboot" + uniqueRev;
     rebootDoc["command_topic"] = reboot_command_topic;
     rebootDoc["payload_press"] = "REBOOT";
     rebootDoc["entity_category"] = "config";
@@ -634,7 +636,7 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     const String rtcTempLegacyObjectId = device_id + "_rtc_temp";
     rtcTempDoc["name"] = "RTC Temperatur";
     rtcTempDoc["object_id"] = rtcTempObjectId;
-    rtcTempDoc["unique_id"] = device_id + "_rtc_temp";
+    rtcTempDoc["unique_id"] = device_id + "_rtc_temp" + uniqueRev;
     rtcTempDoc["state_topic"] = rtc_temp_topic;
     rtcTempDoc["availability_topic"] = availability_topic;
     rtcTempDoc["payload_available"] = "online";
@@ -655,7 +657,7 @@ void MQTTManager::publishDiagnosticsDiscovery() {
     const String rtcBatLegacyObjectId = device_id + "_rtc_battery";
     rtcBatDoc["name"] = "RTC Batterie";
     rtcBatDoc["object_id"] = rtcBatObjectId;
-    rtcBatDoc["unique_id"] = device_id + "_rtc_battery";
+    rtcBatDoc["unique_id"] = device_id + "_rtc_battery" + uniqueRev;
     rtcBatDoc["state_topic"] = rtc_battery_warning_topic;
     rtcBatDoc["availability_topic"] = availability_topic;
     rtcBatDoc["payload_available"] = "online";
@@ -675,6 +677,8 @@ void MQTTManager::publishDiagnosticsDiscovery() {
 
 void MQTTManager::publishTuningDiscovery() {
     if (!isConnected()) return;
+
+    const String uniqueRev = "_ha2";
 
     auto attachDevice = [this](JsonDocument& doc) {
         JsonObject dev = doc.createNestedObject("device");
@@ -700,7 +704,7 @@ void MQTTManager::publishTuningDiscovery() {
     const String speedLegacyObjectId = device_id + "_geschwindigkeit";
     speedDoc["name"] = "Geschwindigkeit";
     speedDoc["object_id"] = speedObjectId;
-    speedDoc["unique_id"] = device_id + "_speed";
+    speedDoc["unique_id"] = device_id + "_speed" + uniqueRev;
     speedDoc["command_topic"] = speed_command_topic;
     speedDoc["state_topic"] = speed_state_topic;
     speedDoc["availability_topic"] = availability_topic;
@@ -721,7 +725,7 @@ void MQTTManager::publishTuningDiscovery() {
     const String intensityLegacyObjectId = device_id + "_intensitaet";
     intDoc["name"] = "Intensit\u00e4t";
     intDoc["object_id"] = intensityObjectId;
-    intDoc["unique_id"] = device_id + "_intensity";
+    intDoc["unique_id"] = device_id + "_intensity" + uniqueRev;
     intDoc["command_topic"] = intensity_command_topic;
     intDoc["state_topic"] = intensity_state_topic;
     intDoc["availability_topic"] = availability_topic;
@@ -742,7 +746,7 @@ void MQTTManager::publishTuningDiscovery() {
     const String densityLegacyObjectId = device_id + "_dichte";
     denDoc["name"] = "Objekt-Dichte";
     denDoc["object_id"] = densityObjectId;
-    denDoc["unique_id"] = device_id + "_density";
+    denDoc["unique_id"] = device_id + "_density" + uniqueRev;
     denDoc["command_topic"] = density_command_topic;
     denDoc["state_topic"] = density_state_topic;
     denDoc["availability_topic"] = availability_topic;
@@ -763,7 +767,7 @@ void MQTTManager::publishTuningDiscovery() {
     const String transitionLegacyObjectId = device_id + "_uebergang";
     transDoc["name"] = "\u00dcbergang";
     transDoc["object_id"] = transitionObjectId;
-    transDoc["unique_id"] = device_id + "_transition";
+    transDoc["unique_id"] = device_id + "_transition" + uniqueRev;
     transDoc["command_topic"] = transition_command_topic;
     transDoc["state_topic"] = transition_state_topic;
     transDoc["availability_topic"] = availability_topic;
@@ -784,7 +788,7 @@ void MQTTManager::publishTuningDiscovery() {
     const String resetLegacyObjectId = device_id + "_default";
     resetDoc["name"] = "Default";
     resetDoc["object_id"] = resetObjectId;
-    resetDoc["unique_id"] = device_id + "_tuning_reset";
+    resetDoc["unique_id"] = device_id + "_tuning_reset" + uniqueRev;
     resetDoc["command_topic"] = tuning_reset_command_topic;
     resetDoc["payload_press"] = "RESET";
     resetDoc["entity_category"] = "config";
