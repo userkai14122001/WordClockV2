@@ -1,4 +1,6 @@
-name: Build & Release Firmware
+name: Firmware Release
+
+run-name: Firmware Release ${{ github.ref_name }}
 
 on:
   push:
