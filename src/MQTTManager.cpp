@@ -501,6 +501,7 @@ void MQTTManager::publishDiagnosticsDiscovery() {
                                          const String& legacyObjectId,
                                          const String& payload) {
         mqtt.publish(buildDiscoveryConfigTopic(component, device_id, objectId).c_str(), payload.c_str(), true);
+        mqtt.publish(buildDiscoveryConfigTopic(component, device_id, legacyObjectId).c_str(), "", true);
         mqtt.publish(buildDiscoveryConfigTopic(component, legacyObjectId).c_str(), "", true);
     };
 
@@ -689,6 +690,7 @@ void MQTTManager::publishTuningDiscovery() {
                                          const String& legacyObjectId,
                                          const String& payload) {
         mqtt.publish(buildDiscoveryConfigTopic(component, device_id, objectId).c_str(), payload.c_str(), true);
+        mqtt.publish(buildDiscoveryConfigTopic(component, device_id, legacyObjectId).c_str(), "", true);
         mqtt.publish(buildDiscoveryConfigTopic(component, legacyObjectId).c_str(), "", true);
     };
 
