@@ -3,7 +3,7 @@
     "stable": {
       "version": "0.3.8",
       "firmware_url": "https://github.com/userkai14122001/WordClockV2/releases/download/v0.3.8/firmware.bin",
-      "sha256": "dba0d6ca47ca61f59c6b566493e2bc2c16f4c9e6c44b4ec9f8b75eed90bda7c8",
+      "sha256": "80eafa9118ad49fcb644c9b949b8372734c4052861869aa5510b579b147ce998",
       "status": "ready",
       "notes": "Automated release 0.3.8"
     },
