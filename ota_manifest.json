@@ -1,11 +1,11 @@
 {
   "channels": {
     "stable": {
-      "version": "0.3.8",
-      "firmware_url": "https://github.com/userkai14122001/WordClockV2/releases/download/v0.3.8/firmware.bin",
-      "sha256": "80eafa9118ad49fcb644c9b949b8372734c4052861869aa5510b579b147ce998",
+      "version": "0.3.9",
+      "firmware_url": "https://github.com/userkai14122001/WordClockV2/releases/download/v0.3.9/firmware.bin",
+      "sha256": "091b23730f7ae398b3f60f052afbd726d1ff1ef7271ad55cad69f5ecbaf2e8a2",
       "status": "ready",
-      "notes": "Automated release 0.3.8"
+      "notes": "Automated release 0.3.9"
     },
     "beta": {
       "version": "0.2.44",
