@@ -479,26 +479,40 @@ void WiFiManager::connectToWiFi() {
     String trySsid = ssid;
     String tryPass = password;
     trySsid.trim();
-    tryPass.trim();
     
     DebugManager::print(DebugCategory::WiFi, "WiFiManager: Verbinde mit ");
     DebugManager::println(DebugCategory::WiFi, trySsid);
     
     WiFi.mode(WIFI_STA);
-    // disconnect(true) loescht den internen WiFi-State – notwendig nach OTA-Reboot
-    // mit IDF 5 (Arduino ESP32 3.x), wo begin() ohne vorherigen Reset haengen kann.
-    WiFi.disconnect(true);
-    waitMs(100);
-    WiFi.begin(trySsid.c_str(), tryPass.c_str());
-    
-    int attempts = 0;
-    while (WiFi.status() != WL_CONNECTED && attempts < 40) {
-        waitMs(500);
-        DebugManager::print(DebugCategory::WiFi, ".");
-        attempts++;
+
+    bool connected = false;
+    const int maxRounds = 3;
+    const int attemptsPerRound = 40; // 40 * 500ms = ~20s pro Runde
+
+    for (int round = 1; round <= maxRounds && !connected; round++) {
+        // disconnect(true) loescht den internen WiFi-State – notwendig nach OTA-Reboot
+        // mit IDF 5 (Arduino ESP32 3.x), wo begin() ohne vorherigen Reset haengen kann.
+        WiFi.disconnect(true);
+        waitMs(100);
+        WiFi.begin(trySsid.c_str(), tryPass.c_str());
+
+        int attempts = 0;
+        while (WiFi.status() != WL_CONNECTED && attempts < attemptsPerRound) {
+            waitMs(500);
+            DebugManager::print(DebugCategory::WiFi, ".");
+            attempts++;
+        }
+
+        connected = (WiFi.status() == WL_CONNECTED);
+        if (!connected && round < maxRounds) {
+            DebugManager::print(DebugCategory::WiFi, "\nWiFiManager: Verbindungsversuch ");
+            DebugManager::print(DebugCategory::WiFi, String(round));
+            DebugManager::println(DebugCategory::WiFi, " fehlgeschlagen, neuer Versuch...");
+            waitMs(1000);
+        }
     }
-    
-    if (WiFi.status() == WL_CONNECTED) {
+
+    if (connected) {
         DebugManager::println(DebugCategory::WiFi, "\nWiFiManager: Verbunden!");
         DebugManager::print(DebugCategory::WiFi, "IP: ");
         DebugManager::println(DebugCategory::WiFi, WiFi.localIP());
@@ -603,17 +617,6 @@ void WiFiManager::setupWebRoutes() {
         File f = SPIFFS.open("/ziffernblatt.svg", "r");
         if (!f) {
             server.send(404, "text/plain", "ziffernblatt.svg not found");
-            return;
-        }
-        server.streamFile(f, "image/svg+xml");
-        f.close();
-    });
-
-    // Paw outline icon for minute indicators
-    server.on("/Pfote.svg", [this]() {
-        File f = SPIFFS.open("/Pfote.svg", "r");
-        if (!f) {
-            server.send(404, "text/plain", "Pfote.svg not found");
             return;
         }
         server.streamFile(f, "image/svg+xml");

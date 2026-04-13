@@ -1778,14 +1778,7 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             width:88%;
             height:88%;
             background-color:#435672;
-            -webkit-mask-image:url('/Pfote.svg');
-            mask-image:url('/Pfote.svg');
-            -webkit-mask-repeat:no-repeat;
-            mask-repeat:no-repeat;
-            -webkit-mask-position:center;
-            mask-position:center;
-            -webkit-mask-size:contain;
-            mask-size:contain;
+            border-radius:50%;
             transition:background-color 45ms linear, filter 45ms linear;
         }
         .controlGrid {
@@ -1981,7 +1974,7 @@ const char live_html_page[] PROGMEM = R"rawliteral(
                     <h3>WordClock matrix</h3>
                     <span class="pill">Exact device preview</span>
                 </div>
-                <p class="sectionText">Die Matrix zeigt live den aktuell gerenderten Zustand der Uhr, inklusive Minutenpfoten und MQTT-Statusindikator.</p>
+                <p class="sectionText">Die Matrix zeigt live den aktuell gerenderten Zustand der Uhr, inklusive Minutenmarkern und MQTT-Statusindikator.</p>
                 <div class="matrixStage">
                     <div class="matrixWrap">
                         <div id="matrix" class="matrix"></div>

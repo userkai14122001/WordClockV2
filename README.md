@@ -1,6 +1,6 @@
 # WordClock
 
-ESP32-C3-basierte Wortuhr mit 11×10 NeoPixel-Matrix, DS3231-RTC, WiFi-Setup-Portal, MQTT/Home-Assistant-Integration und mehreren Animationseffekten.
+ESP32-C3-basierte Wortuhr mit 11×10 NeoPixel-Matrix, DS3231-RTC, WiFi-Setup-Portal, MQTT/Home-Assistant-Integration, Zeitschaltung-Automation und mehreren Animationseffekten.
 
 ---
 
@@ -23,13 +23,13 @@ WordClock/
 ├── platformio.ini
 ├── README.md
 ├── data/
-│   ├── Pfote.png
 │   └── ziffernblatt.svg
 ├── include/
 │   ├── config.h
 │   ├── ControlConfig.h
 │   ├── DebugManager.h
 │   ├── EffectManager.h
+│   ├── effects.h
 │   ├── LEDMatrix.h
 │   ├── MemoryManager.h
 │   ├── MQTTManager.h
@@ -41,7 +41,10 @@ WordClock/
 │   ├── SystemControl.h
 │   ├── TimeManager.h
 │   ├── web_pages.h
-│   └── WiFiManager.h
+│   ├── WiFiManager.h
+│   ├── WordClockLayout.h
+│   ├── WordClockLayoutPresets.h
+│   └── ZeitschaltungManager.h
 └── src/
     ├── main.cpp
     ├── config.cpp
@@ -61,13 +64,18 @@ WordClock/
     ├── TimeManager.cpp
     ├── web_pages.cpp
     ├── WiFiManager.cpp
+    ├── WordClockLayout.cpp
+    ├── WordClockLayoutPresets.cpp
+    ├── ZeitschaltungManager.cpp
     └── effects/
         ├── AuroraEffect.cpp
         ├── BouncingBallsEffect.cpp
         ├── ColorloopEffect.cpp
         ├── ColorwipeEffect.cpp
+        ├── effect_helpers.h
         ├── EnchantmentEffect.cpp
         ├── Fire2DEffect.cpp
+        ├── GreenRingWaveEffect.cpp
         ├── InwardRippleEffect.cpp
         ├── LoveYouEffect.cpp
         ├── MatrixRainEffect.cpp
@@ -83,7 +91,7 @@ WordClock/
 
 ## Build & Upload
 
-`platformio.ini` enthält zwei Environments:
+`platformio.ini` enthält vier Environments:
 
 | Environment | Zweck |
 |---|---|
@@ -115,6 +123,7 @@ Die zentrale Laufzeit liegt in `src/main.cpp`. Alle Module sind als Klassen mit 
 | `StateManager` | Persistenter Gerätezustand via NVS Preferences |
 | `EffectManager` | Effekt-Registry, Wechsel und Übergänge |
 | `TimeManager` | NTP-Synchronisierung und RTC-Abgleich |
+| `ZeitschaltungManager` | Zeitbasierte Regeln (Power, Helligkeit, Effekt) |
 | `DebugManager` | Laufzeit-Debug-Kategorien (ein-/ausschaltbar per Serial) |
 | `LEDMatrix` | NeoPixel-Treiberebene |
 
@@ -217,8 +226,11 @@ Discovery wird automatisch beim Connect publiziert für:
 
 - HTML/CSS/JS-Seiten sind in `src/web_pages.cpp` als String-Literale eingebettet.
 - Externe Assets werden per HTTP aus `data/` über SPIFFS ausgeliefert.
-- Aktive SPIFFS-Assets: `data/Pfote.png`, `data/ziffernblatt.svg`
+- Aktive SPIFFS-Assets: `data/ziffernblatt.svg`
 - Filesystem separat flashen: `pio run -t uploadfs`
+- Studio-Ansicht pollt mit 45 Hz Zielrate (`/api/live-status`, Intervall 22 ms).
+- API-Endpunkte: `/api/status` (voll), `/api/status-lite` (leicht), `/api/live-status` (Studio optimiert).
+- Legacy-Route `/layout` ist ein Redirect auf `/main`.
 
 ---
 
@@ -248,6 +260,14 @@ Debug <kategorie> On/Off          Einzelne Kategorie schalten
 Test Smoke                        Schnelltest (Boot-Validierung)
 Test Self                         Vollständiger Selbsttest
 Test Morph <HH:MM>                Clock-Morph zu gegebener Zeit testen
+OTA Info                           OTA-Kanal/Profil/Version anzeigen
+OTA Check                          Sofortigen OTA-Check starten
+Zeitschaltung list                 Alle Regeln anzeigen
+Zeitschaltung rename <idx> <name>  Regel umbenennen (idx: 0-4)
+Zeitschaltung set <idx> <HH> <MM> <on|off> [brightness] [effect]
+Zeitschaltung enable <idx>         Regel aktivieren
+Zeitschaltung disable <idx>        Regel deaktivieren
+Zeitschaltung clear                Alle Regeln löschen
 ```
 
 Legacy-Kurzformen (`effect`, `speed`, `intensity`, `transition`, `debug`) funktionieren weiterhin.
@@ -289,16 +309,16 @@ Die Firmware prüft automatisch auf neue Versionen in GitHub und installiert die
 {
     "channels": {
         "stable": {
-            "version": "0.3.2",
-            "firmware_url": "https://github.com/userkai14122001/WordClockV2/releases/download/v0.3.2/firmware.bin",
+            "version": "0.3.8",
+            "firmware_url": "https://github.com/userkai14122001/WordClockV2/releases/download/v0.3.8/firmware.bin",
             "sha256": "...",
             "status": "ready"
         },
         "beta": {
-            "version": "0.3.2",
-            "firmware_url": "https://github.com/userkai14122001/WordClockV2/releases/download/v0.3.2/firmware.bin",
+            "version": "0.2.44",
+            "firmware_url": "https://github.com/userkai14122001/WordClockV2/releases/download/v0.2.44/firmware.bin",
             "sha256": "...",
-            "status": "ready"
+            "status": "hold"
         }
     }
 }
@@ -308,9 +328,13 @@ Die Firmware prüft automatisch auf neue Versionen in GitHub und installiert die
 
 - **stable:** Regulärer OTA-Kanal für alle Uhren (Standardeinstellung).
 - **beta:** Beta-Kanal für Testuhr (compile `-DOTA_CHANNEL=\"beta\"`).
-3. In GitHub einen Release erstellen und die Datei als Asset exakt `firmware.bin` hochladen.
-4. In `ota_manifest.json` die `version` erhoehen (z. B. `0.1.1`) und commit/push.
-5. In `platformio.ini` `FIRMWARE_VERSION` auf denselben Wert setzen, commit/push.
+
+### Release-Workflow (empfohlen)
+
+1. Firmware-Version in `platformio.ini` anheben.
+2. Commit + Push auf `main`.
+3. Git-Tag `vX.Y.Z` erstellen und pushen.
+4. GitHub Actions erstellt den Release, lädt `firmware.bin` hoch und aktualisiert `ota_manifest.json` automatisch.
 
 ### Manueller OTA-Check
 
