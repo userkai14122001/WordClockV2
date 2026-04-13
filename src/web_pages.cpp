@@ -275,14 +275,14 @@ const char home_html_page[] PROGMEM = R"rawliteral(
     </div>
     <div class="grid">
         <div class="card"><h3>Einstellungen</h3><p>WiFi, MQTT, OTA und Zeitschaltung zentral auf einer gemeinsamen Seite verwalten.</p><a class="btn" href="/main">Öffnen</a></div>
-        <div class="card"><h3>Layout</h3><p>Letter-Grid und Wortpositionen für andere Frontplatten definieren.</p><a class="btn" href="/layout">Öffnen</a></div>
+            <div class="card"><h3>Layout</h3><p>Letter-Grid und Wortpositionen jetzt direkt in den Einstellungen bearbeiten.</p><a class="btn" href="/main">Öffnen</a></div>
         <div class="card"><h3>Live</h3><p>Direkte Effekt- und Farbregie mit Matrix-Vorschau.</p><a class="btn" href="/live">Öffnen</a></div>
         <div class="card"><h3>Test</h3><p>Quicktests für LEDs, Farben, Clock und Muster.</p><a class="btn" href="/test">Öffnen</a></div>
     </div>
     <section class="statusPanel">
         <div class="statusHead">
             <h3>System status</h3>
-            <span class="statusPill">Refresh: 10/s (fest)</span>
+                <span class="statusPill">Refresh: 2/s</span>
         </div>
         <div class="statusGrid">
             <div class="statusItem"><div class="statusLabel">Power</div><div id="hmPower" class="statusValue">-</div></div>
@@ -803,7 +803,7 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
                     <div class="statusItem"><div class="statusLabel">RAM</div><div id="spMem" class="statusValue">-</div></div>
                 </div>
                 <div id="setupStatusDetails" class="detailTable"></div>
-                <div class="muted" style="margin-top:8px;">Refresh: 10/s (fest)</div>
+                <div class="muted" style="margin-top:8px;">Refresh: 2/s</div>
             </div>
 
             <div class="box">
@@ -1778,8 +1778,8 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             width:88%;
             height:88%;
             background-color:#435672;
-            -webkit-mask-image:url('/Pfote.png');
-            mask-image:url('/Pfote.png');
+            -webkit-mask-image:url('/Pfote.svg');
+            mask-image:url('/Pfote.svg');
             -webkit-mask-repeat:no-repeat;
             mask-repeat:no-repeat;
             -webkit-mask-position:center;
@@ -1953,7 +1953,7 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             </p>
             <div class="heroMeta">
                 <span>Live preview</span>
-                <span>Status 10/s</span>
+                <span>Status 45 Hz Ziel</span>
                 <span>MQTT + RTC aware</span>
                 <span>OTA release</span>
             </div>
@@ -2089,7 +2089,6 @@ let isDirty = false;
 let refreshTimer = null;
 let refreshInFlight = false;
 let applyDebounceTimer = null;
-let detailRenderTs = 0;
 
 const LIVE_POLL_INTERVAL_MS = 22; // ~45 Hz
 const LIVE_POLL_ERROR_MS = 120;
@@ -2141,11 +2140,6 @@ function setValueIfChanged(id, value) {
     if (el.value !== next) {
         el.value = next;
     }
-}
-
-function setHtml(id, value) {
-    const el = document.getElementById(id);
-    if (el) el.innerHTML = value;
 }
 
 function updateRangeBadges() {
@@ -2335,79 +2329,18 @@ function renderMatrix(matrix, mqttConnected, rtcMinuteWarning) {
     }
 }
 
-function renderDetails(s, rtcTempText, memFree, memUsedPct) {
-    const container = document.getElementById('statusDetails');
-    if (!container) return;
-    const details = [
-        ['IP', s.ip || '-'],
-        ['Farbe', s.color || '-'],
-        ['Helligkeit', String(s.brightness)],
-        ['Geschwindigkeit', String(s.speed) + '%'],
-        ['Intensität', String(s.intensity) + '%'],
-        ['Objektdichte', String(s.density) + '%'],
-        ['Übergang', String(s.transition_ms) + ' ms'],
-        ['RTC Temperatur', rtcTempText],
-        ['RTC OSF/Batterie', s.rtc_battery_warning ? 'Auffällig' : 'OK'],
-        ['RAM Frei', String(memFree) + ' B'],
-        ['RAM Nutzung', memUsedPct + '%'],
-        ['Max Block', String(s.mem_max_alloc || 0) + ' B']
-    ];
-
-    container.innerHTML = details.map(function(item) {
-        return '<div class="detailCard"><div class="detailKey">' + item[0] + '</div><div class="detailVal">' + item[1] + '</div></div>';
-    }).join('');
-}
-
 const WC_STATUS_CACHE_KEY = 'wc_status_cache';
 
 function applyStatus(s, fromCache) {
-    const rtcWarn = !!s.rtc_warning;
-    const rtcBadge = rtcWarn ? '<span class="warn">WARNUNG</span>' : '<span class="ok">OK</span>';
-    const rtcTempText = (typeof s.rtc_temp_c === 'number' && Number.isFinite(s.rtc_temp_c))
-        ? (s.rtc_temp_c.toFixed(2) + ' C')
-        : 'n/a';
     const mqttConnected = !!s.mqtt_connected;
     const rtcMinuteWarning = (!s.rtc_available) || !!s.rtc_battery_warning;
-    const mqttBadge = mqttConnected ? '<span class="ok">Verbunden</span>' : '<span class="warn">Getrennt</span>';
-    const memLevel = String(s.mem_level || 'OK').toUpperCase();
-    const memFree = Number.isFinite(Number(s.mem_free)) ? Number(s.mem_free) : 0;
-    const memTotal = Number.isFinite(Number(s.mem_total)) && Number(s.mem_total) > 0 ? Number(s.mem_total) : 1;
-    const memUsedPct = ((memTotal - memFree) * 100.0 / memTotal).toFixed(1);
-    const memBadge = (memLevel === 'CRITICAL')
-        ? '<span class="warn">KRITISCH</span>'
-        : (memLevel === 'WARNING' ? '<span class="warn">WARNUNG</span>' : '<span class="ok">OK</span>');
 
-    setHtml('stPower', s.state);
-    setHtml('stEffect', s.effect);
-    setHtml('stRtc', rtcBadge);
-    setHtml('stWifi', (s.rssi + ' dBm'));
-    setHtml('stMqtt', mqttBadge);
-    setHtml('stMem', memBadge);
     setText('heroEffect', s.effect || '-');
     setText('heroColor', s.color || '-');
     setText('heroTuning', String(s.brightness) + ' / ' + String(s.speed) + '%');
 
     setLayoutRowsFromText(s.layout_text);
     setMinuteCellsFromStatus(s);
-
-    const memAlert = document.getElementById('memAlert');
-    if (memAlert) {
-        memAlert.className = 'memAlert';
-        memAlert.textContent = '';
-        if (memLevel === 'CRITICAL') {
-            memAlert.className = 'memAlert critical';
-            memAlert.textContent = 'Low Memory: Kritischer RAM-Zustand. Schwere Effekte werden automatisch verlassen.';
-        } else if (memLevel === 'WARNING') {
-            memAlert.className = 'memAlert warn';
-            memAlert.textContent = 'Low Memory: RAM wird knapp. Bitte eher leichte Effekte verwenden.';
-        }
-    }
-
-    const nowTs = Date.now();
-    if (fromCache || (nowTs - detailRenderTs) >= 220) {
-        renderDetails(s, rtcTempText, memFree, memUsedPct);
-        detailRenderTs = nowTs;
-    }
 
     if (!isDirty) {
         setValueIfChanged('power', s.state);
@@ -2446,14 +2379,12 @@ async function refreshStatus() {
     if (refreshInFlight) return;
     refreshInFlight = true;
     try {
-        const r = await fetch('/api/status');
+        const r = await fetch('/api/live-status');
         const s = await r.json();
         applyStatus(s, false);
-        // Cache status without matrix (saves ~3KB in localStorage)
+        // Cache the latest studio frame so the page repaints immediately on reopen.
         try {
-            const cacheable = Object.assign({}, s);
-            delete cacheable.matrix;
-            localStorage.setItem(WC_STATUS_CACHE_KEY, JSON.stringify(cacheable));
+            localStorage.setItem(WC_STATUS_CACHE_KEY, JSON.stringify(s));
         } catch (_) {}
     } catch (_) {
         if (refreshTimer) {

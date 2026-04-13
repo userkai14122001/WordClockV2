@@ -66,6 +66,7 @@ private:
     void handleSave();
     void handleStatus();
     void handleStatusLite();
+    void handleLiveStatus();
     void handlePreview();
     void handleQuickTest();
     void handleDeviceNameRandomize();

@@ -537,7 +537,8 @@ void WiFiManager::setupWebRoutes() {
         server.send(200, "text/html", setup_html_page);
     });
     server.on("/layout", [this]() {
-        server.send(200, "text/html", setup_html_page);
+        server.sendHeader("Location", "/main", true);
+        server.send(302, "text/plain", "");
     });
     server.on("/live", [this]() {
         server.send(200, "text/html", live_html_page);
@@ -562,6 +563,9 @@ void WiFiManager::setupWebRoutes() {
     });
     server.on("/api/status-lite", [this]() {
         handleStatusLite();
+    });
+    server.on("/api/live-status", [this]() {
+        handleLiveStatus();
     });
     server.on("/api/device-name/randomize", HTTP_POST, [this]() {
         handleDeviceNameRandomize();
@@ -606,13 +610,13 @@ void WiFiManager::setupWebRoutes() {
     });
 
     // Paw outline icon for minute indicators
-    server.on("/Pfote.png", [this]() {
-        File f = SPIFFS.open("/Pfote.png", "r");
+    server.on("/Pfote.svg", [this]() {
+        File f = SPIFFS.open("/Pfote.svg", "r");
         if (!f) {
-            server.send(404, "text/plain", "Pfote.png not found");
+            server.send(404, "text/plain", "Pfote.svg not found");
             return;
         }
-        server.streamFile(f, "image/png");
+        server.streamFile(f, "image/svg+xml");
         f.close();
     });
 
@@ -998,6 +1002,70 @@ void WiFiManager::handleStatusLite() {
     doc["mqtt_user"] = mqtt_user;
     doc["device_name"] = mqttManager.getDeviceName();
     doc["device_alias"] = mqttManager.getDeviceAlias();
+
+    sendJsonDocument(server, 200, doc);
+}
+
+void WiFiManager::handleLiveStatus() {
+    refreshOtaProfilePolicy();
+
+    if (!config_loaded) {
+        loadConfig();
+    }
+
+    const bool statePower = stateManager.getPowerState();
+    const String stateEffect = stateManager.getCurrentEffect();
+    const uint8_t stateBrightness = stateManager.getBrightness();
+    const uint32_t stateColor = stateManager.getColor();
+    const uint8_t stateSpeed = stateManager.getSpeed();
+    const uint8_t stateIntensity = stateManager.getIntensity();
+    const uint8_t stateDensity = stateManager.getDensity();
+    const uint16_t stateTransitionMs = stateManager.getTransitionMs();
+
+    DynamicJsonDocument doc(4600);
+    doc["state"] = statePower ? "ON" : "OFF";
+    doc["effect"] = stateEffect;
+    doc["brightness"] = stateBrightness;
+    doc["speed"] = stateSpeed;
+    doc["intensity"] = stateIntensity;
+    doc["density"] = stateDensity;
+    doc["transition_ms"] = stateTransitionMs;
+
+    char color_hex[8];
+    snprintf(color_hex, sizeof(color_hex), "#%06lX", (unsigned long)(stateColor & 0xFFFFFF));
+    doc["color"] = color_hex;
+    doc["mqtt_connected"] = mqttManager.isConnected();
+    doc["rtc_available"] = rtcManager.isAvailable();
+    doc["rtc_battery_warning"] = rtcManager.hasBatteryWarning();
+    doc["layout_text"] = wordClockLayoutText();
+
+    JsonArray minutePositions = doc.createNestedArray("minute_positions");
+    const char* minuteKeys[] = {"M1", "M2", "M3", "M4"};
+    for (size_t i = 0; i < 4; i++) {
+        Word w;
+        if (getClockWordPosition(String(minuteKeys[i]), w)) {
+            JsonObject p = minutePositions.createNestedObject();
+            p["x"] = w.x;
+            p["y"] = w.y;
+        }
+    }
+
+    JsonArray matrix = doc.createNestedArray("matrix");
+    for (int y = 0; y < HEIGHT; y++) {
+        JsonArray row = matrix.createNestedArray();
+        for (int x = 0; x < WIDTH; x++) {
+            uint32_t c = strip->getPixelColor(XY(x, y));
+            uint8_t r = (uint8_t)((c >> 16) & 0xFF);
+            uint8_t g = (uint8_t)((c >> 8) & 0xFF);
+            uint8_t b = (uint8_t)(c & 0xFF);
+            char hex[7];
+            snprintf(hex, sizeof(hex), "%02X%02X%02X",
+                (unsigned int)r,
+                (unsigned int)g,
+                (unsigned int)b);
+            row.add(hex);
+        }
+    }
 
     sendJsonDocument(server, 200, doc);
 }
