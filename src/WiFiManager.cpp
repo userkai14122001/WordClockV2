@@ -9,6 +9,7 @@
 #include "SystemControl.h"
 #include "ota_https_update.h"
 #include "ControlConfig.h"
+#include "ZeitschaltungManager.h"
 #include "matrix.h"
 #include "effects.h"
 #include "WordClockLayout.h"
@@ -70,6 +71,21 @@ static bool parseBoundedUInt(const String& raw, uint32_t minVal, uint32_t maxVal
     }
     out = parsed;
     return true;
+}
+
+static bool parseBoolArg(const String& raw, bool& out) {
+    String v = raw;
+    v.trim();
+    v.toLowerCase();
+    if (v == "1" || v == "true" || v == "on") {
+        out = true;
+        return true;
+    }
+    if (v == "0" || v == "false" || v == "off") {
+        out = false;
+        return true;
+    }
+    return false;
 }
 
 static void sendJsonDocument(WebServer& server, int httpCode, const JsonDocument& doc) {
@@ -570,6 +586,12 @@ void WiFiManager::setupWebRoutes() {
     });
     server.on("/api/layout", HTTP_POST, [this]() {
         handleLayoutSet();
+    });
+    server.on("/api/zeitschaltung", HTTP_GET, [this]() {
+        handleZeitschaltungGet();
+    });
+    server.on("/api/zeitschaltung", HTTP_POST, [this]() {
+        handleZeitschaltungSet();
     });
 
     // Frontplate SVG for exact live overlay
@@ -1422,6 +1444,214 @@ void WiFiManager::handleQuickTest() {
     DynamicJsonDocument doc(160);
     doc["status"] = "ok";
     doc["action"] = action;
+    sendJsonDocument(server, 200, doc);
+}
+
+void WiFiManager::handleZeitschaltungGet() {
+    DynamicJsonDocument doc(4096);
+    JsonArray rulesArr = doc.createNestedArray("rules");
+
+    const std::vector<ZeitschaltungRule>& rules = ZeitschaltungManager::getInstance().getRules();
+    for (size_t i = 0; i < rules.size(); i++) {
+        const ZeitschaltungRule& rule = rules[i];
+        JsonObject item = rulesArr.createNestedObject();
+        item["index"] = i;
+        item["enabled"] = rule.enabled;
+        item["name"] = rule.name;
+
+        char timeBuf[6];
+        snprintf(timeBuf, sizeof(timeBuf), "%02u:%02u", rule.hour, rule.minute);
+        item["time"] = timeBuf;
+        item["hour"] = rule.hour;
+        item["minute"] = rule.minute;
+
+        JsonObject action = item.createNestedObject("action");
+        action["power"] = rule.actionPower ? "on" : "off";
+        action["brightness"] = rule.actionBrightness;
+        action["speed"] = rule.actionSpeed;
+        action["intensity"] = rule.actionIntensity;
+        action["density"] = rule.actionDensity;
+        action["transition"] = rule.actionTransition;
+        action["effect"] = rule.actionEffect;
+    }
+
+    sendJsonDocument(server, 200, doc);
+}
+
+void WiFiManager::handleZeitschaltungSet() {
+    if (!requireAuthorizedRequest(server)) {
+        return;
+    }
+    if (!requireHttpWriteWindow(server, "/api/zeitschaltung")) {
+        return;
+    }
+
+    uint32_t idxRaw = 0;
+    if (!parseBoundedUInt(server.arg("index"), 0, 4, idxRaw)) {
+        sendApiError(server, 422, "invalid_index", "index muss zwischen 0 und 4 liegen");
+        return;
+    }
+
+    const size_t index = (size_t)idxRaw;
+    ZeitschaltungRule rule = ZeitschaltungManager::getInstance().getRule(index);
+    bool changed = false;
+
+    if (server.hasArg("enabled")) {
+        bool enabled = false;
+        if (!parseBoolArg(server.arg("enabled"), enabled)) {
+            sendApiError(server, 422, "invalid_enabled", "enabled muss on/off sein");
+            return;
+        }
+        rule.enabled = enabled;
+        changed = true;
+    }
+
+    if (server.hasArg("name")) {
+        String newName = server.arg("name");
+        newName.trim();
+        if (newName.isEmpty()) {
+            newName = String(index + 1);
+        }
+        if (newName.length() > 30) {
+            sendApiError(server, 422, "invalid_name", "name darf maximal 30 Zeichen haben");
+            return;
+        }
+        rule.name = newName;
+        changed = true;
+    }
+
+    if (server.hasArg("time")) {
+        String timeArg = server.arg("time");
+        timeArg.trim();
+        int sep = timeArg.indexOf(':');
+        if (sep <= 0) {
+            sendApiError(server, 422, "invalid_time", "time muss HH:MM sein");
+            return;
+        }
+        uint32_t hh = 0;
+        uint32_t mm = 0;
+        if (!parseBoundedUInt(timeArg.substring(0, sep), 0, 23, hh) ||
+            !parseBoundedUInt(timeArg.substring(sep + 1), 0, 59, mm)) {
+            sendApiError(server, 422, "invalid_time", "time muss HH:MM mit gueltigen Werten sein");
+            return;
+        }
+        rule.hour = (uint8_t)hh;
+        rule.minute = (uint8_t)mm;
+        changed = true;
+    } else {
+        if (server.hasArg("hour")) {
+            uint32_t hh = 0;
+            if (!parseBoundedUInt(server.arg("hour"), 0, 23, hh)) {
+                sendApiError(server, 422, "invalid_hour", "hour muss zwischen 0 und 23 liegen");
+                return;
+            }
+            rule.hour = (uint8_t)hh;
+            changed = true;
+        }
+        if (server.hasArg("minute")) {
+            uint32_t mm = 0;
+            if (!parseBoundedUInt(server.arg("minute"), 0, 59, mm)) {
+                sendApiError(server, 422, "invalid_minute", "minute muss zwischen 0 und 59 liegen");
+                return;
+            }
+            rule.minute = (uint8_t)mm;
+            changed = true;
+        }
+    }
+
+    if (server.hasArg("action_power")) {
+        bool actionPower = false;
+        if (!parseBoolArg(server.arg("action_power"), actionPower)) {
+            sendApiError(server, 422, "invalid_action_power", "action_power muss on/off sein");
+            return;
+        }
+        rule.actionPower = actionPower;
+        changed = true;
+    }
+
+    if (server.hasArg("action_brightness")) {
+        uint32_t b = 0;
+        if (!parseBoundedUInt(server.arg("action_brightness"), 1, 100, b)) {
+            sendApiError(server, 422, "invalid_action_brightness", "action_brightness muss 1-100 sein");
+            return;
+        }
+        rule.actionBrightness = (uint8_t)b;
+        changed = true;
+    }
+
+    if (server.hasArg("action_speed")) {
+        uint32_t s = 0;
+        if (!parseBoundedUInt(server.arg("action_speed"), 1, 100, s)) {
+            sendApiError(server, 422, "invalid_action_speed", "action_speed muss 1-100 sein");
+            return;
+        }
+        rule.actionSpeed = (uint8_t)s;
+        changed = true;
+    }
+
+    if (server.hasArg("action_intensity")) {
+        uint32_t i = 0;
+        if (!parseBoundedUInt(server.arg("action_intensity"), 1, 100, i)) {
+            sendApiError(server, 422, "invalid_action_intensity", "action_intensity muss 1-100 sein");
+            return;
+        }
+        rule.actionIntensity = (uint8_t)i;
+        changed = true;
+    }
+
+    if (server.hasArg("action_density")) {
+        uint32_t d = 0;
+        if (!parseBoundedUInt(server.arg("action_density"), 1, 100, d)) {
+            sendApiError(server, 422, "invalid_action_density", "action_density muss 1-100 sein");
+            return;
+        }
+        rule.actionDensity = (uint8_t)d;
+        changed = true;
+    }
+
+    if (server.hasArg("action_transition")) {
+        uint32_t t = 0;
+        if (!parseBoundedUInt(server.arg("action_transition"), ControlConfig::TRANSITION_MIN_MS, ControlConfig::TRANSITION_MAX_MS, t)) {
+            sendApiError(server, 422, "invalid_action_transition", "action_transition muss 200-10000 sein");
+            return;
+        }
+        rule.actionTransition = (uint16_t)t;
+        changed = true;
+    }
+
+    if (server.hasArg("action_effect")) {
+        String actionEffect = server.arg("action_effect");
+        actionEffect.trim();
+        rule.actionEffect = actionEffect;
+        changed = true;
+    }
+
+    if (!changed) {
+        sendApiError(server, 400, "no_changes", "Keine aenderbaren Parameter uebergeben");
+        return;
+    }
+
+    ZeitschaltungManager::getInstance().setRule(index, rule);
+    if (mqttManager.isConnected()) {
+        mqttManager.publishZeitschaltungStates();
+    }
+
+    DynamicJsonDocument doc(512);
+    doc["status"] = "ok";
+    doc["index"] = index;
+    doc["enabled"] = rule.enabled;
+    doc["name"] = rule.name;
+    char timeBuf[6];
+    snprintf(timeBuf, sizeof(timeBuf), "%02u:%02u", rule.hour, rule.minute);
+    doc["time"] = timeBuf;
+    JsonObject action = doc.createNestedObject("action");
+    action["power"] = rule.actionPower ? "on" : "off";
+    action["brightness"] = rule.actionBrightness;
+    action["speed"] = rule.actionSpeed;
+    action["intensity"] = rule.actionIntensity;
+    action["density"] = rule.actionDensity;
+    action["transition"] = rule.actionTransition;
+    action["effect"] = rule.actionEffect;
     sendJsonDocument(server, 200, doc);
 }
 

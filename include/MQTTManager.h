@@ -5,6 +5,7 @@
 #include <PubSubClient.h>
 #include <WiFiClient.h>
 #include <ArduinoJson.h>
+#include <array>
 
 // Callback-Typ für MQTT-Nachrichten
 typedef std::function<void(const String& topic, const String& payload)> MQTTCallback;
@@ -26,6 +27,7 @@ public:
     void publish(const String& topic, const String& payload);
     void publishState(bool power, const String& effect, uint32_t color, uint8_t brightness);
     void publishTuningState();
+    void publishZeitschaltungStates();
     void publishDiscovery();
     bool randomizeDeviceName();
     static constexpr uint32_t PUBLISH_WARN_US = 30000;
@@ -92,6 +94,10 @@ private:
     // OTA update topics
     String ota_check_command_topic;
 
+    static constexpr size_t ZEITSCHALTUNG_RULES = 5;
+    std::array<String, ZEITSCHALTUNG_RULES> zeitschaltung_command_topics;
+    std::array<String, ZEITSCHALTUNG_RULES> zeitschaltung_state_topics;
+
     String name_request_topic;
     String name_reply_topic;
 
@@ -115,8 +121,10 @@ private:
     void logSlowPublish(const char* label, const String& topic, uint32_t durationUs, bool ok);
     void publishDiagnosticsDiscovery();
     void publishTuningDiscovery();
+    void publishZeitschaltungDiscovery();
     void publishTelemetry();
     bool isCommandTopic(const String& topic) const;
+    int findZeitschaltungTopicIndex(const String& topic) const;
     bool resolveDeviceName(bool forceRandomize);
     bool collectPeerDeviceNames(unsigned long windowMs);
     bool isDeviceAliasClaimed(const String& alias) const;

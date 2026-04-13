@@ -45,36 +45,74 @@ const char home_html_page[] PROGMEM = R"rawliteral(
             linear-gradient(180deg, var(--bg-b) 0%, var(--bg-a) 100%);
         min-height: 100vh;
     }
-    .topnav {
+    .shell {
+        max-width: 1040px;
+        margin: 0 auto;
+        padding: 16px 10px 24px;
+    }
+    .topbar {
         position: sticky;
         top: 0;
         z-index: 20;
         display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: color-mix(in srgb, var(--panel-soft) 85%, transparent);
+        backdrop-filter: blur(14px);
+        box-shadow: 0 20px 54px rgba(0, 0, 0, 0.28);
+    }
+    [data-theme="light"] .topbar {
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.06);
+    }
+    .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .brandMark {
+        width: 40px;
+        height: 40px;
+        border-radius: 13px;
+        background: linear-gradient(145deg, #94a4bf, #f2a15a);
+    }
+    .brandText strong {
+        display: block;
+        font-size: 14px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--text);
+    }
+    .brandText span {
+        color: var(--muted);
+        font-size: 12px;
+    }
+    .navLinks {
+        display: flex;
         gap: 8px;
         flex-wrap: wrap;
-        align-items: center;
-        padding: 10px 10px;
-        background: rgba(19, 26, 38, 0.82);
-        border-bottom: 1px solid var(--line);
-        backdrop-filter: blur(8px);
     }
-    [data-theme="light"] .topnav {
-        background: color-mix(in srgb, var(--panel-soft) 85%, transparent);
-    }
-    .topnav a {
+    .navLinks a {
         color: var(--text);
         text-decoration: none;
-        padding: 8px 11px;
-        border-radius: 10px;
         border: 1px solid var(--line);
-        background: color-mix(in srgb, var(--accent) 10%, rgba(44, 56, 77, 0.96));
-        font-size: 13px;
-    }
-    [data-theme="light"] .topnav a {
         background: color-mix(in srgb, var(--panel-soft) 92%, transparent);
+        border-radius: 999px;
+        padding: 8px 12px;
+        font-size: 13px;
+        transition: border-color 0.2s ease, background 0.2s ease;
     }
-    .topnav a:hover { border-color: var(--line-strong); }
-    .wrap { max-width: 1020px; margin: 0 auto; padding: 16px 10px 24px; }
+    .navLinks a.active,
+    .navLinks a:hover {
+        border-color: var(--line-strong);
+        background: color-mix(in srgb, var(--panel-soft) 100%, transparent);
+    }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 0 0 24px; }
     .hero {
         position: relative;
         overflow: hidden;
@@ -190,9 +228,13 @@ const char home_html_page[] PROGMEM = R"rawliteral(
     .ok { color: #268b46; }
     .warn { color: #b05643; }
     @media (max-width:480px) {
-        .wrap { padding: 10px 6px 16px; }
-        .topnav { padding: 8px 4px; gap: 4px; }
-        .topnav a { padding: 6px 8px; font-size: 11px; }
+        .shell { padding: 10px 6px 16px; }
+        .wrap { padding: 0 0 16px; }
+        .topbar { padding: 9px 8px; border-radius: 14px; }
+        .brandMark { width: 34px; height: 34px; }
+        .brandText strong { font-size: 12px; }
+        .brandText span { font-size: 11px; }
+        .navLinks a { padding: 6px 9px; font-size: 12px; }
         .grid { grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 8px; }
         .card { padding: 10px; }
         .hero { padding: 10px; }
@@ -204,13 +246,23 @@ const char home_html_page[] PROGMEM = R"rawliteral(
 </style>
 </head>
 <body>
-<div class="topnav">
-    <a href="/main">Netzwerk</a>
-    <a href="/layout">Layout</a>
-    <a href="/live">Live</a>
-    <a href="/test">Test</a>
-    <a href="#" id="themeToggle">Theme: Dark</a>
-</div>
+<div class="shell">
+    <div class="topbar">
+        <div class="brand">
+            <div class="brandMark"></div>
+            <div class="brandText">
+                <strong>WordClock Studio</strong>
+                <span>Onboard control website</span>
+            </div>
+        </div>
+        <div class="navLinks">
+            <a href="/" class="active">Home</a>
+            <a href="/main">Einstellungen</a>
+            <a href="/live">Studio</a>
+            <a href="/test">Test</a>
+            <a href="#" id="themeToggle">Theme: Dark</a>
+        </div>
+    </div>
 <div class="wrap">
     <div class="hero">
         <h2>WordClock Control Hub</h2>
@@ -222,7 +274,7 @@ const char home_html_page[] PROGMEM = R"rawliteral(
         </div>
     </div>
     <div class="grid">
-        <div class="card"><h3>Netzwerk</h3><p>WiFi, MQTT und OTA zentral auf einer gemeinsamen Seite verwalten.</p><a class="btn" href="/main">Öffnen</a></div>
+        <div class="card"><h3>Einstellungen</h3><p>WiFi, MQTT, OTA und Zeitschaltung zentral auf einer gemeinsamen Seite verwalten.</p><a class="btn" href="/main">Öffnen</a></div>
         <div class="card"><h3>Layout</h3><p>Letter-Grid und Wortpositionen für andere Frontplatten definieren.</p><a class="btn" href="/layout">Öffnen</a></div>
         <div class="card"><h3>Live</h3><p>Direkte Effekt- und Farbregie mit Matrix-Vorschau.</p><a class="btn" href="/live">Öffnen</a></div>
         <div class="card"><h3>Test</h3><p>Quicktests für LEDs, Farben, Clock und Muster.</p><a class="btn" href="/test">Öffnen</a></div>
@@ -242,6 +294,7 @@ const char home_html_page[] PROGMEM = R"rawliteral(
         </div>
         <div id="homeStatusDetails" class="detailTable"></div>
     </section>
+</div>
 </div>
 <script>
 function setTheme(theme) {
@@ -539,6 +592,50 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
     .ok { color: var(--ok); }
     .warn { color: var(--warn); }
     .muted { color: var(--muted); font-size: 13px; }
+    .zsWrap { margin-top: 10px; overflow-x: auto; }
+    .zsTable { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .zsTable th, .zsTable td { border: 1px solid var(--line); padding: 6px; text-align: left; }
+    .zsTable th { color: var(--text-secondary); background: color-mix(in srgb, var(--panel-soft) 100%, transparent); }
+    .zsCard {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--panel-soft) 100%, transparent);
+        margin-bottom: 10px;
+        overflow: hidden;
+    }
+    .zsCard summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 10px;
+        font-size: 13px;
+        color: var(--text);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+    }
+    .zsCard summary::-webkit-details-marker { display: none; }
+    .zsSummaryMeta { color: var(--muted); font-size: 12px; }
+    .zsCardBody {
+        border-top: 1px solid var(--line);
+        padding: 10px;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    .zsGrid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+    .zsInput, .zsSelect, .zsTime {
+        width: 100%;
+        margin: 0;
+        padding: 6px;
+        font-size: 12px;
+        border-radius: 8px;
+    }
+    .zsRowBtn { margin: 0; padding: 8px; font-size: 12px; }
     @media (max-width:480px) {
         .shell { padding: 10px 6px 16px; }
         .wrap { padding: 0 0 16px; }
@@ -552,6 +649,7 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
         .brandText strong { font-size: 12px; }
         .brandText span { font-size: 11px; }
         .navLinks a { padding: 6px 9px; font-size: 12px; }
+        .zsGrid2 { grid-template-columns: 1fr; }
     }
 </style>
 </head>
@@ -568,8 +666,7 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
             </div>
         </div>
         <div class="navLinks" id="setupNavLinks">
-            <a href="/main">Netzwerk</a>
-            <a href="/layout">Layout</a>
+            <a href="/main">Einstellungen</a>
             <a href="/live">Studio</a>
             <a href="/test">Test</a>
             <a href="#" id="themeToggle">Theme: Dark</a>
@@ -591,6 +688,7 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
                 <button class="tab-btn active" onclick="switchTab('config'); return false;">WiFi/MQTT</button>
                 <button class="tab-btn" onclick="switchTab('ota'); return false;">OTA</button>
                 <button class="tab-btn" onclick="switchTab('layout'); return false;">Layout</button>
+                <button class="tab-btn" onclick="switchTab('zeitschaltung'); return false;">Zeitschaltung</button>
             </div>
 
             <!-- Configuration Tab (WiFi + MQTT)  -->
@@ -679,6 +777,14 @@ const char setup_html_page[] PROGMEM = R"rawliteral(
                 <p id="layoutMsg" style="font-size:14px; min-height:20px;"></p>
             </div>
 
+            <!-- Zeitschaltung Tab -->
+            <div id="zeitschaltung-tab" class="tab-content">
+                <h3>Zeitschaltung</h3>
+                <p class="muted">Aufklappbar pro Regel für bessere Lesbarkeit auf Mobilgeräten.</p>
+                <div class="zsWrap" id="zeitschaltungBody"></div>
+                <p id="zeitschaltungMsg" style="font-size:14px; min-height:20px; margin-top:8px;"></p>
+            </div>
+
             </form>
 
             <button type="button" onclick="confirmReboot()" id="rebootBtn" style="margin-top:10px;">Neustart</button>
@@ -754,6 +860,8 @@ function switchTab(tabName) {
         loadOtaInfo();
     } else if (tabName === 'layout') {
         loadLayoutInfo();
+    } else if (tabName === 'zeitschaltung') {
+        loadZeitschaltung();
     } else if (tabName === 'config') {
         loadSetupFields();
         loadSSIDs();
@@ -846,6 +954,170 @@ async function loadSetupFields() {
 loadSSIDs();
 scheduleScan();
 loadSetupFields();
+
+function escapeHtml(text) {
+    return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+const zeitschaltungEffects = [
+    '', 'clock', 'wifi', 'waterdrop', 'love', 'colorloop', 'colorwipe',
+    'fire2d', 'matrix', 'plasma', 'waterdrop_r', 'twinkle', 'balls',
+    'aurora', 'enchantment', 'snake'
+];
+
+function buildEffectSelectHtml(index, selectedEffect) {
+    const normalized = String(selectedEffect || '');
+    const options = zeitschaltungEffects.map(effectName => {
+        const isSelected = (effectName === normalized) ? ' selected' : '';
+        const label = effectName === '' ? '(keiner)' : effectName;
+        return '<option value="' + escapeHtml(effectName) + '"' + isSelected + '>' + escapeHtml(label) + '</option>';
+    }).join('');
+    return '<select class="zsSelect zsActionField" id="zs_effect_' + index + '">' + options + '</select>';
+}
+
+function updateZeitschaltungRowState(index) {
+    const powerEl = document.getElementById('zs_power_' + index);
+    const isPowerOn = powerEl && powerEl.value === 'on';
+    const actionIds = [
+        'zs_brightness_' + index,
+        'zs_speed_' + index,
+        'zs_intensity_' + index,
+        'zs_density_' + index,
+        'zs_transition_' + index,
+        'zs_effect_' + index
+    ];
+    actionIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.disabled = !isPowerOn;
+        el.style.opacity = isPowerOn ? '1' : '0.45';
+    });
+}
+
+async function loadZeitschaltung() {
+    try {
+        const r = await fetch('/api/zeitschaltung');
+        const j = await r.json();
+        const rules = Array.isArray(j.rules) ? j.rules : [];
+        const body = document.getElementById('zeitschaltungBody');
+        if (!body) return;
+
+        body.innerHTML = rules.map(rule => {
+            const idx = Number(rule.index || 0);
+            const enabledChecked = rule.enabled ? 'checked' : '';
+            const power = ((rule.action && rule.action.power) || 'on').toLowerCase();
+            const effect = (rule.action && rule.action.effect) ? rule.action.effect : '';
+            const brightness = (rule.action && Number.isFinite(Number(rule.action.brightness)))
+                ? Number(rule.action.brightness)
+                : 50;
+            const speed = (rule.action && Number.isFinite(Number(rule.action.speed)))
+                ? Number(rule.action.speed)
+                : 50;
+            const intensity = (rule.action && Number.isFinite(Number(rule.action.intensity)))
+                ? Number(rule.action.intensity)
+                : 50;
+            const density = (rule.action && Number.isFinite(Number(rule.action.density)))
+                ? Number(rule.action.density)
+                : 50;
+            const transition = (rule.action && Number.isFinite(Number(rule.action.transition)))
+                ? Number(rule.action.transition)
+                : 1000;
+            const time = rule.time || '00:00';
+            const name = rule.name || String(idx + 1);
+            const powerLabel = power === 'on' ? 'Ein' : 'Aus';
+            const enabledLabel = rule.enabled ? 'Aktiv' : 'Inaktiv';
+
+            return '<details class="zsCard" ' + (idx === 0 ? 'open' : '') + '>' +
+                '<summary>' +
+                    '<strong>Regel ' + (idx + 1) + ': ' + escapeHtml(name) + '</strong>' +
+                    '<span class="zsSummaryMeta">' + escapeHtml(time) + ' · ' + enabledLabel + ' · Power ' + powerLabel + '</span>' +
+                '</summary>' +
+                '<div class="zsCardBody">' +
+                    '<div class="zsGrid2">' +
+                        '<div><label>Aktiv</label><input type="checkbox" id="zs_enabled_' + idx + '" ' + enabledChecked + '></div>' +
+                        '<div><label>Name</label><input class="zsInput" id="zs_name_' + idx + '" maxlength="30" value="' + escapeHtml(name) + '"></div>' +
+                    '</div>' +
+                    '<div class="zsGrid2">' +
+                        '<div><label>Zeit</label><input class="zsTime" id="zs_time_' + idx + '" type="time" value="' + escapeHtml(time) + '"></div>' +
+                        '<div><label>Power</label><select class="zsSelect" id="zs_power_' + idx + '" onchange="updateZeitschaltungRowState(' + idx + ')"><option value="on"' + (power === 'on' ? ' selected' : '') + '>ein</option><option value="off"' + (power === 'off' ? ' selected' : '') + '>aus</option></select></div>' +
+                    '</div>' +
+                    '<div class="zsGrid2">' +
+                        '<div><label>Helligkeit (1-100)</label><input class="zsInput zsActionField" id="zs_brightness_' + idx + '" type="number" min="1" max="100" value="' + brightness + '"></div>' +
+                        '<div><label>Geschwindigkeit (1-100)</label><input class="zsInput zsActionField" id="zs_speed_' + idx + '" type="number" min="1" max="100" value="' + speed + '"></div>' +
+                    '</div>' +
+                    '<div class="zsGrid2">' +
+                        '<div><label>Intensität (1-100)</label><input class="zsInput zsActionField" id="zs_intensity_' + idx + '" type="number" min="1" max="100" value="' + intensity + '"></div>' +
+                        '<div><label>Objektdichte (1-100)</label><input class="zsInput zsActionField" id="zs_density_' + idx + '" type="number" min="1" max="100" value="' + density + '"></div>' +
+                    '</div>' +
+                    '<div class="zsGrid2">' +
+                        '<div><label>Übergang (200-10000 ms)</label><input class="zsInput zsActionField" id="zs_transition_' + idx + '" type="number" min="200" max="10000" value="' + transition + '"></div>' +
+                        '<div><label>Effekt</label>' + buildEffectSelectHtml(idx, effect) + '</div>' +
+                    '</div>' +
+                    '<button class="zsRowBtn" type="button" onclick="saveZeitschaltungRule(' + idx + ')">Regel speichern</button>' +
+                '</div>' +
+                '</details>';
+        }).join('');
+
+        rules.forEach(rule => {
+            const idx = Number(rule.index || 0);
+            updateZeitschaltungRowState(idx);
+        });
+    } catch (_) {
+        const msg = document.getElementById('zeitschaltungMsg');
+        if (msg) msg.textContent = 'Zeitschaltung konnte nicht geladen werden';
+    }
+}
+
+async function saveZeitschaltungRule(index) {
+    const msg = document.getElementById('zeitschaltungMsg');
+    if (msg) msg.textContent = 'Zeitschaltung speichert...';
+
+    const enabledEl = document.getElementById('zs_enabled_' + index);
+    const nameEl = document.getElementById('zs_name_' + index);
+    const timeEl = document.getElementById('zs_time_' + index);
+    const powerEl = document.getElementById('zs_power_' + index);
+    const brightnessEl = document.getElementById('zs_brightness_' + index);
+    const speedEl = document.getElementById('zs_speed_' + index);
+    const intensityEl = document.getElementById('zs_intensity_' + index);
+    const densityEl = document.getElementById('zs_density_' + index);
+    const transitionEl = document.getElementById('zs_transition_' + index);
+    const effectEl = document.getElementById('zs_effect_' + index);
+
+    const p = new URLSearchParams();
+    p.set('index', String(index));
+    p.set('enabled', enabledEl && enabledEl.checked ? 'on' : 'off');
+    p.set('name', nameEl ? nameEl.value : '');
+    p.set('time', timeEl ? timeEl.value : '00:00');
+    p.set('action_power', powerEl ? powerEl.value : 'on');
+    p.set('action_brightness', brightnessEl ? String(brightnessEl.value || '50') : '50');
+    p.set('action_speed', speedEl ? String(speedEl.value || '50') : '50');
+    p.set('action_intensity', intensityEl ? String(intensityEl.value || '50') : '50');
+    p.set('action_density', densityEl ? String(densityEl.value || '50') : '50');
+    p.set('action_transition', transitionEl ? String(transitionEl.value || '1000') : '1000');
+    p.set('action_effect', effectEl ? effectEl.value : '');
+
+    try {
+        const r = await fetch('/api/zeitschaltung', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: p
+        });
+        const j = await r.json();
+        if (!r.ok || j.status !== 'ok') {
+            if (msg) msg.textContent = j.message || 'Speichern fehlgeschlagen';
+            return;
+        }
+        if (msg) msg.textContent = 'Regel ' + (index + 1) + ' gespeichert';
+        loadZeitschaltung();
+    } catch (_) {
+        if (msg) msg.textContent = 'Speichern fehlgeschlagen';
+    }
+}
 
 // ---------------------------------------------------------
 // Password Toggles
@@ -1113,6 +1385,7 @@ async function refreshSetupStatus() {
 // ---------------------------------------------------------
 initTheme();
 loadSetupFields();
+loadZeitschaltung();
 loadSSIDs();
 scheduleScan();
 setInterval(refreshSetupStatus, 500);
@@ -1477,7 +1750,7 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             justify-content:center;
             align-items:center;
             overflow:hidden;
-            transition:background-color 50ms linear;
+            transition:background-color 45ms linear;
         }
         .glyph {
             font-family: "Rajdhani", "Bahnschrift", "Arial Narrow", Arial, sans-serif;
@@ -1491,7 +1764,7 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             transform-origin: center;
             -webkit-font-smoothing: antialiased;
             text-rendering: geometricPrecision;
-            transition: color 50ms linear;
+            transition: color 45ms linear;
             pointer-events: none;
         }
         .minuteSlot {
@@ -1513,7 +1786,7 @@ const char live_html_page[] PROGMEM = R"rawliteral(
             mask-position:center;
             -webkit-mask-size:contain;
             mask-size:contain;
-            transition:background-color 50ms linear, filter 50ms linear;
+            transition:background-color 45ms linear, filter 45ms linear;
         }
         .controlGrid {
             display: grid;
@@ -1662,7 +1935,7 @@ const char live_html_page[] PROGMEM = R"rawliteral(
         </div>
         <div class="navLinks">
             <a href="/">Home</a>
-            <a href="/main">Netzwerk</a>
+            <a href="/main">Einstellungen</a>
             <a class="active" href="/live">Studio</a>
             <a href="/test">Test</a>
             <a href="#" id="themeToggle">Theme: Dark</a>
@@ -1816,6 +2089,10 @@ let isDirty = false;
 let refreshTimer = null;
 let refreshInFlight = false;
 let applyDebounceTimer = null;
+let detailRenderTs = 0;
+
+const LIVE_POLL_INTERVAL_MS = 22; // ~45 Hz
+const LIVE_POLL_ERROR_MS = 120;
 
 function setTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
@@ -1855,6 +2132,15 @@ function queueAutoApply(delayMs) {
 function setText(id, value) {
     const el = document.getElementById(id);
     if (el) el.textContent = value;
+}
+
+function setValueIfChanged(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const next = String(value);
+    if (el.value !== next) {
+        el.value = next;
+    }
 }
 
 function setHtml(id, value) {
@@ -2019,23 +2305,31 @@ function renderMatrix(matrix, mqttConnected, rtcMinuteWarning) {
             const glyphEl = cell.firstElementChild;
             const isHiddenMaskCell = (y === 0 && (x === 9 || x === 10));
             if (isHiddenMaskCell) {
-                if (glyphEl) glyphEl.style.color = '#1e2738';
+                if (glyphEl && glyphEl.dataset.c !== '#1e2738') {
+                    glyphEl.style.color = '#1e2738';
+                    glyphEl.dataset.c = '#1e2738';
+                }
                 continue;
             }
             const hex = String(matrix[y][x] || '000000').toUpperCase();
             const isOn = hex !== '000000';
             const uiHex = isOn ? brightenHex(hex, 1.4) : null;
             const isMinuteCell = minuteCellSet.has(String(x) + ',' + String(y));
+            let targetColor = '#1e2738';
             if (isMinuteCell) {
                 if (rtcMinuteWarning) {
-                    if (glyphEl) glyphEl.style.color = rtcPulseColor;
+                    targetColor = rtcPulseColor;
                 } else if (!mqttConnected) {
-                    if (glyphEl) glyphEl.style.color = '#ff4444';
+                    targetColor = '#ff4444';
                 } else {
-                    if (glyphEl) glyphEl.style.color = isOn ? ('#' + uiHex) : '#1e2738';
+                    targetColor = isOn ? ('#' + uiHex) : '#1e2738';
                 }
             } else {
-                if (glyphEl) glyphEl.style.color = isOn ? ('#' + uiHex) : '#1e2738';
+                targetColor = isOn ? ('#' + uiHex) : '#1e2738';
+            }
+            if (glyphEl && glyphEl.dataset.c !== targetColor) {
+                glyphEl.style.color = targetColor;
+                glyphEl.dataset.c = targetColor;
             }
         }
     }
@@ -2109,18 +2403,22 @@ function applyStatus(s, fromCache) {
         }
     }
 
-    renderDetails(s, rtcTempText, memFree, memUsedPct);
+    const nowTs = Date.now();
+    if (fromCache || (nowTs - detailRenderTs) >= 220) {
+        renderDetails(s, rtcTempText, memFree, memUsedPct);
+        detailRenderTs = nowTs;
+    }
 
     if (!isDirty) {
-        document.getElementById('power').value = s.state;
-        document.getElementById('effect').value = s.effect;
-        document.getElementById('brightness').value = s.brightness;
-        document.getElementById('speed').value = s.speed;
-        document.getElementById('intensity').value = s.intensity;
-        document.getElementById('density').value = s.density;
-        document.getElementById('transitionMs').value = s.transition_ms;
+        setValueIfChanged('power', s.state);
+        setValueIfChanged('effect', s.effect);
+        setValueIfChanged('brightness', s.brightness);
+        setValueIfChanged('speed', s.speed);
+        setValueIfChanged('intensity', s.intensity);
+        setValueIfChanged('density', s.density);
+        setValueIfChanged('transitionMs', s.transition_ms);
         if (/^#[0-9a-fA-F]{6}$/.test(s.color)) {
-            document.getElementById('color').value = s.color;
+            setValueIfChanged('color', s.color);
             updateColorUi(s.color);
         }
         updateRangeBadges();
@@ -2157,10 +2455,15 @@ async function refreshStatus() {
             delete cacheable.matrix;
             localStorage.setItem(WC_STATUS_CACHE_KEY, JSON.stringify(cacheable));
         } catch (_) {}
-    } catch (_) {}
-    refreshInFlight = false;
-    // Chain immediately — ESP response time is the natural rate limit
-    if (!document.hidden) setTimeout(refreshStatus, 0);
+    } catch (_) {
+        if (refreshTimer) {
+            clearInterval(refreshTimer);
+            refreshTimer = null;
+        }
+        setTimeout(startRefreshTimer, LIVE_POLL_ERROR_MS);
+    } finally {
+        refreshInFlight = false;
+    }
 }
 
 async function applyLive() {
@@ -2208,7 +2511,12 @@ document.getElementById('density').addEventListener('input', function() { update
 document.getElementById('transitionMs').addEventListener('input', function() { updateRangeBadges(); queueAutoApply(300); });
 
 function startRefreshTimer() {
-    // No-op: chaining is handled inside refreshStatus
+    if (refreshTimer) return;
+    refreshTimer = setInterval(function() {
+        if (!document.hidden) {
+            refreshStatus();
+        }
+    }, LIVE_POLL_INTERVAL_MS);
 }
 
 updateColorUi(document.getElementById('color').value);
@@ -2216,8 +2524,17 @@ updateRangeBadges();
 initTheme();
 preloadFromCache();
 document.addEventListener('visibilitychange', function() {
-    if (!document.hidden && !refreshInFlight) refreshStatus();
+    if (document.hidden) {
+        if (refreshTimer) {
+            clearInterval(refreshTimer);
+            refreshTimer = null;
+        }
+        return;
+    }
+    startRefreshTimer();
+    if (!refreshInFlight) refreshStatus();
 });
+startRefreshTimer();
 refreshStatus();
 </script>
 </body>
@@ -2419,7 +2736,7 @@ const char test_html_page[] PROGMEM = R"rawliteral(
             </div>
         </div>
         <div class="navLinks" id="testNavLinks">
-            <a href="/main">Netzwerk</a>
+            <a href="/main">Einstellungen</a>
             <a href="/live">Studio</a>
             <a href="/test" class="active">Test</a>
             <a href="#" id="themeToggle">Theme: Dark</a>
@@ -2546,7 +2863,7 @@ async function quick(action) {
     await waitMs(400);
     setButtonsDisabled(false);
     testBusy = false;
-    setTimeout(() => { msg.textContent = ''; }, 1600);
+    setTimeout(() => { msg.textContent = ''; }, 3100);
 }
 
 (function() {

@@ -74,6 +74,8 @@ private:
     void handleOtaProfile();
     void handleLayoutGet();
     void handleLayoutSet();
+    void handleZeitschaltungGet();
+    void handleZeitschaltungSet();
     void setOtaProfile(const String& profile, bool resetSinceEpoch = true);
 };
 

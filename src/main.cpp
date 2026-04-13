@@ -13,6 +13,7 @@
 #include "TimeManager.h"
 #include "MemoryManager.h"
 #include "SerialCommands.h"
+#include "ZeitschaltungManager.h"
 #include "web_pages.h"
 #include "matrix.h"
 #include "effects.h"
@@ -617,6 +618,7 @@ void setup() {
 
     // Initialize Managers
     timeManager.init(rtcManager);
+    ZeitschaltungManager::getInstance().init();
 
     // Register effects
     for (Effect* e : allEffects) {
@@ -1169,6 +1171,10 @@ void handleCurrentEffect() {
             }
             lastMinute = displayMinute;
             lastSecondlyRender = nowMs;  // Reset secondly timer when minute changes
+            
+            // Check and apply Zeitschaltung (time scheduling) rules
+            ZeitschaltungManager::getInstance().checkAndApplyRule(displayHour, displayMinute);
+            
             DebugManager::println(DebugCategory::Main, String(displayHour) + ":" + String(displayMinute));
         } else if (shouldRenderSecondly && displayMinute >= 0) {
             // Re-render clock every second to prevent dropout (and render warning)

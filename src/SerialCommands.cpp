@@ -13,6 +13,7 @@
 #include "SystemControl.h"
 #include "ota_https_update.h"
 #include "MQTTManager.h"
+#include "ZeitschaltungManager.h"
 #include "effects.h"
 #include "WordClockLayout.h"
 
@@ -557,6 +558,143 @@ namespace {
         return true;
     }
 
+    static bool cmdZeitschaltung(const String& args) {
+        extern ZeitschaltungManager& zeitschaltungMgr;
+        
+        String cmd = args;
+        cmd.trim();
+        cmd.toLowerCase();
+        
+        int space = cmd.indexOf(' ');
+        String subcommand = (space > 0) ? cmd.substring(0, space) : cmd;
+        String rest = (space > 0) ? cmd.substring(space + 1) : "";
+        rest.trim();
+        
+        if (subcommand == "list" || subcommand == "show") {
+            ZeitschaltungManager::getInstance().printRules();
+            return true;
+        }
+        
+        if (subcommand == "clear") {
+            ZeitschaltungManager::getInstance().clearAllRules();
+            Serial.println("Alle Zeitschaltungs-Regeln geloescht");
+            return true;
+        }
+        
+        if (subcommand == "rename") {
+            // Format: zeitschaltung rename <index> <new_name>
+            int space2 = rest.indexOf(' ');
+            if (space2 <= 0) {
+                Serial.println("FEHLER: zeitschaltung rename <index> <new_name>");
+                return true;
+            }
+            
+            int index = rest.substring(0, space2).toInt();
+            String newName = rest.substring(space2 + 1);
+            newName.trim();
+            
+            if (index < 0 || index >= 5) {
+                Serial.println("FEHLER: Index muss 0-4 sein");
+                return true;
+            }
+            
+            if (newName.isEmpty() || newName.length() > 30) {
+                Serial.println("FEHLER: Name muss 1-30 Zeichen sein");
+                return true;
+            }
+            
+            ZeitschaltungRule rule = ZeitschaltungManager::getInstance().getRule(index);
+            rule.name = newName;
+            ZeitschaltungManager::getInstance().setRule(index, rule);
+            Serial.printf("Zeitschaltungs-Regel %d umbenannt zu \"%s\"\n", index, newName.c_str());
+            return true;
+        }
+        
+        if (subcommand == "set") {
+            // Format: zeitschaltung set <index> <hour> <minute> <power> <brightness> <effect>
+            // Example: zeitschaltung set 0 22 30 off 0 ""
+            std::vector<String> tokens = parseQuotedTokens(rest);
+            if (tokens.size() < 5) {
+                Serial.println("FEHLER: zeitschaltung set <index> <hour> <minute> <on|off> [brightness] [effect]");
+                Serial.println("Beispiel: zeitschaltung set 0 22 30 off");
+                Serial.println("Beispiel: zeitschaltung set 1 06 30 on 200 clock");
+                return true;
+            }
+            
+            int index = tokens[0].toInt();
+            if (index < 0 || index >= 5) {
+                Serial.println("FEHLER: Index muss 0-4 sein");
+                return true;
+            }
+            
+            int hour = tokens[1].toInt();
+            int minute = tokens[2].toInt();
+            if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+                Serial.println("FEHLER: Uhrzeit ungueltig (HH: 0-23, MM: 0-59)");
+                return true;
+            }
+            
+            ZeitschaltungRule rule;
+            rule.name = ZeitschaltungManager::getInstance().getRule(index).name;  // Keep existing name
+            rule.enabled = true;
+            rule.hour = hour;
+            rule.minute = minute;
+            rule.actionPower = (tokens[3].equalsIgnoreCase("on"));
+            
+            if (tokens.size() > 4) {
+                int bright = tokens[4].toInt();
+                rule.actionBrightness = (bright >= 0 && bright <= 255) ? bright : 0;
+            }
+            
+            if (tokens.size() > 5 && !tokens[5].isEmpty()) {
+                rule.actionEffect = tokens[5];
+            }
+            
+            ZeitschaltungManager::getInstance().setRule(index, rule);
+            Serial.printf("Zeitschaltungs-Regel %d (\"%s\") gespeichert: %02d:%02d -> Power=%s, Brightness=%d, Effect=%s\n",
+                index, rule.name.c_str(), hour, minute, rule.actionPower ? "ON" : "OFF", rule.actionBrightness, 
+                rule.actionEffect.isEmpty() ? "(keine)" : rule.actionEffect.c_str());
+            return true;
+        }
+        
+        if (subcommand == "disable") {
+            int index = rest.toInt();
+            if (index < 0 || index >= 5) {
+                Serial.println("FEHLER: Index muss 0-4 sein");
+                return true;
+            }
+            
+            ZeitschaltungRule rule = ZeitschaltungManager::getInstance().getRule(index);
+            rule.enabled = false;
+            ZeitschaltungManager::getInstance().setRule(index, rule);
+            Serial.printf("Zeitschaltungs-Regel %d deaktiviert\n", index);
+            return true;
+        }
+        
+        if (subcommand == "enable") {
+            int index = rest.toInt();
+            if (index < 0 || index >= 5) {
+                Serial.println("FEHLER: Index muss 0-4 sein");
+                return true;
+            }
+            
+            ZeitschaltungRule rule = ZeitschaltungManager::getInstance().getRule(index);
+            rule.enabled = true;
+            ZeitschaltungManager::getInstance().setRule(index, rule);
+            Serial.printf("Zeitschaltungs-Regel %d aktiviert\n", index);
+            return true;
+        }
+        
+        Serial.println("Zeitschaltungs (Time Scheduling) Befehle:");
+        Serial.println("  zeitschaltung list              - Zeigt alle Regeln");
+        Serial.println("  zeitschaltung rename <idx> <name> - Benennt eine Regel um");
+        Serial.println("  zeitschaltung set <idx> <HH> <MM> <on|off> [<brightness>] [<effect>]");
+        Serial.println("  zeitschaltung enable <idx>      - Aktiviert eine Regel");
+        Serial.println("  zeitschaltung disable <idx>     - Deaktiviert eine Regel");
+        Serial.println("  zeitschaltung clear             - Loescht alle Regeln");
+        return true;
+    }
+
     static bool cmdHelp(const String&) {
         SerialManager::printHelp();
         return true;
@@ -587,6 +725,7 @@ namespace {
         {"Test Self", MatchMode::Exact, "Test Self", "Runs self regression test", cmdSelftest, true},
         {"Test Smoke", MatchMode::Exact, "Test Smoke", "Runs short smoke test", cmdSmoke, true},
         {"Debug ", MatchMode::Prefix, "Debug Help|Status|<category> On|Off", "Runtime debug categories and legacy H/M/W/S tests", cmdDebug, true},
+        {"Zeitschaltung ", MatchMode::Prefix, "Zeitschaltung list|rename|set|enable|disable|clear", "Manage time-based automation rules", cmdZeitschaltung, true},
 
         // Legacy aliases (hidden from help)
         {"help", MatchMode::Exact, "", "", cmdHelp, false},

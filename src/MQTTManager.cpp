@@ -4,6 +4,7 @@
 #include "DebugManager.h"
 #include "StateManager.h"
 #include "RTCManager.h"
+#include "ZeitschaltungManager.h"
 #include "SystemControl.h"
 #include "ota_https_update.h"
 #include <Preferences.h>
@@ -217,6 +218,11 @@ MQTTManager::MQTTManager(WiFiClient& wifi_client, const String& device_id)
             rtc_temp_topic = baseTopic + "/rtc/temperature";
             rtc_battery_warning_topic = baseTopic + "/rtc/battery_warning";
             ota_check_command_topic = baseTopic + "/ota_check/set";
+            for (size_t i = 0; i < ZEITSCHALTUNG_RULES; i++) {
+                const String idx = String(i);
+                zeitschaltung_command_topics[i] = baseTopic + "/zeitschaltung/" + idx + "/set";
+                zeitschaltung_state_topics[i] = baseTopic + "/zeitschaltung/" + idx + "/state";
+            }
 
     mqtt.setBufferSize(2048);  // Discovery-Payload kann ~1100 Bytes gross sein, Default wäre nur 256
     mqtt.setCallback([this](char* topic, byte* payload, unsigned int length) {
@@ -317,6 +323,9 @@ void MQTTManager::connect() {
         mqtt.subscribe(transition_command_topic.c_str());
         mqtt.subscribe(tuning_reset_command_topic.c_str());
         mqtt.subscribe(ota_check_command_topic.c_str());
+        for (size_t i = 0; i < ZEITSCHALTUNG_RULES; i++) {
+            mqtt.subscribe(zeitschaltung_command_topics[i].c_str());
+        }
     } else {
         reconnect_failures++;
         const int state = mqtt.state();
@@ -478,6 +487,7 @@ void MQTTManager::publishDiscovery() {
     mqtt.publish(availability_topic.c_str(), "online", true);
     publishDiagnosticsDiscovery();
     publishTuningDiscovery();
+    publishZeitschaltungDiscovery();
 
     DebugManager::println(DebugCategory::MQTT, "MQTTManager: Discovery + Availability published");
 }
@@ -839,6 +849,79 @@ void MQTTManager::publishTelemetry() {
     }
     mqtt.publish(rtc_battery_warning_topic.c_str(),
                  rtcManager.hasBatteryWarning() ? "1" : "0", true);
+    publishZeitschaltungStates();
+}
+
+void MQTTManager::publishZeitschaltungStates() {
+    if (!isConnected()) {
+        return;
+    }
+
+    const std::vector<ZeitschaltungRule>& rules = ZeitschaltungManager::getInstance().getRules();
+    for (size_t i = 0; i < ZEITSCHALTUNG_RULES && i < rules.size(); i++) {
+        const ZeitschaltungRule& rule = rules[i];
+        DynamicJsonDocument doc(512);
+        doc["state"] = rule.enabled ? "ON" : "OFF";
+        doc["enabled"] = rule.enabled;
+        doc["name"] = rule.name;
+
+        char timeBuf[6];
+        snprintf(timeBuf, sizeof(timeBuf), "%02u:%02u", rule.hour, rule.minute);
+        doc["time"] = timeBuf;
+
+        JsonObject action = doc.createNestedObject("action");
+        action["power"] = rule.actionPower ? "on" : "off";
+        action["brightness"] = rule.actionBrightness;
+        action["speed"] = rule.actionSpeed;
+        action["intensity"] = rule.actionIntensity;
+        action["density"] = rule.actionDensity;
+        action["transition"] = rule.actionTransition;
+        action["effect"] = rule.actionEffect;
+
+        String payload;
+        serializeJson(doc, payload);
+        mqtt.publish(zeitschaltung_state_topics[i].c_str(), payload.c_str(), true);
+    }
+}
+
+void MQTTManager::publishZeitschaltungDiscovery() {
+    if (!isConnected()) {
+        return;
+    }
+
+    auto attachDevice = [this](JsonDocument& doc) {
+        JsonObject dev = doc.createNestedObject("device");
+        JsonArray ids = dev.createNestedArray("identifiers");
+        ids.add(device_id);
+        dev["name"] = device_name;
+        dev["model"] = "Seeed XIAO ESP32-C3";
+        dev["manufacturer"] = "Custom";
+    };
+
+    for (size_t i = 0; i < ZEITSCHALTUNG_RULES; i++) {
+        const String objectId = String("zeitschaltung_") + String(i + 1);
+        DynamicJsonDocument doc(768);
+        doc["name"] = String("Zeitschaltung ") + String(i + 1);
+        doc["object_id"] = objectId;
+        doc["unique_id"] = device_id + "_" + objectId + "_ha1";
+        doc["state_topic"] = zeitschaltung_state_topics[i];
+        doc["command_topic"] = zeitschaltung_command_topics[i];
+        doc["value_template"] = "{{ value_json.state }}";
+        doc["payload_on"] = "ON";
+        doc["payload_off"] = "OFF";
+        doc["state_on"] = "ON";
+        doc["state_off"] = "OFF";
+        doc["json_attributes_topic"] = zeitschaltung_state_topics[i];
+        doc["availability_topic"] = availability_topic;
+        doc["payload_available"] = "online";
+        doc["payload_not_available"] = "offline";
+        doc["icon"] = "mdi:calendar-clock";
+        attachDevice(doc);
+
+        String payload;
+        serializeJson(doc, payload);
+        mqtt.publish(buildDiscoveryConfigTopic("switch", device_id, objectId).c_str(), payload.c_str(), true);
+    }
 }
 
 bool MQTTManager::randomizeDeviceName() {
@@ -1161,6 +1244,26 @@ void MQTTManager::internalCallback(const String& topic, const String& payload) {
         return;
     }
 
+    const int zeitschaltungIndex = findZeitschaltungTopicIndex(topic);
+    if (zeitschaltungIndex >= 0) {
+        bool enabled = false;
+        if (equalsIgnoreCaseTrimmed(payload, "ON") || equalsIgnoreCaseTrimmed(payload, "1") || equalsIgnoreCaseTrimmed(payload, "true")) {
+            enabled = true;
+        } else if (equalsIgnoreCaseTrimmed(payload, "OFF") || equalsIgnoreCaseTrimmed(payload, "0") || equalsIgnoreCaseTrimmed(payload, "false")) {
+            enabled = false;
+        } else {
+            logCallbackDuration("zeitschaltung_invalid_payload");
+            return;
+        }
+
+        ZeitschaltungRule rule = ZeitschaltungManager::getInstance().getRule((size_t)zeitschaltungIndex);
+        rule.enabled = enabled;
+        ZeitschaltungManager::getInstance().setRule((size_t)zeitschaltungIndex, rule);
+        publishZeitschaltungStates();
+        logCallbackDuration("zeitschaltung_toggle");
+        return;
+    }
+
     if (on_message) {
         on_message(topic, payload);
     }
@@ -1180,12 +1283,25 @@ void MQTTManager::logSlowPublish(const char* label, const String& topic, uint32_
 }
 
 bool MQTTManager::isCommandTopic(const String& topic) const {
-    return topic == command_topic ||
+    if (topic == command_topic ||
            topic == reboot_command_topic ||
            topic == speed_command_topic ||
            topic == intensity_command_topic ||
            topic == density_command_topic ||
            topic == transition_command_topic ||
            topic == tuning_reset_command_topic ||
-           topic == ota_check_command_topic;
+           topic == ota_check_command_topic) {
+        return true;
+    }
+
+    return findZeitschaltungTopicIndex(topic) >= 0;
+}
+
+int MQTTManager::findZeitschaltungTopicIndex(const String& topic) const {
+    for (size_t i = 0; i < ZEITSCHALTUNG_RULES; i++) {
+        if (topic == zeitschaltung_command_topics[i]) {
+            return (int)i;
+        }
+    }
+    return -1;
 }
