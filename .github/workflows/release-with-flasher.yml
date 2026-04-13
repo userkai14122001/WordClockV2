@@ -1,0 +1,141 @@
+name: Build Release with Flasher EXE
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: Linux
+          - os: macos-latest
+            name: macOS
+          - os: windows-latest
+            name: Windows
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyserial pyinstaller platformio
+
+      - name: Build firmware (OTA)
+        run: |
+          platformio run -e seeed_xiao_esp32c3_ota
+
+      - name: Get firmware checksum
+        id: checksum
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            HASH=$(certutil -hashfile .pio/build/seeed_xiao_esp32c3_ota/firmware.bin SHA256 | findstr /v "CertUtil" | tr -d ' ')
+            echo "sha256=${HASH}" >> $GITHUB_OUTPUT
+          else
+            HASH=$(sha256sum .pio/build/seeed_xiao_esp32c3_ota/firmware.bin | cut -d' ' -f1)
+            echo "sha256=${HASH}" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: Copy firmware for packaging
+        run: cp .pio/build/seeed_xiao_esp32c3_ota/firmware.bin firmware.bin
+
+      - name: Build Flasher EXE (Windows only)
+        if: runner.os == 'Windows'
+        run: |
+          pyinstaller --onefile `
+            --name Flash `
+            --console `
+            flash_wordclock.py
+          Copy-Item dist/Flash.exe .
+        shell: powershell
+
+      - name: Build Flasher macOS (Darwin)
+        if: runner.os == 'macOS'
+        run: |
+          pyinstaller --onefile \
+            --name Flash \
+            --console \
+            flash_wordclock.py
+          mv dist/Flash ./Flash-macOS
+
+      - name: Build Flasher Linux
+        if: runner.os == 'Linux'
+        run: |
+          pyinstaller --onefile \
+            --name Flash \
+            --console \
+            flash_wordclock.py
+          mv dist/Flash ./Flash-Linux
+
+      - name: Create release package
+        run: |
+          mkdir -p wordclock-release
+          cp firmware.bin wordclock-release/
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp Flash.exe wordclock-release/
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            cp Flash-macOS wordclock-release/Flash
+          else
+            cp Flash-Linux wordclock-release/Flash
+          fi
+          cp FLASH_README.md wordclock-release/README.txt 2>/dev/null || echo "No FLASH_README.md"
+        shell: bash
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            firmware.bin
+            Flash.exe
+            Flash-macOS
+            Flash-Linux
+            wordclock-release/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update OTA manifest
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          SHA256="${{ steps.checksum.outputs.sha256 }}"
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          
+          # Update ota_manifest.json
+          python3 << 'EOF'
+          import json
+          import os
+          
+          version = "${{ github.ref_name }}"[1:]  # Remove 'v' prefix
+          sha = "${{ steps.checksum.outputs.sha256 }}"
+          
+          with open('ota_manifest.json', 'r') as f:
+              data = json.load(f)
+          
+          data['channels']['stable'] = {
+              'version': version,
+              'firmware_url': f'https://github.com/${{ github.repository }}/releases/download/v{version}/firmware.bin',
+              'sha256': sha,
+              'status': 'ready',
+              'notes': f'Automated release {version}'
+          }
+          
+          with open('ota_manifest.json', 'w') as f:
+              json.dump(data, f, indent=2)
+          EOF
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ota_manifest.json
+          git commit -m "chore: update OTA manifest for ${{ github.ref_name }}" || true
+          git push
