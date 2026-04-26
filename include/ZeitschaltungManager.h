@@ -55,9 +55,15 @@ public:
     // Get current active rule index (-1 if none)
     int getActiveRuleIndex() const { return lastTriggeredRuleIndex; }
     
-    // Save to persistent storage
+    // Save to persistent storage (immediate)
     void save();
-    
+
+    // Schedule a deferred save (debounced) – safe to call from MQTT callbacks
+    void scheduleSave(uint32_t delay_ms = 500);
+
+    // Must be called from the main loop to flush a pending deferred save
+    void processPendingSave();
+
     // Load from persistent storage
     void load();
     
@@ -73,4 +79,7 @@ private:
     int lastTriggeredRuleIndex = -1;
     unsigned long lastCheckMs = 0;
     static constexpr unsigned long CHECK_INTERVAL_MS = 1000;
+
+    bool save_pending = false;
+    unsigned long save_deadline_ms = 0;
 };

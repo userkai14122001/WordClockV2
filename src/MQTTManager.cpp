@@ -1098,6 +1098,16 @@ void MQTTManager::loop() {
             DebugManager::printf(DebugCategory::MQTT, "[MQTT][WARN] mqtt.loop took %luus\n", (unsigned long)loopDurationUs);
         }
 
+        // Flush deferred publishes that were set inside callbacks
+        if (pending_tuning_publish) {
+            pending_tuning_publish = false;
+            publishTuningState();
+        }
+        if (pending_zeitschaltung_publish) {
+            pending_zeitschaltung_publish = false;
+            publishZeitschaltungStates();
+        }
+
         unsigned long now = millis();
         if (now - last_telemetry_publish > TELEMETRY_INTERVAL) {
             last_telemetry_publish = now;
@@ -1185,7 +1195,7 @@ void MQTTManager::internalCallback(const String& topic, const String& payload) {
             effectSpeed = (uint8_t)val;
             stateManager.setSpeed(effectSpeed);
             stateManager.scheduleSave();
-            mqtt.publish(speed_state_topic.c_str(), String(effectSpeed).c_str(), true);
+            pending_tuning_publish = true;  // publish deferred to loop()
             DebugManager::printf(DebugCategory::MQTT, "MQTTManager: Speed set to %d\n", effectSpeed);
         }
         logCallbackDuration("speed");
@@ -1198,7 +1208,7 @@ void MQTTManager::internalCallback(const String& topic, const String& payload) {
             effectIntensity = (uint8_t)val;
             stateManager.setIntensity(effectIntensity);
             stateManager.scheduleSave();
-            mqtt.publish(intensity_state_topic.c_str(), String(effectIntensity).c_str(), true);
+            pending_tuning_publish = true;  // publish deferred to loop()
             DebugManager::printf(DebugCategory::MQTT, "MQTTManager: Intensity set to %d\n", effectIntensity);
         }
         logCallbackDuration("intensity");
@@ -1211,7 +1221,7 @@ void MQTTManager::internalCallback(const String& topic, const String& payload) {
             effectDensity = (uint8_t)val;
             stateManager.setDensity(effectDensity);
             stateManager.scheduleSave();
-            mqtt.publish(density_state_topic.c_str(), String(effectDensity).c_str(), true);
+            pending_tuning_publish = true;  // publish deferred to loop()
             DebugManager::printf(DebugCategory::MQTT, "MQTTManager: Density set to %d\n", effectDensity);
         }
         logCallbackDuration("density");
@@ -1224,7 +1234,7 @@ void MQTTManager::internalCallback(const String& topic, const String& payload) {
             transitionMs = (uint16_t)val;
             stateManager.setTransitionMs(transitionMs);
             stateManager.scheduleSave();
-            mqtt.publish(transition_state_topic.c_str(), String(transitionMs).c_str(), true);
+            pending_tuning_publish = true;  // publish deferred to loop()
             DebugManager::printf(DebugCategory::MQTT, "MQTTManager: TransitionMs set to %d\n", transitionMs);
         }
         logCallbackDuration("transition");
@@ -1259,7 +1269,7 @@ void MQTTManager::internalCallback(const String& topic, const String& payload) {
         ZeitschaltungRule rule = ZeitschaltungManager::getInstance().getRule((size_t)zeitschaltungIndex);
         rule.enabled = enabled;
         ZeitschaltungManager::getInstance().setRule((size_t)zeitschaltungIndex, rule);
-        publishZeitschaltungStates();
+        pending_zeitschaltung_publish = true;  // publish deferred to loop()
         logCallbackDuration("zeitschaltung_toggle");
         return;
     }

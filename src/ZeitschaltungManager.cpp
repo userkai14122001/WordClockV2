@@ -30,7 +30,7 @@ void ZeitschaltungManager::setRule(size_t index, const ZeitschaltungRule& rule) 
     if (index >= MAX_RULES) return;
     
     rules[index] = rule;
-    save();
+    scheduleSave();
     
     DebugManager::printf(DebugCategory::Main, 
         "ZeitschaltungManager: Rule %u (\"%.20s\") updated - enabled=%d, time=%02d:%02d, power=%d, b=%u s=%u i=%u d=%u t=%ums, effect=%s\n",
@@ -44,7 +44,7 @@ void ZeitschaltungManager::clearAllRules() {
         rules[i] = ZeitschaltungRule(String(i + 1));
     }
     lastTriggeredRuleIndex = -1;
-    save();
+    scheduleSave();
     DebugManager::println(DebugCategory::Main, "ZeitschaltungManager: All rules cleared");
 }
 
@@ -179,6 +179,18 @@ void ZeitschaltungManager::save() {
     
     prefs.end();
     DebugManager::println(DebugCategory::Main, "ZeitschaltungManager: Rules saved");
+}
+
+void ZeitschaltungManager::scheduleSave(uint32_t delay_ms) {
+    save_pending = true;
+    save_deadline_ms = millis() + delay_ms;
+}
+
+void ZeitschaltungManager::processPendingSave() {
+    if (!save_pending) return;
+    if ((long)(millis() - save_deadline_ms) < 0) return;
+    save();
+    save_pending = false;
 }
 
 void ZeitschaltungManager::load() {

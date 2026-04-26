@@ -1059,6 +1059,7 @@ void loop() {
     }
     processPendingMqttColor();
     stateManager.processPendingSave();
+    ZeitschaltungManager::getInstance().processPendingSave();
 
     // =====================================================================
     // PRIORITY 5: Time & Memory Management (periodic, low-frequency)

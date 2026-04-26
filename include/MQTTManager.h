@@ -109,6 +109,10 @@ private:
     bool has_persisted_device_name;
     bool collecting_name_replies;
     size_t name_reply_count;
+
+    // Deferred publish flags – set inside callbacks, flushed in loop()
+    bool pending_tuning_publish = false;
+    bool pending_zeitschaltung_publish = false;
     static constexpr size_t MAX_NAME_REPLIES = 16;
     String name_reply_buffer[MAX_NAME_REPLIES];
     static const unsigned long RECONNECT_INTERVAL = 15000;
